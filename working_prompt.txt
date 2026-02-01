@@ -1,0 +1,38 @@
+Build **Calendar screen + full bottom navigation**:
+
+1. **Bottom Navigation** (app-wide)
+   - 4 tabs matching your design:
+     - Dashboard (current)
+     - Calendar (new)
+     - Check-ins (new) 
+     - Agreements (placeholder)
+   - Use Scaffold with `BottomNavigationBar` + `IndexedStack` to preserve state
+   - Icon + labels: home/calendar/chat/list/settings
+
+2. **Calendar Screen** (`calendar_screen.dart`)
+   - Route: `/calendar/:spaceId` (part of bottom nav)
+   - **Week view** (7 days, scrollable horizontally)
+   - Pull events from `watchUpcomingEvents(spaceId)`
+   - Each day shows:
+     - Date header
+     - List of events (Date night ❤️, Check-in 📊, Special ⭐)
+   - Empty day: "Tap + to add date night or check-in"
+   - FloatingActionButton: "Add event" → same modal as dashboard
+
+3. **Check-ins Tab** (`checkins_screen.dart`)
+   - List recent check-ins from `watchRecentCheckins(spaceId)`
+   - Timeline: "You - 2h ago: Connection 8↗️"
+   - Partner's: "Partner - Yesterday: Connection 7"
+   - FAB: "Check-in now" → `/checkin/:spaceId`
+
+4. **Agreements Tab** (placeholder)
+   - Simple ListView: "Coming soon..."
+   - FAB: "Add first agreement"
+
+5. **Integration**
+   - Wrap everything in bottom nav (above current dashboard)
+   - Pass `spaceId` to all tabs
+   - Keep existing auth/routing patterns
+   - Material 3 styling + neutral theme
+
+Dependencies: none (uses existing services)

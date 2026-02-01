@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <!-- Theme red gradient -->
+    <linearGradient id="redGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF5555"/>
+      <stop offset="100%" stop-color="#FF4444"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Cocoon/egg outline -->
+  <path d="M50 10 
+           C25 10, 15 35, 15 55 
+           C15 80, 30 90, 50 90 
+           C70 90, 85 80, 85 55 
+           C85 35, 75 10, 50 10Z" 
+        fill="none" 
+        stroke="url(#redGradient)" 
+        stroke-width="3"
+        stroke-linecap="round"/>
+  
+  <!-- Heart inside -->
+  <path d="M50 40 
+           C50 40, 42 32, 36 38 
+           C30 44, 30 52, 50 68 
+           C70 52, 70 44, 64 38 
+           C58 32, 50 40, 50 40Z" 
+        fill="url(#redGradient)"/>
+</svg>
