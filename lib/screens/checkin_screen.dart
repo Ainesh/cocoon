@@ -1,13 +1,14 @@
 /// Check-in screen for Couple Space app.
 ///
 /// Allows users to submit relationship check-ins with scores
-/// for connection, intimacy, and stress levels. Premium neumorphic UI.
+/// for connection, intimacy, and peace levels. Matches the health
+/// card and health details sheet design language.
 library;
 
 import 'dart:async';
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -15,16 +16,8 @@ import 'package:intl/intl.dart';
 import '../models/user_checkin.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
-import '../widgets/neumorphic_container.dart';
-
-// Theme constants for premium styling
-const _refinedRed = Color(0xFFFF4444);
-const _lightText = Color(0xFFF5F5F5);
-const _bodyGray = Color(0xFFD1D5DB);
-const _dimText = Color(0xFF9CA3AF);
-const _cardVariant = Color(0xFF2A2A2A);
-const _darkGlass = Color(0xFF1E1E1E);
-const _pureBlack = Color(0xFF0A0A0A);
+import '../theme/app_colors.dart';
+import '../theme/app_typography.dart';
 
 /// Check-in screen for submitting relationship scores.
 class CheckInScreen extends StatefulWidget {
@@ -44,11 +37,12 @@ class _CheckInScreenState extends State<CheckInScreen> {
   final _authService = AuthService();
   final _firestoreService = FirestoreService();
 
-  // Form state
+  // Form state - will be initialized from last check-in
   double _connection = 5;
   double _intimacy = 5;
-  double _stress = 5;
+  double _peace = 5; // Higher = more peaceful (converted to stress when submitting)
   final _notesController = TextEditingController();
+  bool _hasLoadedDefaults = false;
 
   // Loading state
   bool _isSubmitting = false;
@@ -58,12 +52,16 @@ class _CheckInScreenState extends State<CheckInScreen> {
   StreamSubscription<List<UserCheckIn>>? _checkInsSubscription;
   List<UserCheckIn> _recentCheckIns = [];
   String? _currentUserId;
+  
+  // Partner info
+  String? _partnerName;
 
   @override
   void initState() {
     super.initState();
     _currentUserId = _authService.currentUser?.uid;
     _subscribeToCheckIns();
+    _loadPartnerInfo();
   }
 
   @override
@@ -88,6 +86,15 @@ class _CheckInScreenState extends State<CheckInScreen> {
         setState(() {
           _recentCheckIns = checkIns;
           _isLoadingHistory = false;
+          
+          // Set defaults from last check-in (only once)
+          if (!_hasLoadedDefaults && _myCheckIns.isNotEmpty) {
+            final lastCheckIn = _myCheckIns.first;
+            _connection = lastCheckIn.connection.toDouble();
+            _intimacy = lastCheckIn.intimacy.toDouble();
+            _peace = (10 - lastCheckIn.stress).toDouble(); // Convert stress to peace
+            _hasLoadedDefaults = true;
+          }
         });
       },
       onError: (error) {
@@ -95,6 +102,26 @@ class _CheckInScreenState extends State<CheckInScreen> {
         setState(() => _isLoadingHistory = false);
       },
     );
+  }
+
+  Future<void> _loadPartnerInfo() async {
+    try {
+      final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);
+      if (space != null) {
+        final members = space['members'] as List? ?? [];
+        for (final member in members) {
+          final userId = member['userId'] as String?;
+          if (userId != null && userId != _currentUserId) {
+            setState(() {
+              _partnerName = member['name'] as String? ?? 'Partner';
+            });
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading partner info: $e');
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -108,31 +135,34 @@ class _CheckInScreenState extends State<CheckInScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      // Convert peace to stress (inverse relationship)
+      final stress = (11 - _peace).round().clamp(1, 10);
+      
       await _firestoreService.submitCheckIn(
         spaceId: widget.spaceId,
         userId: userId,
         connection: _connection.round(),
         intimacy: _intimacy.round(),
-        stress: _stress.round(),
+        stress: stress,
         notes: _notesController.text.trim(),
       );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Check-in submitted!'),
-            backgroundColor: _refinedRed,
+          SnackBar(
+            content: Text(
+              'Check-in submitted!',
+              style: AppTypography.bodyMedium(color: AppColors.lightText),
+            ),
+            backgroundColor: AppColors.accentRed,
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
           ),
         );
 
-        // Reset form
-        setState(() {
-          _connection = 5;
-          _intimacy = 5;
-          _stress = 5;
-          _notesController.clear();
-        });
+        // Auto-close after brief delay to show success feedback
+        await Future.delayed(const Duration(milliseconds: 500));
+        if (mounted) context.pop();
       }
     } catch (e) {
       debugPrint('Error submitting check-in: $e');
@@ -140,7 +170,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to submit: $e'),
-            backgroundColor: Colors.red.shade700,
+            backgroundColor: AppColors.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -158,7 +188,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
       _recentCheckIns.where((c) => c.userId == _currentUserId).toList();
 
   List<UserCheckIn> get _partnerCheckIns =>
-      _recentCheckIns.where((c) => c.userId != _currentUserId).take(7).toList();
+      _recentCheckIns.where((c) => c.userId != _currentUserId).take(5).toList();
 
   String _getScoreLabel(double value) {
     if (value <= 2) return 'Low';
@@ -168,12 +198,11 @@ class _CheckInScreenState extends State<CheckInScreen> {
     return 'Amazing';
   }
 
-  Color _getScoreColor(double value, {bool inverted = false}) {
-    final effectiveValue = inverted ? 11 - value : value;
-    if (effectiveValue <= 3) return Colors.red.shade400;
-    if (effectiveValue <= 5) return Colors.orange.shade400;
-    if (effectiveValue <= 7) return Colors.amber.shade400;
-    return const Color(0xFF4ADE80);
+  Color _getScoreColor(double value) {
+    if (value <= 3) return AppColors.error;
+    if (value <= 5) return AppColors.warning;
+    if (value <= 7) return const Color(0xFFFFB347);
+    return AppColors.success;
   }
 
   // ---------------------------------------------------------------------------
@@ -183,21 +212,17 @@ class _CheckInScreenState extends State<CheckInScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _pureBlack,
+      backgroundColor: AppColors.pureBlack,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
           'Check-in',
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.w600,
-            fontSize: 22,
-            color: _lightText,
-          ),
+          style: AppTypography.appBarTitle(weight: FontWeight.w600),
         ),
         centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: _lightText),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.lightText),
           onPressed: () => context.pop(),
         ),
       ),
@@ -223,26 +248,29 @@ class _CheckInScreenState extends State<CheckInScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildCheckInForm() {
-    return PremiumCard(
-      padding: const EdgeInsets.all(24),
+    final hasLastCheckIn = _hasLoadedDefaults && _myCheckIns.isNotEmpty;
+    
+    return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
+          _buildSectionHeader(
             icon: Icons.edit_note_rounded,
             title: 'How are things?',
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Rate each area from 1-10',
-            style: TextStyle(fontSize: 14, color: _dimText),
+          Text(
+            hasLastCheckIn 
+                ? 'Starting from your last check-in • Rate 1-10'
+                : 'Rate each area from 1-10',
+            style: AppTypography.bodySmall(color: AppColors.warmMuted),
           ),
           const SizedBox(height: 24),
 
           // Connection Slider
           _buildSlider(
             label: 'Connection',
-            emoji: '💙',
+            iconWidget: Icon(Icons.favorite_rounded, color: AppColors.accentRed, size: 20),
             value: _connection,
             onChanged: (v) => setState(() => _connection = v),
           ),
@@ -251,48 +279,56 @@ class _CheckInScreenState extends State<CheckInScreen> {
           // Intimacy Slider
           _buildSlider(
             label: 'Intimacy',
-            emoji: '❤️',
+            iconWidget: SvgPicture.asset(
+              'assets/icons/flame.svg',
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(AppColors.accentRed, BlendMode.srcIn),
+            ),
             value: _intimacy,
             onChanged: (v) => setState(() => _intimacy = v),
           ),
           const SizedBox(height: 20),
 
-          // Stress Slider (inverted - lower is better)
+          // Peace Slider (higher = more peaceful)
           _buildSlider(
-            label: 'Stress',
-            emoji: '😰',
-            value: _stress,
-            onChanged: (v) => setState(() => _stress = v),
-            inverted: true,
-            invertedLabel: 'Lower is better',
+            label: 'Peace',
+            iconWidget: SvgPicture.asset(
+              'assets/icons/peace.svg',
+              width: 20,
+              height: 20,
+              colorFilter: ColorFilter.mode(AppColors.accentRed, BlendMode.srcIn),
+            ),
+            value: _peace,
+            onChanged: (v) => setState(() => _peace = v),
           ),
           const SizedBox(height: 24),
 
           // Notes field
           TextField(
             controller: _notesController,
-            style: const TextStyle(color: _lightText),
+            style: AppTypography.bodyMedium(color: AppColors.lightText),
             decoration: InputDecoration(
               labelText: 'Notes (optional)',
-              labelStyle: const TextStyle(color: _bodyGray),
+              labelStyle: AppTypography.bodyMedium(color: AppColors.warmMuted),
               hintText: 'How I\'m feeling / One appreciation...',
-              hintStyle: const TextStyle(color: _dimText),
+              hintStyle: AppTypography.bodySmall(color: AppColors.warmMuted),
               filled: true,
-              fillColor: _cardVariant,
+              fillColor: AppColors.cardVariant,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: _refinedRed.withValues(alpha: 0.2)),
+                borderSide: BorderSide(color: AppColors.border(0.2)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: _refinedRed.withValues(alpha: 0.1)),
+                borderSide: BorderSide(color: AppColors.border(0.1)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: _refinedRed, width: 2),
+                borderSide: const BorderSide(color: AppColors.accentRed, width: 2),
               ),
               alignLabelWithHint: true,
-              counterStyle: const TextStyle(color: _dimText),
+              counterStyle: AppTypography.labelSmall(color: AppColors.warmMuted),
             ),
             maxLines: 3,
             maxLength: 500,
@@ -302,11 +338,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
           // Submit button
           SizedBox(
             width: double.infinity,
-            child: cardButton(
-              label: _isSubmitting ? 'Submitting...' : 'Submit Check-in',
-              icon: Icons.check_rounded,
-              onPressed: _isSubmitting ? () {} : _submitCheckIn,
-            ),
+            child: _buildSubmitButton(),
           ),
         ],
       ),
@@ -315,50 +347,35 @@ class _CheckInScreenState extends State<CheckInScreen> {
 
   Widget _buildSlider({
     required String label,
-    required String emoji,
+    required Widget iconWidget,
     required double value,
     required ValueChanged<double> onChanged,
-    bool inverted = false,
-    String? invertedLabel,
   }) {
-    final color = _getScoreColor(value, inverted: inverted);
-    final scoreLabel = inverted
-        ? (value <= 3 ? 'Low' : value <= 6 ? 'Moderate' : 'High')
-        : _getScoreLabel(value);
+    final color = _getScoreColor(value);
+    final scoreLabel = _getScoreLabel(value);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text(emoji, style: const TextStyle(fontSize: 20)),
+            iconWidget,
             const SizedBox(width: 8),
             Text(
               label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: _lightText,
-              ),
+              style: AppTypography.titleMedium(color: AppColors.warmLight),
             ),
-            if (invertedLabel != null) ...[
-              const SizedBox(width: 8),
-              Text(
-                '($invertedLabel)',
-                style: const TextStyle(fontSize: 12, color: _dimText),
-              ),
-            ],
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.2),
+                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: color.withValues(alpha: 0.3)),
               ),
               child: Text(
                 '${value.round()} · $scoreLabel',
-                style: TextStyle(
+                style: GoogleFonts.outfit(
                   fontSize: 14,
                   color: color,
                   fontWeight: FontWeight.w600,
@@ -372,7 +389,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
           data: SliderTheme.of(context).copyWith(
             activeTrackColor: color,
             thumbColor: color,
-            inactiveTrackColor: _cardVariant,
+            inactiveTrackColor: AppColors.cardVariant,
             overlayColor: color.withValues(alpha: 0.2),
             trackHeight: 6,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
@@ -389,6 +406,56 @@ class _CheckInScreenState extends State<CheckInScreen> {
     );
   }
 
+  Widget _buildSubmitButton() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _isSubmitting ? null : _submitCheckIn,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          decoration: BoxDecoration(
+            color: AppColors.accentRed,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.redGlow(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_isSubmitting)
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: AppColors.pureBlack,
+                    strokeWidth: 2,
+                  ),
+                )
+              else ...[
+                Icon(Icons.check_rounded, color: AppColors.pureBlack, size: 20),
+                const SizedBox(width: 8),
+              ],
+              Text(
+                _isSubmitting ? 'Submitting...' : 'Submit Check-in',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.pureBlack,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Trend Chart
   // ---------------------------------------------------------------------------
@@ -400,95 +467,69 @@ class _CheckInScreenState extends State<CheckInScreen> {
       return const SizedBox.shrink();
     }
 
-    return PremiumCard(
+    final connectionValues = myCheckIns.map((c) => c.connection.toDouble()).toList();
+    final intimacyValues = myCheckIns.map((c) => c.intimacy.toDouble()).toList();
+
+    return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
+          _buildSectionHeader(
             icon: Icons.trending_up_rounded,
             title: 'Your Trend',
           ),
           const SizedBox(height: 8),
           Text(
             'Last ${myCheckIns.length} check-ins',
-            style: const TextStyle(fontSize: 12, color: _dimText),
+            style: AppTypography.labelSmall(color: AppColors.warmMuted),
           ),
           const SizedBox(height: 20),
           SizedBox(
-            height: 180,
-            child: LineChart(
-              LineChartData(
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 2,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: _cardVariant,
-                    strokeWidth: 1,
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      interval: 2,
-                      getTitlesWidget: (value, meta) {
-                        if (value == 0 || value > 10) return const SizedBox.shrink();
-                        return Text(
-                          value.toInt().toString(),
-                          style: const TextStyle(fontSize: 12, color: _dimText),
-                        );
-                      },
-                    ),
-                  ),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 24,
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-                        if (index >= 0 && index < myCheckIns.length) {
-                          final date = myCheckIns[index].timestamp;
-                          return Text(
-                            DateFormat('M/d').format(date),
-                            style: const TextStyle(fontSize: 10, color: _dimText),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
-                    ),
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                minY: 0,
-                maxY: 10,
-                lineBarsData: [
-                  // Connection line
-                  _buildLineData(
-                    myCheckIns,
-                    (c) => c.connection.toDouble(),
-                    Colors.blue,
-                  ),
-                  // Intimacy line
-                  _buildLineData(
-                    myCheckIns,
-                    (c) => c.intimacy.toDouble(),
-                    _refinedRed,
-                  ),
-                ],
+            height: 100,
+            child: CustomPaint(
+              size: const Size(double.infinity, 100),
+              painter: _TrendChartPainter(
+                connectionValues: connectionValues,
+                intimacyValues: intimacyValues,
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildLegendItem('Connection', Colors.blue),
+              _buildLegendItem(
+                Icon(Icons.favorite_rounded, color: AppColors.accentRed, size: 14),
+                'Connection',
+                AppColors.accentRed,
+              ),
               const SizedBox(width: 24),
-              _buildLegendItem('Intimacy', _refinedRed),
+              _buildLegendItem(
+                SvgPicture.asset(
+                  'assets/icons/flame.svg',
+                  width: 14,
+                  height: 14,
+                  colorFilter: const ColorFilter.mode(Color(0xFF60A5FA), BlendMode.srcIn),
+                ),
+                'Intimacy',
+                const Color(0xFF60A5FA),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // X-axis labels
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                DateFormat('M/d').format(myCheckIns.first.timestamp),
+                style: AppTypography.labelSmall(color: AppColors.warmMuted),
+              ),
+              Text(
+                'Latest',
+                style: AppTypography.labelSmall(color: AppColors.warmLight),
+              ),
             ],
           ),
         ],
@@ -496,148 +537,370 @@ class _CheckInScreenState extends State<CheckInScreen> {
     );
   }
 
-  LineChartBarData _buildLineData(
-    List<UserCheckIn> checkIns,
-    double Function(UserCheckIn) getValue,
-    Color color,
-  ) {
-    return LineChartBarData(
-      spots: checkIns.asMap().entries.map((e) {
-        return FlSpot(e.key.toDouble(), getValue(e.value));
-      }).toList(),
-      isCurved: true,
-      color: color,
-      barWidth: 3,
-      isStrokeCapRound: true,
-      dotData: FlDotData(
-        show: true,
-        getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
-          radius: 4,
-          color: color,
-          strokeWidth: 2,
-          strokeColor: _darkGlass,
-        ),
-      ),
-      belowBarData: BarAreaData(
-        show: true,
-        color: color.withValues(alpha: 0.1),
-      ),
-    );
-  }
-
-  Widget _buildLegendItem(String label, Color color) {
+  Widget _buildLegendItem(Widget icon, String label, Color color) {
     return Row(
       children: [
         Container(
-          width: 12,
-          height: 12,
+          padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: color.withValues(alpha: 0.4),
-                blurRadius: 4,
-              ),
-            ],
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(6),
           ),
+          child: icon,
         ),
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(fontSize: 12, color: _bodyGray),
+          style: AppTypography.labelMedium(color: AppColors.warmLight),
         ),
       ],
     );
   }
 
   // ---------------------------------------------------------------------------
-  // Partner Check-ins
+  // Partner Check-ins - Simplified timeline design
   // ---------------------------------------------------------------------------
 
   Widget _buildPartnerCheckIns() {
     if (_isLoadingHistory) {
-      return PremiumCard(
-        padding: const EdgeInsets.all(32),
+      return _buildCard(
         child: const Center(
-          child: CircularProgressIndicator(color: _refinedRed, strokeWidth: 2),
+          child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(color: AppColors.accentRed, strokeWidth: 2),
+          ),
         ),
       );
     }
 
     if (_partnerCheckIns.isEmpty) {
-      return PremiumCard(
-        padding: const EdgeInsets.all(24),
-        child: EmptyState(
-          icon: Icons.people_outline_rounded,
-          title: 'No partner check-ins yet',
-          subtitle: 'When your partner checks in, you\'ll see their scores here.',
+      return _buildCard(
+        child: Column(
+          children: [
+            const SizedBox(height: 16),
+            Icon(Icons.people_outline_rounded, color: AppColors.warmMuted, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'No partner check-ins yet',
+              style: AppTypography.titleMedium(color: AppColors.warmLight),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'When your partner checks in, you\'ll see their scores here.',
+              style: AppTypography.bodySmall(color: AppColors.warmMuted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       );
     }
 
-    return PremiumCard(
+    return _buildCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            icon: Icons.favorite_rounded,
-            title: 'Partner\'s Recent Check-ins',
+          // Header with partner's avatar and name
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: AppColors.accentRed.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Icon(
+                    Icons.favorite_rounded,
+                    color: AppColors.accentRed,
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                _partnerName ?? 'Partner',
+                style: AppTypography.headlineSmall(color: AppColors.warmLight),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          ..._partnerCheckIns.map((checkIn) => _buildCheckInItem(checkIn)),
+          const SizedBox(height: 20),
+          
+          // Simple timeline list
+          ..._partnerCheckIns.asMap().entries.map((entry) {
+            final index = entry.key;
+            final checkIn = entry.value;
+            final isLast = index == _partnerCheckIns.length - 1;
+            return _buildTimelineItem(checkIn, isLast: isLast);
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildCheckInItem(UserCheckIn checkIn) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: _cardVariant,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: _refinedRed.withValues(alpha: 0.1)),
+  Widget _buildTimelineItem(UserCheckIn checkIn, {bool isLast = false}) {
+    final connectionPct = checkIn.connection * 10;
+    final intimacyPct = checkIn.intimacy * 10;
+    final peacePct = (10 - checkIn.stress) * 10;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline dot and line
+        Column(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: AppColors.accentRed,
+                shape: BoxShape.circle,
+              ),
             ),
-            child: const Icon(
-              Icons.check_circle_outline_rounded,
-              color: _refinedRed,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
+            if (!isLast)
+              Container(
+                width: 1,
+                height: 52,
+                color: AppColors.cardVariant,
+              ),
+          ],
+        ),
+        const SizedBox(width: 16),
+        
+        // Content
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'Partner checked in',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: _lightText,
-                  ),
-                ),
+                // Time
                 Text(
                   checkIn.timeAgo,
-                  style: const TextStyle(fontSize: 12, color: _dimText),
+                  style: AppTypography.labelSmall(color: AppColors.warmMuted),
+                ),
+                const SizedBox(height: 8),
+                // Scores inline
+                Row(
+                  children: [
+                    _buildInlineScore(Icons.favorite_rounded, connectionPct.round()),
+                    const SizedBox(width: 16),
+                    _buildInlineScoreSvg('assets/icons/flame.svg', intimacyPct.round()),
+                    const SizedBox(width: 16),
+                    _buildInlineScoreSvg('assets/icons/peace.svg', peacePct.round()),
+                  ],
                 ),
               ],
             ),
           ),
-          Row(
-            children: [
-              ScoreBadge(emoji: '💙', score: checkIn.connection),
-              const SizedBox(width: 8),
-              ScoreBadge(emoji: '❤️', score: checkIn.intimacy),
-            ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInlineScore(IconData icon, int score) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: AppColors.accentRed, size: 16),
+        const SizedBox(width: 4),
+        Text(
+          '$score',
+          style: GoogleFonts.outfit(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.warmLight,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInlineScoreSvg(String svgPath, int score) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SvgPicture.asset(
+          svgPath,
+          width: 16,
+          height: 16,
+          colorFilter: ColorFilter.mode(AppColors.accentRed, BlendMode.srcIn),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$score',
+          style: GoogleFonts.outfit(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.warmLight,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Common Widgets
+  // ---------------------------------------------------------------------------
+
+  Widget _buildCard({required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.darkCard,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.border(0.1)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
+      child: child,
     );
+  }
+
+  Widget _buildSectionHeader({required IconData icon, required String title}) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.accentRed.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: AppColors.accentRed, size: 20),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          title,
+          style: AppTypography.headlineSmall(color: AppColors.warmLight),
+        ),
+      ],
+    );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Custom Trend Chart Painter
+// -----------------------------------------------------------------------------
+
+class _TrendChartPainter extends CustomPainter {
+  _TrendChartPainter({
+    required this.connectionValues,
+    required this.intimacyValues,
+  });
+
+  final List<double> connectionValues;
+  final List<double> intimacyValues;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (connectionValues.isEmpty) return;
+    
+    // Draw connection line (red)
+    _drawCurveLine(
+      canvas,
+      size,
+      connectionValues,
+      AppColors.accentRed,
+    );
+    
+    // Draw intimacy line (blue)
+    _drawCurveLine(
+      canvas,
+      size,
+      intimacyValues,
+      const Color(0xFF60A5FA),
+    );
+  }
+
+  void _drawCurveLine(
+    Canvas canvas,
+    Size size,
+    List<double> values,
+    Color color,
+  ) {
+    if (values.isEmpty) return;
+
+    final count = values.length;
+    final points = <Offset>[];
+    
+    for (int i = 0; i < count; i++) {
+      final x = count == 1 ? size.width / 2 : (i / (count - 1)) * size.width;
+      final y = size.height - ((values[i] / 10) * size.height * 0.9);
+      points.add(Offset(x, y));
+    }
+
+    if (points.length < 2) {
+      // Just draw a dot
+      final dotPaint = Paint()
+        ..color = color
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(points.first, 4, dotPaint);
+      return;
+    }
+
+    // Create smooth curve path
+    final path = Path();
+    path.moveTo(points.first.dx, points.first.dy);
+
+    for (int i = 0; i < points.length - 1; i++) {
+      final p0 = i > 0 ? points[i - 1] : points[i];
+      final p1 = points[i];
+      final p2 = points[i + 1];
+      final p3 = i < points.length - 2 ? points[i + 2] : p2;
+
+      final cp1x = p1.dx + (p2.dx - p0.dx) / 4;
+      final cp1y = p1.dy + (p2.dy - p0.dy) / 4;
+      final cp2x = p2.dx - (p3.dx - p1.dx) / 4;
+      final cp2y = p2.dy - (p3.dy - p1.dy) / 4;
+
+      path.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
+    }
+
+    // Fill under curve
+    final fillPath = Path.from(path);
+    fillPath.lineTo(points.last.dx, size.height);
+    fillPath.lineTo(points.first.dx, size.height);
+    fillPath.close();
+
+    final fillPaint = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          color.withValues(alpha: 0.25),
+          color.withValues(alpha: 0.02),
+        ],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+      ..style = PaintingStyle.fill;
+
+    canvas.drawPath(fillPath, fillPaint);
+
+    // Draw line
+    final linePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawPath(path, linePaint);
+
+    // Draw dot at the last point
+    final dotPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(points.last, 4, dotPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrendChartPainter oldDelegate) {
+    return connectionValues != oldDelegate.connectionValues ||
+        intimacyValues != oldDelegate.intimacyValues;
   }
 }

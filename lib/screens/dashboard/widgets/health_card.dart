@@ -1,6 +1,7 @@
 /// Health score card with animated progress and flip animation.
 library;
 
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -41,15 +42,31 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
   late Animation<double> _healthAnimation;
   double _targetProgress = 0;
   int _lastHapticDot = -1;
+  bool _hasAnimated = false;
 
   // Card flip animation
   AnimationController? _flipController;
   String _healthRemark = '';
+  
+  // Rubber band tension vibration
+  Timer? _tensionVibrationTimer;
+  bool _isFlipped = false;
 
   @override
   void initState() {
     super.initState();
     _initAnimations();
+    _calculateInitialValues();
+  }
+
+  void _calculateInitialValues() {
+    // Calculate the target values immediately so we show correct score
+    final connectionPct = widget.checkInStats.avgConnection * 10;
+    final intimacyPct = widget.checkInStats.avgIntimacy * 10;
+    final peacePct = (10 - widget.checkInStats.avgStress) * 10;
+    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
+    _targetProgress = overallHealth / 100;
+    _healthRemark = _getHealthRemark(overallHealth);
   }
 
   void _initAnimations() {
@@ -70,7 +87,21 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
   }
 
   @override
+  void didUpdateWidget(HealthCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Recalculate if stats changed
+    if (oldWidget.checkInStats != widget.checkInStats) {
+      _calculateInitialValues();
+      // If we haven't animated yet and have real data, trigger animation
+      if (!_hasAnimated && widget.checkInStats.checkInCount > 0) {
+        animateHealthScore();
+      }
+    }
+  }
+
+  @override
   void dispose() {
+    _stopTensionVibration();
     _healthAnimController.removeListener(_onHealthAnimationUpdate);
     _healthAnimController.removeStatusListener(_onHealthAnimationStatus);
     _healthAnimController.dispose();
@@ -84,16 +115,52 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
     }
   }
 
+  void _startTensionVibration() {
+    _isFlipped = true;
+    // Subtle continuous vibration like a stretched rubber band under tension
+    // Start with quick vibrations that slow down slightly
+    int vibrationCount = 0;
+    _tensionVibrationTimer = Timer.periodic(const Duration(milliseconds: 80), (timer) {
+      if (!mounted || !_isFlipped) {
+        timer.cancel();
+        return;
+      }
+      
+      // Vary the intensity - alternating between very light and selection click
+      // Creates a "trembling" effect like tension
+      if (vibrationCount % 3 == 0) {
+        HapticFeedback.selectionClick();
+      } else {
+        HapticFeedback.lightImpact();
+      }
+      vibrationCount++;
+    });
+  }
+
+  void _stopTensionVibration() {
+    _isFlipped = false;
+    _tensionVibrationTimer?.cancel();
+    _tensionVibrationTimer = null;
+  }
+
   Future<void> _flipToRemark() async {
     if (!mounted || _flipController == null) return;
     
+    // Flip forward with "stretch" haptic
+    HapticFeedback.heavyImpact();
     await _flipController!.forward();
     HapticFeedback.mediumImpact();
     
-    await Future.delayed(const Duration(milliseconds: 2000));
+    // Start tension vibration while flipped
+    _startTensionVibration();
+    
+    await Future.delayed(const Duration(milliseconds: 2500));
     
     if (!mounted) return;
     
+    // Stop tension and snap back with "release" haptic
+    _stopTensionVibration();
+    HapticFeedback.heavyImpact();
     await _flipController!.reverse();
     HapticFeedback.mediumImpact();
   }
@@ -109,7 +176,17 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
   }
 
   /// Start the health score animation from the current stats.
-  void animateHealthScore() {
+  /// Set [forceReanimate] to true to replay the animation (e.g., on refresh).
+  void animateHealthScore({bool forceReanimate = false}) {
+    if (_hasAnimated && !forceReanimate) return; // Only animate once unless forced
+    
+    // Reset animation state if re-animating
+    if (forceReanimate) {
+      _healthAnimController.reset();
+      _flipController?.reset();
+      _stopTensionVibration();
+    }
+    
     final connectionPct = widget.checkInStats.avgConnection * 10;
     final intimacyPct = widget.checkInStats.avgIntimacy * 10;
     final peacePct = (10 - widget.checkInStats.avgStress) * 10;
@@ -119,6 +196,7 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
     _healthRemark = _getHealthRemark(overallHealth);
     _targetProgress = progress;
     _lastHapticDot = -1;
+    _hasAnimated = true;
     
     _healthAnimation = Tween<double>(
       begin: 0,
@@ -142,10 +220,11 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final animatedProgress = _healthAnimation.value;
+    // Use animated progress if animating, otherwise show static target
+    final displayProgress = _hasAnimated ? _healthAnimation.value : _targetProgress;
     
     if (_flipController == null) {
-      return _buildFront(animatedProgress);
+      return _buildFront(displayProgress);
     }
     
     return AnimatedBuilder(
@@ -159,7 +238,7 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
           transform: Matrix4.identity()
             ..setEntry(3, 2, 0.001)
             ..rotateY(angle),
-          child: isBack ? _buildBack() : _buildFront(animatedProgress),
+          child: isBack ? _buildBack() : _buildFront(displayProgress),
         );
       },
     );
@@ -206,7 +285,7 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildFront(double animatedProgress) {
+  Widget _buildFront(double displayProgress) {
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
@@ -254,7 +333,7 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
                     CustomPaint(
                       size: const Size(120, 120),
                       painter: DottedCircleProgressPainter(
-                        progress: animatedProgress,
+                        progress: displayProgress,
                         activeColor: AppColors.pureBlack,
                         inactiveColor: AppColors.pureBlack.withValues(alpha: 0.2),
                         dotCount: _totalDots,
@@ -262,7 +341,7 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
                       ),
                     ),
                     Text(
-                      (animatedProgress * 100).round().toString(),
+                      (displayProgress * 100).round().toString(),
                       style: GoogleFonts.outfit(
                         color: AppColors.pureBlack,
                         fontSize: 52,

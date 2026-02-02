@@ -48,6 +48,54 @@ String _getHealthRemark(int score) {
   return 'Needs Attention';
 }
 
+/// Gets a single word summary of the relationship trend over the month.
+String _getMonthSummary(CheckInStats stats, List<Map<String, dynamic>>? dailyScores) {
+  if (stats.checkInCount < 2) return 'Starting';
+  
+  // Calculate overall trend from the three dimensions
+  final overallTrend = (stats.connectionTrend + stats.intimacyTrend - stats.stressTrend) / 3;
+  
+  // Calculate variance from daily scores if available
+  double variance = 0;
+  if (dailyScores != null && dailyScores.isNotEmpty) {
+    final scores = dailyScores
+        .where((d) => d['hasCheckIn'] == true)
+        .map((d) => (d['score'] as double?) ?? 0)
+        .toList();
+    if (scores.length >= 2) {
+      final mean = scores.reduce((a, b) => a + b) / scores.length;
+      variance = scores.map((s) => (s - mean) * (s - mean)).reduce((a, b) => a + b) / scores.length;
+    }
+  }
+  
+  // Calculate average health
+  final avgHealth = ((stats.avgConnection * 10) + 
+                     (stats.avgIntimacy * 10) + 
+                     ((10 - stats.avgStress) * 10)) / 3;
+  
+  // Determine summary based on trend, variance, and health
+  if (variance > 400) {
+    // High variance = turbulent
+    return 'Turbulent';
+  } else if (overallTrend > 0.3 && avgHealth >= 70) {
+    return 'Blossoming';
+  } else if (overallTrend > 0.15) {
+    return 'Improving';
+  } else if (overallTrend < -0.3) {
+    return 'Challenging';
+  } else if (overallTrend < -0.15) {
+    return 'Cooling';
+  } else if (avgHealth >= 80 && variance < 100) {
+    return 'Harmonious';
+  } else if (avgHealth >= 65 && variance < 150) {
+    return 'Smooth';
+  } else if (avgHealth >= 50) {
+    return 'Steady';
+  } else {
+    return 'Rebuilding';
+  }
+}
+
 class _HealthDetailsContent extends StatelessWidget {
   const _HealthDetailsContent({
     required this.overallHealth,
@@ -95,6 +143,16 @@ class _HealthDetailsContent extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  // Heading
+                  Text(
+                    'Relationship Health Score',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.warmLight,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   // Top: Centered score
                   Text(
                     overallHealth.toString(),
@@ -122,8 +180,8 @@ class _HealthDetailsContent extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Left: Insights
-                        Expanded(child: _buildInsightsCard()),
+                        // Left: Insights (tappable for help)
+                        Expanded(child: _buildInsightsCard(context)),
                         const SizedBox(width: 12),
                         // Right: Attribute breakdown
                         Expanded(child: _buildAttributesColumn()),
@@ -133,21 +191,8 @@ class _HealthDetailsContent extends StatelessWidget {
                   
                   const SizedBox(height: 24),
                   
-                  // Trend visualization
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'WEEKLY TREND',
-                      style: GoogleFonts.inter(
-                        color: AppColors.warmMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTrendChart(),
+                  // Monthly trend chart
+                  _buildMonthlyTrendChart(),
                 ],
               ),
             ),
@@ -157,52 +202,216 @@ class _HealthDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildInsightsCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'INSIGHTS',
-            style: GoogleFonts.inter(
-              color: AppColors.warmMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildInsightRow('Past 30 Days', checkInStats.checkInCount.toString(), 'total'),
-          const SizedBox(height: 12),
-          _buildInsightRow('Your check-ins', checkInStats.userCheckInCount.toString(), ''),
-          const SizedBox(height: 12),
-          _buildInsightRow('Partner check-ins', checkInStats.partnerCheckInCount.toString(), ''),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.accentRed.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
+  Widget _buildInsightsCard(BuildContext context) {
+    final monthSummary = _getMonthSummary(checkInStats, dailyScores);
+    
+    return GestureDetector(
+      onTap: () => _showInsightsHelp(context),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.darkCardLight,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with info indicator
+            Row(
               children: [
-                Icon(Icons.local_fire_department_rounded, color: AppColors.accentRed, size: 16),
-                const SizedBox(width: 6),
                 Text(
-                  '$streak day streak',
-                  style: GoogleFonts.outfit(
-                    color: AppColors.accentRed,
-                    fontSize: 13,
+                  'INSIGHTS',
+                  style: GoogleFonts.inter(
+                    color: AppColors.warmMuted,
+                    fontSize: 10,
                     fontWeight: FontWeight.w600,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const Spacer(),
+                // Glowing info dot - indicates tappable
+                Container(
+                  width: 5,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentRed,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.accentRed.withValues(alpha: 0.9),
+                        blurRadius: 4,
+                        spreadRadius: 1,
+                      ),
+                      BoxShadow(
+                        color: AppColors.accentRed.withValues(alpha: 0.5),
+                        blurRadius: 8,
+                        spreadRadius: 2,
+                      ),
+                    ],
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 16),
+            // Pulse summary - left aligned
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: monthSummary,
+                    style: GoogleFonts.outfit(
+                      color: AppColors.accentRed,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  TextSpan(
+                    text: ' pulse over last 30 days',
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmLight,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildInsightRow('Your check-ins', checkInStats.userCheckInCount.toString(), ''),
+            const SizedBox(height: 12),
+            _buildInsightRow('Partner check-ins', checkInStats.partnerCheckInCount.toString(), ''),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.accentRed.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.local_fire_department_rounded, color: AppColors.accentRed, size: 16),
+                  const SizedBox(width: 6),
+                  Text(
+                    '$streak day streak',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.accentRed,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showInsightsHelp(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: AppColors.darkCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentRed.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.lightbulb_outline_rounded, color: AppColors.accentRed, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Understanding Pulse',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.warmLight,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'The pulse describes your relationship\'s rhythm over the past 30 days:',
+                style: GoogleFonts.inter(
+                  color: AppColors.warmDim,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildGlossaryItem('Blossoming', 'High scores & improving trend'),
+              _buildGlossaryItem('Harmonious', 'Consistently high scores'),
+              _buildGlossaryItem('Smooth', 'Good scores & stable'),
+              _buildGlossaryItem('Improving', 'Scores trending upward'),
+              _buildGlossaryItem('Steady', 'Moderate & consistent'),
+              _buildGlossaryItem('Cooling', 'Slight downward trend'),
+              _buildGlossaryItem('Challenging', 'Significant decline'),
+              _buildGlossaryItem('Turbulent', 'Fluctuating scores'),
+              _buildGlossaryItem('Rebuilding', 'Working through lows'),
+              _buildGlossaryItem('Starting', 'Need more check-ins'),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppColors.accentRed.withValues(alpha: 0.15),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: Text(
+                    'Got it',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.accentRed,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGlossaryItem(String word, String meaning) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 95,
+            child: Text(
+              word,
+              style: GoogleFonts.outfit(
+                color: AppColors.accentRed,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              meaning,
+              style: GoogleFonts.inter(
+                color: AppColors.warmMuted,
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -414,71 +623,210 @@ class _HealthDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildTrendChart() {
-    final dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  Widget _buildMonthlyTrendChart() {
     final scores = dailyScores ?? [];
+    final hasData = scores.isNotEmpty && scores.any((d) => d['hasCheckIn'] == true);
+    
+    // Calculate weekly averages (4 weeks from 30 days)
+    // Week 1: days 0-6, Week 2: days 7-13, Week 3: days 14-20, Week 4: days 21-29
+    final weeklyAverages = <double>[];
+    final weekRanges = [
+      [0, 7],   // Week 1 (oldest)
+      [7, 14],  // Week 2
+      [14, 21], // Week 3
+      [21, 30], // Week 4 (most recent, includes today)
+    ];
+    
+    for (final range in weekRanges) {
+      double sum = 0;
+      int checkInCount = 0;
+      for (int i = range[0]; i < range[1] && i < scores.length; i++) {
+        final hasCheckIn = scores[i]['hasCheckIn'] as bool? ?? false;
+        if (hasCheckIn) {
+          final score = scores[i]['score'] as double? ?? 0;
+          sum += score;
+          checkInCount++;
+        }
+      }
+      // Average only from days with check-ins, 0 if no check-ins in week
+      weeklyAverages.add(checkInCount > 0 ? sum / checkInCount : 0);
+    }
     
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.darkCardLight,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Heading inside card
+          Text(
+            'MONTHLY TREND',
+            style: GoogleFonts.inter(
+              color: AppColors.warmMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 16),
+          
+          // Chart area
+          SizedBox(
+            height: 80,
+            child: hasData
+                ? CustomPaint(
+                    size: const Size(double.infinity, 80),
+                    painter: _WeeklyBarChartPainter(
+                      values: weeklyAverages,
+                      barColor: AppColors.accentRed,
+                      curveColor: AppColors.accentRed,
+                    ),
+                  )
+                : Center(
+                    child: Text(
+                      'No check-ins yet',
+                      style: GoogleFonts.inter(
+                        color: AppColors.warmMuted,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+          ),
+          
+          // X-axis labels
+          const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: List.generate(7, (index) {
-              final dayData = index < scores.length ? scores[index] : null;
-              final score = dayData?['score'] as double? ?? 0;
-              final hasCheckIn = dayData?['hasCheckIn'] as bool? ?? false;
-              final date = dayData?['date'] as DateTime?;
-              
-              final height = hasCheckIn ? (10 + (score * 0.7)).clamp(10.0, 80.0) : 10.0;
-              final isToday = index == 6;
-              
-              final dayLabel = date != null 
-                  ? dayLabels[date.weekday - 1] 
-                  : dayLabels[index];
-              
-              return Column(
-                children: [
-                  Container(
-                    width: 32,
-                    height: height,
-                    decoration: BoxDecoration(
-                      color: hasCheckIn 
-                          ? (isToday ? AppColors.accentRed : AppColors.accentRed.withValues(alpha: 0.6))
-                          : AppColors.warmMuted.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    dayLabel,
-                    style: GoogleFonts.inter(
-                      color: isToday ? AppColors.warmLight : AppColors.warmMuted,
-                      fontSize: 11,
-                      fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ),
-          if (scores.isEmpty || !scores.any((d) => d['hasCheckIn'] == true))
-            Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Text(
-                'No check-ins this week',
+            children: [
+              Text(
+                'Long back',
                 style: GoogleFonts.inter(
                   color: AppColors.warmMuted,
-                  fontSize: 12,
+                  fontSize: 10,
                 ),
               ),
-            ),
+              Text(
+                'Week before',
+                style: GoogleFonts.inter(
+                  color: AppColors.warmMuted,
+                  fontSize: 10,
+                ),
+              ),
+              Text(
+                'Last week',
+                style: GoogleFonts.inter(
+                  color: AppColors.warmMuted,
+                  fontSize: 10,
+                ),
+              ),
+              Text(
+                'This week',
+                style: GoogleFonts.inter(
+                  color: AppColors.warmLight,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+}
+
+/// Custom painter for smooth area curve chart.
+class _WeeklyBarChartPainter extends CustomPainter {
+  _WeeklyBarChartPainter({
+    required this.values,
+    required this.barColor,
+    required this.curveColor,
+  });
+
+  final List<double> values;
+  final Color barColor;
+  final Color curveColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+
+    final pointCount = values.length;
+    
+    // Calculate point heights (scaled to 0-100 -> 0-height)
+    final heights = values.map((v) => (v / 100) * size.height).toList();
+    
+    // Calculate evenly spaced x positions
+    final points = <Offset>[];
+    for (int i = 0; i < pointCount; i++) {
+      final x = (i / (pointCount - 1)) * size.width;
+      points.add(Offset(x, size.height - heights[i]));
+    }
+
+    // Draw smooth curve
+    if (heights.any((h) => h > 0)) {
+      final curvePath = Path();
+      
+      curvePath.moveTo(points.first.dx, points.first.dy);
+      
+      // Draw smooth bezier curves between points
+      for (int i = 0; i < points.length - 1; i++) {
+        final p0 = i > 0 ? points[i - 1] : points[i];
+        final p1 = points[i];
+        final p2 = points[i + 1];
+        final p3 = i < points.length - 2 ? points[i + 2] : p2;
+
+        final cp1x = p1.dx + (p2.dx - p0.dx) / 4;
+        final cp1y = p1.dy + (p2.dy - p0.dy) / 4;
+        final cp2x = p2.dx - (p3.dx - p1.dx) / 4;
+        final cp2y = p2.dy - (p3.dy - p1.dy) / 4;
+
+        curvePath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
+      }
+      
+      // Close path for fill
+      final fillPath = Path.from(curvePath);
+      fillPath.lineTo(size.width, size.height);
+      fillPath.lineTo(0, size.height);
+      fillPath.close();
+      
+      // Draw gradient fill under curve
+      final fillPaint = Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            barColor.withValues(alpha: 0.35),
+            barColor.withValues(alpha: 0.05),
+          ],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
+        ..style = PaintingStyle.fill;
+
+      canvas.drawPath(fillPath, fillPaint);
+
+      // Draw curve line
+      final curvePaint = Paint()
+        ..color = curveColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      canvas.drawPath(curvePath, curvePaint);
+      
+      // Draw dot at the last point (this week)
+      final dotPaint = Paint()
+        ..color = curveColor
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(points.last, 4, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WeeklyBarChartPainter oldDelegate) {
+    return values != oldDelegate.values;
   }
 }

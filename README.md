@@ -22,28 +22,52 @@ A Flutter relationship wellness app for couples to track health, plan events, an
   - Normal distribution timing curve (fast start, slow suspenseful finish)
   - Haptic feedback for each dot (light impact)
   - 3D flip animation revealing health remark
+  - Tension vibration while flipped (like stretched rubber band)
   - Tap for detailed breakdown popup
+  - **Live updates** - score refreshes automatically when check-ins are submitted
 - **Event Cards** - Today's and upcoming events at a glance
 - **Check-in Button** - Quick access to relationship check-in
+- **Pull-to-refresh** with haptic feedback
 
 ### 📅 Events
 - **Week/Month Views** - Toggle between calendar layouts
 - **Event Types** - Date nights 🌙, check-ins ✓, special occasions ⭐
 - **Navigation** - Browse past and future weeks/months
+- **Live Updates** - Events sync across all devices in real-time
 
 ### 💬 Check-ins
-- **Health Metrics** - Connection, Intimacy, Stress (1-10 scale)
-- **Trend Charts** - Visualize your check-in history
-- **Partner Activity** - See your partner's recent check-ins
+- **Health Metrics** - Connection ❤️, Intimacy 🔥, Peace ☕ (1-10 scale)
+- **Smart Defaults** - Sliders start from your last check-in values
+- **Trend Charts** - Visualize your check-in history with smooth curves
+- **Partner Activity** - Timeline view of partner's recent check-ins
 - **Notes** - Add optional appreciation or thoughts
+- **Auto-close** - Screen closes automatically after successful submission
 
 ### 📈 Health Score Calculation
 - Connection (1-10) × 10 = Connection %
 - Intimacy (1-10) × 10 = Intimacy %
-- Peace = (10 - Stress) × 10 = Peace %
+- Peace (1-10) × 10 = Peace % *(higher = more peaceful)*
 - **Overall Health** = Average of all three (0-100%)
 
 Scores are calculated from check-ins in the **past 30 days** from both partners.
+
+### 💫 Relationship Pulse
+A single word describing your relationship's rhythm over the past 30 days:
+
+| Pulse | Meaning |
+|-------|---------|
+| **Blossoming** | High scores & improving trend |
+| **Harmonious** | Consistently high scores |
+| **Smooth** | Good scores & stable |
+| **Improving** | Scores trending upward |
+| **Steady** | Moderate & consistent |
+| **Cooling** | Slight downward trend |
+| **Challenging** | Significant decline |
+| **Turbulent** | Fluctuating scores |
+| **Rebuilding** | Working through lows |
+| **Starting** | Need more check-ins |
+
+Tap the Insights card for a full glossary.
 
 ## Design System
 
@@ -63,22 +87,26 @@ Dark neumorphic Material 3 with warm red accent:
 
 | Purpose | Font | Usage |
 |---------|------|-------|
-| **Display** | Outfit | Headlines, scores, app bar |
+| **Display** | Outfit | Headlines, scores, app bar, pulse words |
 | **Body** | Inter | Body text, labels, descriptions |
-| **Tagline** | Cormorant Garamond | Health remarks, elegant text |
+| **Tagline** | Cormorant Garamond | Health remarks, elegant accents |
 
 ### Animations & Haptics
 
 | Animation | Duration | Details |
 |-----------|----------|---------|
-| Health dots | 2.2s | Normal distribution curve |
+| Health dots | 2.2s | Normal distribution curve (suspenseful) |
 | Card flip | 400ms | 3D perspective transform |
+| Tension hold | 2.5s | While showing remark |
 | Micro-interactions | 100-150ms | Scale & glow effects |
 
 | Haptic | Trigger |
 |--------|---------|
 | Light impact | Each health dot fills |
-| Medium impact | Card flip lands |
+| Medium impact | Card flip lands, refresh triggered |
+| Heavy impact | Flip stretch/release |
+| Selection click | Tension vibration pattern |
+| Light impact | Refresh complete |
 
 ### Custom Icons
 Located in `assets/icons/`:
@@ -94,18 +122,18 @@ Located in `assets/icons/`:
 
 ```
 lib/
-├── main.dart                 # App entry, Firebase init, theme
+├── main.dart                 # App entry, Firebase init
 ├── firebase_options.dart     # Auto-generated Firebase config
 │
-├── theme/                    # 🆕 Centralized theming
-│   ├── theme.dart            # Barrel export
+├── theme/                    # Centralized theming
+│   ├── theme.dart            # Barrel export + ThemeData
 │   ├── app_colors.dart       # Color constants
-│   └── app_typography.dart   # Text styles
+│   └── app_typography.dart   # Text styles (Outfit, Inter, Cormorant)
 │
 ├── models/
 │   ├── avatar_data.dart      # Avatar and color data
 │   ├── space_event.dart      # Event model with types
-│   └── user_checkin.dart     # Check-in model & stats
+│   └── user_checkin.dart     # Check-in model & CheckInStats
 │
 ├── router/
 │   └── app_router.dart       # GoRouter with auth guards
@@ -116,20 +144,49 @@ lib/
 │   ├── onboarding_screen.dart # Space creation wizard
 │   ├── join_screen.dart      # Join space with invite
 │   ├── main_shell.dart       # Bottom nav + settings
-│   ├── dashboard_tab.dart    # Home - health, events
 │   ├── calendar_tab.dart     # Events - week/month
 │   ├── checkins_tab.dart     # Check-ins timeline
 │   ├── agreements_tab.dart   # Coming soon
-│   └── checkin_screen.dart   # Check-in form
+│   ├── checkin_screen.dart   # Check-in form
+│   │
+│   └── dashboard/            # Modular dashboard
+│       ├── dashboard.dart    # Barrel export
+│       ├── dashboard_tab.dart # Main orchestrator
+│       └── widgets/
+│           ├── event_cards.dart         # Event & check-in cards
+│           ├── event_creation_sheet.dart # Event form modal
+│           ├── health_card.dart         # Animated health score
+│           └── health_details_sheet.dart # Detailed metrics popup
 │
 ├── services/
 │   ├── auth_service.dart     # Firebase Auth + Google
-│   └── firestore_service.dart # All Firestore CRUD
+│   └── firestore_service.dart # All Firestore CRUD + streams
 │
 └── widgets/
-    ├── avatar_selector.dart      # Avatar & color picker
-    └── neumorphic_container.dart # Premium card widgets
+    ├── avatar_selector.dart  # Avatar & color picker
+    ├── neumorphic_container.dart # Premium card widgets
+    ├── animations/
+    │   └── suspenseful_curve.dart # Normal distribution curve
+    └── painters/
+        └── circle_progress_painters.dart # Dotted & continuous circles
 ```
+
+### Real-time Updates
+The dashboard uses Firestore streams for live data sync:
+
+```dart
+// Events stream - updates when any partner adds/edits events
+_firestoreService.watchUpcomingEvents(spaceId, daysAhead: 30)
+
+// Check-ins stream - updates health score when anyone checks in
+_firestoreService.watchRecentCheckIns(spaceId, daysBack: 30)
+```
+
+When your partner submits a check-in, your dashboard automatically:
+1. Receives the new check-in via stream
+2. Recalculates stats locally
+3. Updates the health card
+4. Triggers the animation
 
 ### Services
 
@@ -145,7 +202,8 @@ lib/
 - Event CRUD operations
 - Check-in submission and stats
 - Streak calculation
-- Daily health scores
+- Daily health scores for trend charts
+- **Stream-based** methods for real-time updates
 
 ### Data Models
 
@@ -174,6 +232,9 @@ CheckInStats {
   checkInCount, userCheckInCount, partnerCheckInCount,
   connectionTrend, intimacyTrend, stressTrend (-1 to 1)
 }
+
+// Factory to calculate from check-in list
+CheckInStats.fromCheckIns(checkIns, currentUserId: userId)
 ```
 
 ## Getting Started
@@ -283,6 +344,7 @@ flutter run -d android  # Android Emulator
 - **VS Code/Cursor**: Save file (auto)
 - **Terminal**: Press `r`
 - **Device**: Press `R` for hot restart
+- **Phone**: `flutter run` then shake device or use `r` in terminal
 
 ## Routes
 
@@ -307,9 +369,9 @@ flutter run -d android  # Android Emulator
 | `shared_preferences` | ^2.5.4 | Local storage |
 | `share_plus` | ^10.0.0 | Share functionality |
 | `intl` | ^0.20.2 | Date formatting |
-| `fl_chart` | ^1.1.1 | Trend charts |
 | `google_fonts` | ^8.0.0 | Typography |
 | `flutter_svg` | ^2.1.0 | SVG icons |
+| `flutter_animate` | - | Animation utilities |
 
 ## Code Quality
 
