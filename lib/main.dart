@@ -85,8 +85,8 @@ class CocoonApp extends StatelessWidget {
       onError: pureBlack,
     );
 
-    // Headlines: Bold condensed - Oswald
-    final headlineStyle = GoogleFonts.oswald(color: lightText);
+    // Headlines: Modern geometric - Outfit
+    final headlineStyle = GoogleFonts.outfit(color: lightText);
     
     // Body: Clean sans-serif - Inter
     final bodyStyle = GoogleFonts.inter(color: subtleText);

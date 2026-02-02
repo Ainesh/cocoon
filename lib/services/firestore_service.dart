@@ -368,6 +368,13 @@ class FirestoreService {
     };
   }
 
+  /// Updates the name of a space.
+  Future<void> updateSpaceName(String spaceId, String newName) async {
+    await _firestore.collection(_spacesCollection).doc(spaceId).update({
+      'name': newName,
+    });
+  }
+
   /// Gets the space ID for a given user.
   Future<String?> getUserSpaceId(String userId) async {
     // Check local storage first
@@ -679,6 +686,121 @@ class FirestoreService {
   }
 
   /// Gets the most recent check-in activity for display.
+  /// Gets daily health scores for the last N days.
+  /// Returns a list of maps with 'date' and 'score' (0-100 scale).
+  Future<List<Map<String, dynamic>>> getDailyHealthScores(
+    String spaceId, {
+    int days = 7,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final cutoffDate = today.subtract(Duration(days: days - 1));
+      
+      final snapshot = await _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('checkins')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
+          .orderBy('timestamp', descending: false)
+          .get();
+      
+      // Group check-ins by day
+      final Map<String, List<UserCheckIn>> byDay = {};
+      for (final doc in snapshot.docs) {
+        final checkIn = UserCheckIn.fromFirestore(doc);
+        final dayKey = '${checkIn.timestamp.year}-${checkIn.timestamp.month}-${checkIn.timestamp.day}';
+        byDay.putIfAbsent(dayKey, () => []).add(checkIn);
+      }
+      
+      // Build result for each day
+      final result = <Map<String, dynamic>>[];
+      for (int i = 0; i < days; i++) {
+        final date = cutoffDate.add(Duration(days: i));
+        final dayKey = '${date.year}-${date.month}-${date.day}';
+        final dayCheckIns = byDay[dayKey] ?? [];
+        
+        double score = 0;
+        if (dayCheckIns.isNotEmpty) {
+          // Calculate average health score for this day (1-10 scale -> 0-100)
+          double totalScore = 0;
+          for (final c in dayCheckIns) {
+            final connectionPct = c.connection * 10;
+            final intimacyPct = c.intimacy * 10;
+            final peacePct = (10 - c.stress) * 10;
+            totalScore += (connectionPct + intimacyPct + peacePct) / 3;
+          }
+          score = totalScore / dayCheckIns.length;
+        }
+        
+        result.add({
+          'date': date,
+          'score': score,
+          'hasCheckIn': dayCheckIns.isNotEmpty,
+        });
+      }
+      
+      return result;
+    } catch (e) {
+      debugPrint('Error getting daily health scores: $e');
+      return [];
+    }
+  }
+  
+  /// Calculates the current check-in streak (consecutive days).
+  Future<int> getCheckInStreak(String spaceId) async {
+    try {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      
+      // Get check-ins from last 60 days (more than enough to find streak)
+      final cutoffDate = today.subtract(const Duration(days: 60));
+      
+      final snapshot = await _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('checkins')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
+          .orderBy('timestamp', descending: true)
+          .get();
+      
+      if (snapshot.docs.isEmpty) return 0;
+      
+      // Get unique days with check-ins
+      final Set<String> daysWithCheckIns = {};
+      for (final doc in snapshot.docs) {
+        final checkIn = UserCheckIn.fromFirestore(doc);
+        final dayKey = '${checkIn.timestamp.year}-${checkIn.timestamp.month}-${checkIn.timestamp.day}';
+        daysWithCheckIns.add(dayKey);
+      }
+      
+      // Count consecutive days starting from today (or yesterday if no check-in today)
+      int streak = 0;
+      var checkDate = today;
+      final todayKey = '${today.year}-${today.month}-${today.day}';
+      
+      // If no check-in today, start from yesterday
+      if (!daysWithCheckIns.contains(todayKey)) {
+        checkDate = today.subtract(const Duration(days: 1));
+      }
+      
+      while (true) {
+        final dayKey = '${checkDate.year}-${checkDate.month}-${checkDate.day}';
+        if (daysWithCheckIns.contains(dayKey)) {
+          streak++;
+          checkDate = checkDate.subtract(const Duration(days: 1));
+        } else {
+          break;
+        }
+      }
+      
+      return streak;
+    } catch (e) {
+      debugPrint('Error calculating streak: $e');
+      return 0;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getRecentCheckInActivity(
     String spaceId, {
     int limit = 5,

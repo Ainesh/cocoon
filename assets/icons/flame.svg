@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Main flame -->
+  <path d="M14 2C14 2 19 8 19 14C19 18.42 15.87 22 12 22C8.13 22 5 18.42 5 14C5 11 6.5 8.5 8 7C8 9.5 9.5 11 11 11C11 8 14 2 14 2Z" fill="currentColor"/>
+  <!-- Small left flame -->
+  <path d="M7 8C7 8 4 11 4 14C4 16.21 5.34 18 7 18C7 15 9 12 9 12C8 11 7 9.5 7 8Z" fill="currentColor"/>
+</svg>

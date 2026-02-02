@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import '../models/user_checkin.dart';
@@ -186,11 +187,11 @@ class _CheckInScreenState extends State<CheckInScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Check-in',
-          style: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.w600,
+            fontSize: 22,
             color: _lightText,
           ),
         ),

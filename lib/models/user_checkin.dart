@@ -124,6 +124,7 @@ class CheckInStats {
     required this.checkInCount,
     this.connectionTrend = 0,
     this.intimacyTrend = 0,
+    this.stressTrend = 0,
   });
 
   /// Average connection score.
@@ -143,6 +144,9 @@ class CheckInStats {
 
   /// Intimacy trend (-1 to 1, positive = improving).
   final double intimacyTrend;
+  
+  /// Stress trend (-1 to 1, positive = increasing stress).
+  final double stressTrend;
 
   /// Empty stats for when there's no data.
   static const empty = CheckInStats(
@@ -164,6 +168,7 @@ class CheckInStats {
     // Calculate trend (compare first half vs second half)
     double connectionTrend = 0;
     double intimacyTrend = 0;
+    double stressTrend = 0;
 
     if (count >= 4) {
       final mid = count ~/ 2;
@@ -177,6 +182,10 @@ class CheckInStats {
       final olderIntAvg = older.map((c) => c.intimacy).reduce((a, b) => a + b) / older.length;
       final newerIntAvg = newer.map((c) => c.intimacy).reduce((a, b) => a + b) / newer.length;
       intimacyTrend = (newerIntAvg - olderIntAvg) / 10;
+      
+      final olderStressAvg = older.map((c) => c.stress).reduce((a, b) => a + b) / older.length;
+      final newerStressAvg = newer.map((c) => c.stress).reduce((a, b) => a + b) / newer.length;
+      stressTrend = (newerStressAvg - olderStressAvg) / 10;
     }
 
     return CheckInStats(
@@ -186,6 +195,7 @@ class CheckInStats {
       checkInCount: count,
       connectionTrend: connectionTrend.clamp(-1, 1),
       intimacyTrend: intimacyTrend.clamp(-1, 1),
+      stressTrend: stressTrend.clamp(-1, 1),
     );
   }
 }

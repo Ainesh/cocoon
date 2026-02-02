@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../main.dart';
 import '../services/auth_service.dart';
@@ -204,12 +205,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildTitle() {
     return Text(
       'Cocoon',
-      style: TextStyle(
-        fontFamily: 'Oswald',
-        fontSize: 38,
+      style: GoogleFonts.outfit(
+        fontSize: 42,
         fontWeight: FontWeight.w600,
         color: CocoonColors.lightText,
-        letterSpacing: 3,
+        letterSpacing: 2,
       ),
     );
   }

@@ -6,8 +6,10 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
+import '../services/firestore_service.dart';
 import 'agreements_tab.dart';
 import 'calendar_tab.dart';
 import 'checkins_tab.dart';
@@ -36,7 +38,9 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   final _authService = AuthService();
+  final _firestoreService = FirestoreService();
   int _currentIndex = 0;
+  String? _spaceName;
 
   late final List<Widget> _tabs;
 
@@ -49,6 +53,20 @@ class _MainShellState extends State<MainShell> {
       CheckInsTab(spaceId: widget.spaceId),
       AgreementsTab(spaceId: widget.spaceId),
     ];
+    _loadSpaceName();
+  }
+  
+  Future<void> _loadSpaceName() async {
+    try {
+      final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);
+      if (mounted) {
+        setState(() {
+          _spaceName = space?['name'] as String?;
+        });
+      }
+    } catch (e) {
+      // Use default name
+    }
   }
 
   @override
@@ -60,9 +78,9 @@ class _MainShellState extends State<MainShell> {
         elevation: 0,
         title: Text(
           _getTitle(),
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
+          style: GoogleFonts.outfit(
+            fontWeight: _currentIndex == 0 ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 22,
             color: _lightText,
           ),
         ),
@@ -71,9 +89,9 @@ class _MainShellState extends State<MainShell> {
           Container(
             margin: const EdgeInsets.only(right: 8),
             child: IconButton(
-              icon: const Icon(Icons.logout_rounded, color: _dimText),
-              tooltip: 'Sign out',
-              onPressed: _signOut,
+              icon: const Icon(Icons.settings_rounded, color: _dimText),
+              tooltip: 'Settings',
+              onPressed: () => _showSettings(context),
               style: IconButton.styleFrom(
                 backgroundColor: _cardVariant,
                 shape: RoundedRectangleBorder(
@@ -117,10 +135,10 @@ class _MainShellState extends State<MainShell> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(0, Icons.home_outlined, Icons.home_rounded, 'Home'),
-              _buildNavItem(1, Icons.event_outlined, Icons.event_rounded, 'Events'),
-              _buildNavItem(2, Icons.favorite_outline, Icons.favorite_rounded, 'Check-ins'),
-              _buildNavItem(3, Icons.handshake_outlined, Icons.handshake_rounded, 'Agreements'),
+              _buildNavItem(0, Icons.home_outlined, Icons.home_rounded),
+              _buildNavItem(1, Icons.event_outlined, Icons.event_rounded),
+              _buildNavItem(2, Icons.edit_note_outlined, Icons.edit_note_rounded),
+              _buildNavItem(3, Icons.handshake_outlined, Icons.handshake_rounded),
             ],
           ),
         ),
@@ -128,14 +146,14 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData selectedIcon, String label) {
+  Widget _buildNavItem(int index, IconData icon, IconData selectedIcon) {
     final isSelected = _currentIndex == index;
 
     return GestureDetector(
       onTap: () => setState(() => _currentIndex = index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected ? _refinedRed.withValues(alpha: 0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(16),
@@ -143,24 +161,10 @@ class _MainShellState extends State<MainShell> {
               ? Border.all(color: _refinedRed.withValues(alpha: 0.3))
               : null,
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              isSelected ? selectedIcon : icon,
-              color: isSelected ? _refinedRed : _dimText,
-              size: 24,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                color: isSelected ? _refinedRed : _dimText,
-              ),
-            ),
-          ],
+        child: Icon(
+          isSelected ? selectedIcon : icon,
+          color: isSelected ? _refinedRed : _dimText,
+          size: 26,
         ),
       ),
     );
@@ -168,7 +172,7 @@ class _MainShellState extends State<MainShell> {
 
   String _getTitle() {
     return switch (_currentIndex) {
-      0 => 'Home',
+      0 => _spaceName ?? 'Home',
       1 => 'Events',
       2 => 'Check-ins',
       3 => 'Agreements',
@@ -226,6 +230,162 @@ class _MainShellState extends State<MainShell> {
     // Get the dashboard tab and call its method
     final dashboardTab = _tabs[0] as DashboardTab;
     dashboardTab.showCreateEventSheet(context, widget.spaceId);
+  }
+
+  void _showSettings(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _darkGlass,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _dimText.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Settings title
+            Text(
+              'Settings',
+              style: GoogleFonts.outfit(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: _lightText,
+              ),
+            ),
+            const SizedBox(height: 24),
+            // Change space name
+            _buildSettingsItem(
+              icon: Icons.edit_rounded,
+              title: 'Change space name',
+              onTap: () {
+                Navigator.pop(context);
+                _showChangeSpaceNameDialog(context);
+              },
+            ),
+            const SizedBox(height: 12),
+            // Logout
+            _buildSettingsItem(
+              icon: Icons.logout_rounded,
+              title: 'Sign out',
+              isDestructive: true,
+              onTap: () {
+                Navigator.pop(context);
+                _signOut();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildSettingsItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    final color = isDestructive ? Colors.red.shade400 : _lightText;
+    final iconColor = isDestructive ? Colors.red.shade400 : _refinedRed;
+    
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: _cardVariant,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.inter(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Icon(Icons.chevron_right_rounded, color: _dimText, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  void _showChangeSpaceNameDialog(BuildContext context) {
+    final controller = TextEditingController(text: _spaceName ?? '');
+    
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _darkGlass,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Change Space Name',
+          style: GoogleFonts.outfit(
+            color: _lightText,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: _lightText),
+          decoration: InputDecoration(
+            hintText: 'Enter new name',
+            hintStyle: TextStyle(color: _dimText),
+            filled: true,
+            fillColor: _cardVariant,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: TextStyle(color: _dimText)),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final newName = controller.text.trim();
+              if (newName.isNotEmpty) {
+                await _firestoreService.updateSpaceName(widget.spaceId, newName);
+                if (mounted) {
+                  setState(() => _spaceName = newName);
+                }
+              }
+              if (ctx.mounted) Navigator.pop(ctx);
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: _refinedRed,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _signOut() async {

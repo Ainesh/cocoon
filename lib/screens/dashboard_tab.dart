@@ -1,47 +1,44 @@
-/// Dashboard tab for Couple Space app.
+/// Dashboard tab for Cocoon app.
 ///
-/// Main home screen displaying relationship overview, upcoming events,
-/// health metrics, and partner invite functionality with premium neumorphic UI.
+/// Modern dark UI with lime green accent, featuring circular
+/// dotted progress indicators for health metrics and check-in feedback.
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:share_plus/share_plus.dart';
 
 import '../models/space_event.dart';
 import '../models/user_checkin.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
-import '../widgets/neumorphic_container.dart';
 
-// Theme constants for premium styling
-const _refinedRed = Color(0xFFFF4444);
-const _lightText = Color(0xFFF5F5F5);
-const _bodyGray = Color(0xFFD1D5DB);
-const _dimText = Color(0xFF9CA3AF);
-const _cardVariant = Color(0xFF2A2A2A);
+// Theme constants - Dark with warm red accent
+const _pureBlack = Color(0xFF0A0A0A);
+const _darkCard = Color(0xFF161616);
+const _darkCardLight = Color(0xFF1E1E1E);
+const _accentRed = Color(0xFFE84545);
+const _warmLight = Color(0xFFEDE6DB); // Warm cream instead of white
+const _warmDim = Color(0xFF9A938A); // Warm gray
+const _warmMuted = Color(0xFF6B665F); // Muted warm
 
 /// Dashboard tab widget.
 class DashboardTab extends StatefulWidget {
-  const DashboardTab({
-    super.key,
-    required this.spaceId,
-  });
+  const DashboardTab({super.key, required this.spaceId});
 
   final String spaceId;
 
-  /// Shows the create event sheet - called from MainShell.
   void showCreateEventSheet(BuildContext context, String spaceId) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: const Color(0xFF1E1E1E),
+      backgroundColor: _darkCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -58,35 +55,21 @@ class DashboardTab extends StatefulWidget {
 }
 
 class _DashboardTabState extends State<DashboardTab> {
-  // Services
-  final _authService = AuthService();
   final _firestoreService = FirestoreService();
 
-  // Loading state
   bool _isLoading = true;
-  bool _isEventsLoading = true;
-  String? _eventsError;
 
-  // Space data
-  String _spaceName = 'Our Space';
-  int _memberCount = 0;
-  String? _inviteCode;
-
-  // Events data
   StreamSubscription<List<SpaceEvent>>? _eventsSubscription;
   List<SpaceEvent> _upcomingEvents = [];
 
-  // Check-in data
   CheckInStats _checkInStats = CheckInStats.empty;
-  List<Map<String, dynamic>> _recentActivity = [];
-  bool _isCheckInLoading = true;
+  List<Map<String, dynamic>>? _dailyScores;
+  int _streak = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadSpaceData();
-    _subscribeToEvents();
-    _loadCheckInData();
+    _loadData();
   }
 
   @override
@@ -95,543 +78,996 @@ class _DashboardTabState extends State<DashboardTab> {
     super.dispose();
   }
 
-  // ---------------------------------------------------------------------------
-  // Data Loading
-  // ---------------------------------------------------------------------------
-
-  Future<void> _loadSpaceData() async {
-    setState(() => _isLoading = true);
-
+  Future<void> _loadData() async {
     try {
-      final userId = _authService.currentUser?.uid;
-      if (userId == null) return;
-
-      final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);
-
-      if (space != null) {
-        final members = List.from(space['members'] ?? []);
+      final results = await Future.wait([
+        _firestoreService.getSpaceCheckInStats(widget.spaceId),
+        _firestoreService.getDailyHealthScores(widget.spaceId, days: 7),
+        _firestoreService.getCheckInStreak(widget.spaceId),
+      ]);
+      
+      if (mounted) {
         setState(() {
-          _spaceName = space['name'] ?? 'Our Space';
-          _memberCount = members.length;
+          _checkInStats = results[0] as CheckInStats;
+          _dailyScores = (results[1] as List?)?.cast<Map<String, dynamic>>() ?? [];
+          _streak = results[2] as int? ?? 0;
+          _isLoading = false;
         });
-
-        if (_memberCount == 1) {
-          final inviteCode = await _firestoreService.getOrCreateInvite(
-            spaceId: widget.spaceId,
-            userId: userId,
-          );
-          setState(() => _inviteCode = inviteCode);
-        }
       }
     } catch (e) {
-      debugPrint('Error loading space: $e');
-    } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
-  }
 
-  void _subscribeToEvents() {
-    _eventsSubscription?.cancel();
-    setState(() {
-      _isEventsLoading = true;
-      _eventsError = null;
-    });
-
+    // Subscribe to events
     _eventsSubscription = _firestoreService
-        .watchUpcomingEvents(widget.spaceId, daysAhead: 14)
-        .listen(
-      (events) {
-        setState(() {
-          _upcomingEvents = events;
-          _isEventsLoading = false;
-          _eventsError = null;
-        });
-      },
-      onError: (error) {
-        debugPrint('Error loading events: $error');
-        setState(() {
-          _isEventsLoading = false;
-          _eventsError = 'Failed to load events';
-        });
-      },
-    );
+        .watchUpcomingEvents(widget.spaceId, daysAhead: 30)
+        .listen((events) {
+      if (mounted) setState(() => _upcomingEvents = events);
+    });
   }
-
-  Future<void> _loadCheckInData() async {
-    setState(() => _isCheckInLoading = true);
-
-    try {
-      final stats = await _firestoreService.getSpaceCheckInStats(
-        widget.spaceId,
-        checkInsPerUser: 4,
-      );
-      final activity = await _firestoreService.getRecentCheckInActivity(
-        widget.spaceId,
-        limit: 5,
-      );
-
-      setState(() {
-        _checkInStats = stats;
-        _recentActivity = activity;
-        _isCheckInLoading = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading check-in data: $e');
-      setState(() => _isCheckInLoading = false);
-    }
-  }
-
-  Future<void> _onRefresh() async {
-    await _loadSpaceData();
-    _subscribeToEvents();
-    _loadCheckInData();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Event Helpers
-  // ---------------------------------------------------------------------------
-
-  SpaceEvent? get _nextEvent {
-    if (_upcomingEvents.isEmpty) return null;
-    return _upcomingEvents.first;
-  }
-
-  Map<String, List<SpaceEvent>> get _thisWeekEvents {
-    final now = DateTime.now();
-    final weekEnd = now.add(const Duration(days: 7));
-    final dayFormat = DateFormat('EEE');
-
-    final weekEvents = _upcomingEvents.where((e) {
-      return e.scheduledAt.isBefore(weekEnd);
-    }).toList();
-
-    final grouped = <String, List<SpaceEvent>>{};
-    for (final event in weekEvents) {
-      final dayKey = dayFormat.format(event.scheduledAt);
-      grouped.putIfAbsent(dayKey, () => []).add(event);
-    }
-    return grouped;
-  }
-
-  String _formatEventTime(DateTime dateTime) {
-    final now = DateTime.now();
-    final isToday = dateTime.year == now.year &&
-        dateTime.month == now.month &&
-        dateTime.day == now.day;
-
-    if (isToday) {
-      return 'Today ${DateFormat.jm().format(dateTime)}';
-    }
-
-    final dayFormat = DateFormat('EEE MMM d');
-    final timeFormat = DateFormat.jm();
-    return '${dayFormat.format(dateTime)} ${timeFormat.format(dateTime)}';
-  }
-
-  // ---------------------------------------------------------------------------
-  // Invite Actions
-  // ---------------------------------------------------------------------------
-
-  String _getInviteUrl() {
-    if (_inviteCode == null) return '';
-
-    if (kIsWeb) {
-      final baseUrl = Uri.base.origin;
-      return '$baseUrl/#/login?code=$_inviteCode';
-    } else {
-      return 'https://couplespace.app/#/login?code=$_inviteCode';
-    }
-  }
-
-  void _copyInviteLink() {
-    final inviteUrl = _getInviteUrl();
-    if (inviteUrl.isEmpty) return;
-
-    Clipboard.setData(ClipboardData(text: inviteUrl));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invite link copied!'),
-        backgroundColor: _refinedRed,
-        behavior: SnackBarBehavior.floating,
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
-
-  void _shareInviteLink() {
-    final inviteUrl = _getInviteUrl();
-    if (inviteUrl.isEmpty) return;
-
-    Share.share(
-      'Join my couple space "$_spaceName"!\n\n$inviteUrl',
-      subject: 'Join $_spaceName',
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // UI Build Methods
-  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) return _buildLoadingSkeleton();
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: _accentRed));
+    }
 
     return RefreshIndicator(
-      onRefresh: _onRefresh,
-      color: _refinedRed,
+      color: _accentRed,
+      backgroundColor: _darkCard,
+      onRefresh: _loadData,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_memberCount == 1 && _inviteCode != null) ...[
-              _buildInvitePartnerCard(),
-              const SizedBox(height: 8),
-            ],
-            _buildEventsSection(),
-            const SizedBox(height: 8),
-            _buildHealthCard(),
-            const SizedBox(height: 8),
-            _buildRecentActivityCard(),
-            const SizedBox(height: 80),
+            _buildMainGrid(),
+            const SizedBox(height: 20),
+            _buildUpcomingEvents(),
+            const SizedBox(height: 100),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEventsSection() {
-    if (_isEventsLoading) {
-      return _buildSkeletonCard(150);
-    }
-
-    if (_eventsError != null) {
-      return _buildEventsErrorCard();
-    }
-
-    if (_upcomingEvents.isEmpty) {
-      return _buildNoEventsCard();
-    }
-
-    return Column(
-      children: [
-        _buildNextUpCard(),
-        const SizedBox(height: 8),
-        _buildThisWeekCard(),
-      ],
-    );
-  }
-
-  Widget _buildEventsErrorCard() {
-    return PremiumCard(
-      child: Column(
+  Widget _buildMainGrid() {
+    return SizedBox(
+      height: 320,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Icon(Icons.error_outline_rounded, size: 48, color: _refinedRed),
-          const SizedBox(height: 16),
-          Text(_eventsError!, style: const TextStyle(fontSize: 16, color: _bodyGray)),
-          const SizedBox(height: 16),
-          cardOutlinedButton(
-            label: 'Retry',
-            icon: Icons.refresh_rounded,
-            onPressed: _subscribeToEvents,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNoEventsCard() {
-    return PremiumCard(
-      padding: const EdgeInsets.all(32),
-      child: EmptyState(
-        icon: Icons.event_note_outlined,
-        title: 'No plans yet',
-        subtitle: 'Add a date night or a weekly check-in to get started.',
-      ),
-    );
-  }
-
-  Widget _buildInvitePartnerCard() {
-    return PremiumCard(
-      glowIntensity: 1.5,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: _refinedRed,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.person_add_rounded, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Invite your partner', style: cardHeadline(context)),
-                    const SizedBox(height: 2),
-                    const Text('Share the link below to connect', style: TextStyle(fontSize: 14, color: _dimText)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            decoration: BoxDecoration(
-              color: _cardVariant,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _refinedRed.withValues(alpha: 0.2)),
-            ),
+          // Left column - Upcoming events
+          Expanded(
+            flex: 1,
             child: Column(
               children: [
-                const Text('Invite Code', style: TextStyle(fontSize: 12, color: _dimText)),
-                const SizedBox(height: 6),
-                Text(
-                  _inviteCode ?? '------',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: _refinedRed,
-                    letterSpacing: 4,
-                  ),
-                ),
+                Expanded(child: _buildUpcomingEventCard(0)),
+                const SizedBox(height: 12),
+                Expanded(child: _buildUpcomingEventCard(1)),
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(child: cardOutlinedButton(label: 'Copy Link', icon: Icons.link_rounded, onPressed: _copyInviteLink)),
-              const SizedBox(width: 12),
-              Expanded(child: cardButton(label: 'Share', icon: Icons.share_rounded, onPressed: _shareInviteLink)),
-            ],
+          const SizedBox(width: 12),
+          // Right column - Health card + Check-in below
+          Expanded(
+            flex: 1,
+            child: Column(
+              children: [
+                Expanded(child: _buildHealthCard()),
+                const SizedBox(height: 12),
+                _buildCheckInCard(),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNextUpCard() {
-    final nextEvent = _nextEvent;
-    if (nextEvent == null) return const SizedBox.shrink();
+  Widget _buildUpcomingEventCard(int index) {
+    // For index 0, show "Today" card; for index 1, show "Next" upcoming event
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    
+    if (index == 0) {
+      // Today's events
+      final todayEvents = _upcomingEvents.where((e) {
+        final eventDay = DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day);
+        return eventDay.isAtSameMomentAs(today);
+      }).toList();
+      
+      return SizedBox(
+        width: double.infinity,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _darkCard,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Today',
+                style: GoogleFonts.outfit(
+                  color: _warmLight,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const Spacer(),
+              if (todayEvents.isNotEmpty) ...[
+                Text(
+                  todayEvents.first.title,
+                  style: GoogleFonts.inter(
+                    color: _warmLight,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4),
+                Text(
+                  DateFormat('h:mm a').format(todayEvents.first.scheduledAt),
+                  style: GoogleFonts.inter(
+                    color: _warmDim,
+                    fontSize: 13,
+                  ),
+                ),
+              ] else
+                Text(
+                  'Nothing planned',
+                  style: GoogleFonts.inter(
+                    color: _warmDim,
+                    fontSize: 15,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Next upcoming event (not today)
+    final futureEvents = _upcomingEvents.where((e) {
+      final eventDay = DateTime(e.scheduledAt.year, e.scheduledAt.month, e.scheduledAt.day);
+      return eventDay.isAfter(today);
+    }).toList();
+    
+    final event = futureEvents.isNotEmpty ? futureEvents.first : null;
+    
+    if (event != null) {
+      final eventDay = DateTime(event.scheduledAt.year, event.scheduledAt.month, event.scheduledAt.day);
+      final daysUntil = eventDay.difference(today).inDays;
+      
+      return SizedBox(
+        width: double.infinity,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _darkCard,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                daysUntil == 1 ? 'Tomorrow' : DateFormat('EEE, MMM d').format(event.scheduledAt),
+                style: GoogleFonts.inter(
+                  color: _warmMuted,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                event.title,
+                style: GoogleFonts.inter(
+                  color: _warmLight,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                DateFormat('h:mm a').format(event.scheduledAt),
+                style: GoogleFonts.inter(
+                  color: _warmDim,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    
+    // Empty state - add event
+    return GestureDetector(
+      onTap: () => widget.showCreateEventSheet(context, widget.spaceId),
+      child: SizedBox(
+        width: double.infinity,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: _darkCard,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Next',
+                style: GoogleFonts.outfit(
+                  color: _warmLight,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                'Plan something',
+                style: GoogleFonts.inter(
+                  color: _warmDim,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-    return PremiumCard(
-      onTap: () {},
+  String _getHealthRemark(int score) {
+    if (score >= 85) return 'Deeply Connected';
+    if (score >= 70) return 'Thriving Together';
+    if (score >= 50) return 'Growing Stronger';
+    if (score >= 30) return 'Room to Grow';
+    return 'Needs Attention';
+  }
+
+  Widget _buildHealthCard() {
+    // Scores are 1-10, convert to 0-100 scale
+    final connectionPct = _checkInStats.avgConnection * 10;
+    final intimacyPct = _checkInStats.avgIntimacy * 10;
+    final peacePct = (10 - _checkInStats.avgStress) * 10; // Invert stress: 10 stress = 0 peace, 1 stress = 90 peace
+    
+    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
+    final progress = overallHealth / 100;
+    
+    return GestureDetector(
+      onTap: () => _showHealthDetails(context),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              _accentRed,
+              _accentRed.withValues(alpha: 0.85),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: _accentRed.withValues(alpha: 0.35),
+              blurRadius: 24,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Health',
+              style: GoogleFonts.outfit(
+                color: _pureBlack.withValues(alpha: 0.9),
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+            ),
+            const Spacer(),
+            // Score with circular progress
+            Center(
+              child: SizedBox(
+                width: 120,
+                height: 120,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    CustomPaint(
+                      size: const Size(120, 120),
+                      painter: _DottedCircleProgressPainter(
+                        progress: progress,
+                        activeColor: _pureBlack,
+                        inactiveColor: _pureBlack.withValues(alpha: 0.2),
+                        dotCount: 32,
+                        dotRadius: 3.2,
+                      ),
+                    ),
+                    Text(
+                      overallHealth.toString(),
+                      style: GoogleFonts.outfit(
+                        color: _pureBlack,
+                        fontSize: 52,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const Spacer(),
+            // Individual metrics row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildSmallIndicator(Icons.favorite_rounded, _checkInStats.avgConnection / 10),
+                _buildSmallIndicatorSvg('assets/icons/flame.svg', _checkInStats.avgIntimacy / 10),
+                _buildSmallIndicatorSvg('assets/icons/peace.svg', (10 - _checkInStats.avgStress) / 10),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildCheckInCard() {
+    return GestureDetector(
+      onTap: () => context.push('/checkin/${widget.spaceId}'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: BoxDecoration(
+          color: _darkCard,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Center(
+          child: Text(
+            'Check in now',
+            style: GoogleFonts.inter(
+              color: _warmLight,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  void _showHealthDetails(BuildContext context) {
+    // Scores are 1-10, convert to 0-100 scale
+    final connectionPct = _checkInStats.avgConnection * 10;
+    final intimacyPct = _checkInStats.avgIntimacy * 10;
+    final peacePct = (10 - _checkInStats.avgStress) * 10;
+    
+    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
+    final remark = _getHealthRemark(overallHealth);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.75,
+        decoration: const BoxDecoration(
+          color: _darkCard,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _warmMuted,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Center(
+                      child: Column(
+                        children: [
+                          Text(
+                            overallHealth.toString(),
+                            style: GoogleFonts.outfit(
+                              color: _accentRed,
+                              fontSize: 80,
+                              fontWeight: FontWeight.w700,
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            remark,
+                            style: GoogleFonts.cormorantGaramond(
+                              color: _warmLight,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                              fontStyle: FontStyle.italic,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Relationship Health Score',
+                            style: GoogleFonts.inter(
+                              color: _warmDim,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Individual metrics
+                    Text(
+                      'BREAKDOWN',
+                      style: GoogleFonts.inter(
+                        color: _warmMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildDetailedMetric(
+                      'Connection',
+                      Icons.favorite_rounded,
+                      connectionPct,
+                      _checkInStats.connectionTrend,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDetailedMetric(
+                      'Intimacy',
+                      Icons.local_fire_department_rounded,
+                      intimacyPct,
+                      _checkInStats.intimacyTrend,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDetailedMetric(
+                      'Peace',
+                      Icons.self_improvement_rounded,
+                      peacePct,
+                      -_checkInStats.stressTrend, // Inverted since lower stress is better
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Trend visualization
+                    Text(
+                      'RECENT TREND',
+                      style: GoogleFonts.inter(
+                        color: _warmMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildTrendChart(),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Stats
+                    Text(
+                      'INSIGHTS',
+                      style: GoogleFonts.inter(
+                        color: _warmMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildInsightCard(
+                            'Check-ins',
+                            _checkInStats.checkInCount.toString(),
+                            'Total recorded',
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildInsightCard(
+                            'Streak',
+                            _streak > 0 ? '$_streak day${_streak > 1 ? 's' : ''} 🔥' : 'Start!',
+                            _streak > 0 ? 'Keep it going!' : 'Check in today',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildDetailedMetric(String label, IconData icon, double value, double trend) {
+    final trendPositive = trend > 0;
+    final trendIcon = trendPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded;
+    final trendColor = trendPositive ? const Color(0xFF4ADE80) : const Color(0xFFF87171);
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _darkCardLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: _cardVariant,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: _refinedRed.withValues(alpha: 0.2)),
+              color: _accentRed.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(nextEvent.type.emoji, style: const TextStyle(fontSize: 24)),
+            child: Icon(icon, color: _accentRed, size: 22),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Next up', style: TextStyle(fontSize: 14, color: _dimText)),
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    color: _warmDim,
+                    fontSize: 12,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                Text(nextEvent.title, style: cardHeadline(context)),
-                Text(_formatEventTime(nextEvent.scheduledAt), style: const TextStyle(fontSize: 14, color: _bodyGray)),
+                Row(
+                  children: [
+                    Text(
+                      value.round().toString(),
+                      style: GoogleFonts.spaceMono(
+                        color: _warmLight,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      '/100',
+                      style: GoogleFonts.inter(
+                        color: _warmMuted,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
-          FilledButton(
-            onPressed: () {},
-            style: FilledButton.styleFrom(
-              backgroundColor: _refinedRed,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          if (trend != 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: trendColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(trendIcon, color: trendColor, size: 14),
+                  const SizedBox(width: 2),
+                  Text(
+                    '${trend.abs().toStringAsFixed(0)}%',
+                    style: GoogleFonts.inter(
+                      color: trendColor,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            child: const Text('View'),
-          ),
         ],
       ),
     );
   }
-
-  Widget _buildHealthCard() {
-    final hasData = _checkInStats.checkInCount > 0;
-
-    return PremiumCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            icon: Icons.favorite_rounded,
-            title: 'Relationship Health',
-          ),
-          const SizedBox(height: 20),
-          if (_isCheckInLoading)
-            const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(strokeWidth: 2, color: _refinedRed)))
-          else if (!hasData)
-            _buildNoCheckInsPrompt()
-          else ...[
-            Row(
-              children: [
-                Expanded(child: MetricDisplay(emoji: '💙', label: 'Connection', value: _checkInStats.avgConnection.toStringAsFixed(1), trend: _checkInStats.connectionTrend)),
-                const SizedBox(width: 16),
-                Expanded(child: MetricDisplay(emoji: '❤️', label: 'Intimacy', value: _checkInStats.avgIntimacy.toStringAsFixed(1), trend: _checkInStats.intimacyTrend)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text('Based on ${_checkInStats.checkInCount} recent check-ins', style: const TextStyle(fontSize: 14, color: _dimText)),
-          ],
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: cardButton(
-              label: 'Check-in now',
-              icon: Icons.edit_note_rounded,
-              onPressed: () => context.push('/checkin/${widget.spaceId}'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNoCheckInsPrompt() {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: _cardVariant,
-            shape: BoxShape.circle,
-          ),
-          child: const Icon(Icons.sentiment_neutral_rounded, size: 48, color: _dimText),
-        ),
-        const SizedBox(height: 12),
-        Text('No check-ins yet', style: cardTitle(context)),
-        const SizedBox(height: 4),
-        const Text(
-          'Check in regularly to track your relationship health',
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 14, color: _dimText),
-        ),
-        const SizedBox(height: 8),
-      ],
-    );
-  }
-
-  Widget _buildThisWeekCard() {
-    final weekEvents = _thisWeekEvents;
-    if (weekEvents.isEmpty) return const SizedBox.shrink();
-
-    final allWeekEvents = <SpaceEvent>[];
-    weekEvents.forEach((_, events) => allWeekEvents.addAll(events));
-
-    return PremiumCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            icon: Icons.date_range_rounded,
-            title: 'This Week',
-          ),
-          const SizedBox(height: 16),
-          ...allWeekEvents.map((event) => EventItem(
-                emoji: event.type.emoji,
-                title: event.title,
-                subtitle: DateFormat('EEE').format(event.scheduledAt),
-              )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentActivityCard() {
-    if (_recentActivity.isEmpty && !_isCheckInLoading) {
-      return const SizedBox.shrink();
-    }
-
-    return PremiumCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            icon: Icons.history_rounded,
-            title: 'Recent Activity',
-          ),
-          const SizedBox(height: 16),
-          if (_isCheckInLoading)
-            const Center(child: Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(strokeWidth: 2, color: _refinedRed)))
-          else
-            ..._recentActivity.map((activity) => _buildActivityItem(activity)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActivityItem(Map<String, dynamic> activity) {
-    final checkIn = activity['checkIn'] as UserCheckIn;
-    final userName = activity['userName'] as String;
-    final currentUserId = _authService.currentUser?.uid;
-    final isCurrentUser = checkIn.userId == currentUserId;
-
-    return ActivityItem(
-      title: isCurrentUser ? 'You checked in' : '$userName checked in',
-      subtitle: checkIn.timeAgo,
-      isCurrentUser: isCurrentUser,
-      scores: [
-        ScoreBadge(emoji: '💙', score: checkIn.connection),
-        const SizedBox(width: 6),
-        ScoreBadge(emoji: '❤️', score: checkIn.intimacy),
-      ],
-    );
-  }
-
-  Widget _buildLoadingSkeleton() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          _buildSkeletonCard(100),
-          const SizedBox(height: 16),
-          _buildSkeletonCard(200),
-          const SizedBox(height: 16),
-          _buildSkeletonCard(180),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSkeletonCard(double height) {
+  
+  Widget _buildTrendChart() {
+    final dayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    final scores = _dailyScores ?? [];
+    
     return Container(
-      width: double.infinity,
-      height: height,
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _cardVariant,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: _refinedRed.withValues(alpha: 0.1)),
+        color: _darkCardLight,
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: _refinedRed.withValues(alpha: 0.5),
-        ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: List.generate(7, (index) {
+              // Use real data if available
+              final dayData = index < scores.length ? scores[index] : null;
+              final score = dayData?['score'] as double? ?? 0;
+              final hasCheckIn = dayData?['hasCheckIn'] as bool? ?? false;
+              final date = dayData?['date'] as DateTime?;
+              
+              // Scale score (0-100) to bar height (10-80)
+              final height = hasCheckIn ? (10 + (score * 0.7)).clamp(10.0, 80.0) : 10.0;
+              final isToday = index == 6;
+              
+              // Get day label from actual date
+              final dayLabel = date != null 
+                  ? dayLabels[date.weekday - 1] 
+                  : dayLabels[index];
+              
+              return Column(
+                children: [
+                  Container(
+                    width: 32,
+                    height: height,
+                    decoration: BoxDecoration(
+                      color: hasCheckIn 
+                          ? (isToday ? _accentRed : _accentRed.withValues(alpha: 0.6))
+                          : _warmMuted.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    dayLabel,
+                    style: GoogleFonts.inter(
+                      color: isToday ? _warmLight : _warmMuted,
+                      fontSize: 11,
+                      fontWeight: isToday ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+          if (scores.isEmpty || !scores.any((d) => d['hasCheckIn'] == true))
+            Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Text(
+                'No check-ins this week',
+                style: GoogleFonts.inter(
+                  color: _warmMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+        ],
       ),
     );
+  }
+  
+  Widget _buildInsightCard(String title, String value, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _darkCardLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.inter(
+              color: _warmMuted,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: GoogleFonts.spaceMono(
+              color: _accentRed,
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: GoogleFonts.inter(
+              color: _warmDim,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSmallIndicator(IconData icon, double progress) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 44,
+          height: 44,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size(44, 44),
+                painter: _ContinuousCircleProgressPainter(
+                  progress: progress,
+                  activeColor: _pureBlack,
+                  inactiveColor: _pureBlack.withValues(alpha: 0.2),
+                  strokeWidth: 3,
+                ),
+              ),
+              Icon(icon, color: _pureBlack, size: 18),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSmallIndicatorSvg(String svgPath, double progress) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 44,
+          height: 44,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size(44, 44),
+                painter: _ContinuousCircleProgressPainter(
+                  progress: progress,
+                  activeColor: _pureBlack,
+                  inactiveColor: _pureBlack.withValues(alpha: 0.2),
+                  strokeWidth: 3,
+                ),
+              ),
+              SvgPicture.asset(
+                svgPath,
+                width: 18,
+                height: 18,
+                colorFilter: const ColorFilter.mode(_pureBlack, BlendMode.srcIn),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUpcomingEvents() {
+    if (_upcomingEvents.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'UPCOMING',
+            style: GoogleFonts.inter(
+              color: _warmMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 2,
+            ),
+          ),
+        ),
+        ..._upcomingEvents.take(3).map((event) => _buildEventItem(event)),
+      ],
+    );
+  }
+
+  Widget _buildEventItem(SpaceEvent event) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final eventDay = DateTime(event.scheduledAt.year, event.scheduledAt.month, event.scheduledAt.day);
+    final daysUntil = eventDay.difference(today).inDays;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: _darkCard,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _accentRed.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              event.type == EventType.dateNight ? Icons.dinner_dining_rounded : Icons.event_rounded,
+              color: _accentRed,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.title,
+                  style: GoogleFonts.inter(
+                    color: _warmLight,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  DateFormat('EEE, MMM d • HH:mm').format(event.scheduledAt),
+                  style: GoogleFonts.inter(
+                    color: _warmMuted,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: daysUntil <= 1 
+                  ? _accentRed.withValues(alpha: 0.15) 
+                  : _darkCardLight,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              daysUntil == 0
+                  ? 'Today'
+                  : daysUntil == 1
+                      ? 'Tomorrow'
+                      : '${daysUntil}d',
+              style: GoogleFonts.inter(
+                color: daysUntil <= 1 ? _accentRed : _warmDim,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+}
+
+// ---------------------------------------------------------------------------
+// Dotted Circle Progress Painter
+// ---------------------------------------------------------------------------
+
+class _DottedCircleProgressPainter extends CustomPainter {
+  final double progress;
+  final Color activeColor;
+  final Color inactiveColor;
+  final int dotCount;
+  final double dotRadius;
+
+  _DottedCircleProgressPainter({
+    required this.progress,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.dotCount,
+    required this.dotRadius,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) - dotRadius - 4;
+
+    final activeDots = (dotCount * progress).round();
+
+    for (int i = 0; i < dotCount; i++) {
+      final angle = (2 * math.pi / dotCount) * i - math.pi / 2;
+      final x = center.dx + radius * math.cos(angle);
+      final y = center.dy + radius * math.sin(angle);
+
+      final paint = Paint()
+        ..color = i < activeDots ? activeColor : inactiveColor
+        ..style = PaintingStyle.fill;
+
+      canvas.drawCircle(Offset(x, y), dotRadius, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DottedCircleProgressPainter oldDelegate) {
+    return progress != oldDelegate.progress;
   }
 }
 
-// =============================================================================
-// Event Creation Bottom Sheet
-// =============================================================================
+class _ContinuousCircleProgressPainter extends CustomPainter {
+  final double progress;
+  final Color activeColor;
+  final Color inactiveColor;
+  final double strokeWidth;
+
+  _ContinuousCircleProgressPainter({
+    required this.progress,
+    required this.activeColor,
+    required this.inactiveColor,
+    required this.strokeWidth,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width / 2) - strokeWidth - 2;
+
+    // Draw inactive background circle
+    final bgPaint = Paint()
+      ..color = inactiveColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawCircle(center, radius, bgPaint);
+
+    // Draw active progress arc
+    final activePaint = Paint()
+      ..color = activeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final sweepAngle = 2 * math.pi * progress;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      -math.pi / 2, // Start from top
+      sweepAngle,
+      false,
+      activePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ContinuousCircleProgressPainter oldDelegate) {
+    return progress != oldDelegate.progress;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Event Creation Sheet (kept for compatibility)
+// ---------------------------------------------------------------------------
 
 class EventCreationSheet extends StatefulWidget {
   const EventCreationSheet({
@@ -651,18 +1087,10 @@ class EventCreationSheet extends StatefulWidget {
 
 class _EventCreationSheetState extends State<EventCreationSheet> {
   final _titleController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-
   EventType _selectedType = EventType.dateNight;
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 1));
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 19, minute: 0);
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _titleController.text = _selectedType.label;
-  }
+  DateTime _selectedDate = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay.now();
+  bool _isCreating = false;
 
   @override
   void dispose() {
@@ -670,42 +1098,21 @@ class _EventCreationSheetState extends State<EventCreationSheet> {
     super.dispose();
   }
 
-  void _onTypeChanged(EventType type) {
-    setState(() {
-      _selectedType = type;
-      if (_titleController.text == EventType.dateNight.label ||
-          _titleController.text == EventType.checkIn.label ||
-          _titleController.text == EventType.special.label) {
-        _titleController.text = type.label;
-      }
-    });
-  }
+  Future<void> _createEvent() async {
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a title')),
+      );
+      return;
+    }
 
-  Future<void> _selectDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) setState(() => _selectedDate = picked);
-  }
-
-  Future<void> _selectTime() async {
-    final picked = await showTimePicker(context: context, initialTime: _selectedTime);
-    if (picked != null) setState(() => _selectedTime = picked);
-  }
-
-  Future<void> _saveEvent() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final userId = widget.authService.currentUser?.uid;
-    if (userId == null) return;
-
-    setState(() => _isLoading = true);
+    setState(() => _isCreating = true);
 
     try {
-      final scheduledAt = DateTime(
+      final userId = widget.authService.currentUser?.uid;
+      if (userId == null) throw Exception('Not authenticated');
+
+      final startTime = DateTime(
         _selectedDate.year,
         _selectedDate.month,
         _selectedDate.day,
@@ -717,137 +1124,150 @@ class _EventCreationSheetState extends State<EventCreationSheet> {
         spaceId: widget.spaceId,
         title: _titleController.text.trim(),
         type: _selectedType,
-        scheduledAt: scheduledAt,
+        scheduledAt: startTime,
         createdBy: userId,
       );
 
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Event created!'),
-            backgroundColor: _refinedRed,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-      debugPrint('Error creating event: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to create event: $e'),
-            backgroundColor: Colors.red.shade700,
-            behavior: SnackBarBehavior.floating,
-          ),
+          SnackBar(content: Text('Error: $e')),
         );
       }
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isCreating = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 500),
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+      padding: EdgeInsets.only(
+        left: 24,
+        right: 24,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: _warmMuted,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'New Event',
+            style: TextStyle(
+              color: _warmLight,
+              fontSize: 22,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 24),
+          TextField(
+            controller: _titleController,
+            style: const TextStyle(color: _warmLight),
+            decoration: InputDecoration(
+              labelText: 'Event title',
+              labelStyle: const TextStyle(color: _warmMuted),
+              filled: true,
+              fillColor: _darkCardLight,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          SegmentedButton<EventType>(
+            segments: const [
+              ButtonSegment(value: EventType.dateNight, label: Text('Date Night')),
+              ButtonSegment(value: EventType.checkIn, label: Text('Check-in')),
+              ButtonSegment(value: EventType.special, label: Text('Special')),
+            ],
+            selected: {_selectedType},
+            onSelectionChanged: (v) => setState(() => _selectedType = v.first),
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) {
+                  return _accentRed.withValues(alpha: 0.2);
+                }
+                return _darkCardLight;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                if (states.contains(WidgetState.selected)) return _accentRed;
+                return _warmDim;
+              }),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
             children: [
-              Row(
-                children: [
-                  Text('Add Event', style: cardHeadline(context)),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, color: _lightText),
-                    onPressed: () => Navigator.of(context).pop(),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: _selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) setState(() => _selectedDate = date);
+                  },
+                  icon: const Icon(Icons.calendar_today, size: 18),
+                  label: Text(DateFormat('MMM d').format(_selectedDate)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _accentRed,
+                    side: BorderSide(color: _accentRed.withValues(alpha: 0.3)),
                   ),
-                ],
-              ),
-              const SizedBox(height: 24),
-              const Text('Event Type', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: _bodyGray)),
-              const SizedBox(height: 8),
-              SegmentedButton<EventType>(
-                segments: EventType.values.map((type) {
-                  return ButtonSegment<EventType>(value: type, label: Text(type.label), icon: Text(type.emoji));
-                }).toList(),
-                selected: {_selectedType},
-                onSelectionChanged: (selection) => _onTypeChanged(selection.first),
-                style: ButtonStyle(
-                  foregroundColor: WidgetStateProperty.resolveWith((states) {
-                    if (states.contains(WidgetState.selected)) return _refinedRed;
-                    return _bodyGray;
-                  }),
                 ),
               ),
-              const SizedBox(height: 20),
-              TextFormField(
-                controller: _titleController,
-                style: const TextStyle(color: _lightText),
-                decoration: InputDecoration(
-                  labelText: 'Title',
-                  hintText: 'Enter event title',
-                  labelStyle: const TextStyle(color: _bodyGray),
-                  hintStyle: const TextStyle(color: _dimText),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                validator: (value) => value == null || value.trim().isEmpty ? 'Please enter a title' : null,
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(child: _buildDateTimeTile(icon: Icons.calendar_today_rounded, label: DateFormat('EEE, MMM d').format(_selectedDate), onTap: _selectDate)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _buildDateTimeTile(icon: Icons.access_time_rounded, label: _selectedTime.format(context), onTap: _selectTime)),
-                ],
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _isLoading ? null : _saveEvent,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _refinedRed,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: _selectedTime,
+                    );
+                    if (time != null) setState(() => _selectedTime = time);
+                  },
+                  icon: const Icon(Icons.access_time, size: 18),
+                  label: Text(_selectedTime.format(context)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _accentRed,
+                    side: BorderSide(color: _accentRed.withValues(alpha: 0.3)),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Text('Save', style: TextStyle(fontWeight: FontWeight.w600)),
                 ),
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateTimeTile({required IconData icon, required String label, required VoidCallback onTap}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        decoration: BoxDecoration(
-          color: _cardVariant,
-          border: Border.all(color: _refinedRed.withValues(alpha: 0.2)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 20, color: _refinedRed),
-            const SizedBox(width: 10),
-            Expanded(child: Text(label, style: const TextStyle(color: _lightText))),
-          ],
-        ),
+          const SizedBox(height: 24),
+          FilledButton(
+            onPressed: _isCreating ? null : _createEvent,
+            style: FilledButton.styleFrom(
+              backgroundColor: _accentRed,
+              foregroundColor: _pureBlack,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: _isCreating
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: _pureBlack),
+                  )
+                : const Text('Create Event', style: TextStyle(fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
   }
