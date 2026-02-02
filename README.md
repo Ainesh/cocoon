@@ -1,31 +1,66 @@
-# Couple Space
+# Cocoon
 
-A Flutter application for couples to create shared spaces, track relationship health, and stay connected. Built with Firebase Authentication and Firestore.
+A Flutter relationship wellness app for couples to track health, plan events, and stay intentionally connected. Built with Firebase Authentication and Firestore.
+
+**"Grow together, intentionally."**
 
 ## Features
 
-- **Social Authentication** - Google and Apple Sign-In with Firebase Auth
+### Core
+- **Social Authentication** - Google Sign-In with Firebase Auth (Apple Sign-In ready)
 - **Couple Spaces** - Create a private space for you and your partner
 - **Invite System** - Share invite codes or URLs to connect with your partner
 - **Bottom Navigation** - 4-tab navigation: Home, Events, Check-ins, Agreements
-- **Dashboard** - View upcoming events, relationship health metrics, and recent activity
-- **Events** - Week/Month view with event planning and navigation
-- **Check-ins** - Track relationship health with Connection, Intimacy, and Stress scores
+
+### Dashboard
+- **Relationship Health Card** - Animated score with:
+  - Suspenseful dot-by-dot loading animation (normal distribution timing)
+  - Haptic feedback for each dot
+  - 3D flip animation revealing health remark
+  - Three metric indicators: Connection ❤️, Intimacy 🔥, Peace ☕
+- **Event Cards** - Today's events and upcoming schedule
+- **Check-in Button** - Quick access to relationship check-in
+
+### Events
+- **Week/Month View** - Toggle between calendar views
+- **Event Planning** - Create and manage couple events
+- **Event Types** - Date nights, check-ins, special occasions
+
+### Check-ins
+- **Health Metrics** - Track Connection, Intimacy, and Stress (1-10 scale)
 - **Trend Charts** - Visualize check-in history with fl_chart
-- **Dark Neumorphic Theme** - Dark Material 3 with refined red glow, red/black duotone, and Inter typography
+- **Partner Activity** - See your partner's recent check-ins
+- **Notes** - Add optional appreciation or thoughts
 
-## Screenshots
+## Design System
 
-The app includes:
-- Clean welcome screen with Google & Apple Sign-In
-- Splash screen with auth state detection
-- Onboarding wizard for space creation
-- Join screen for partners with invite codes
-- Main shell with bottom navigation (Home, Events, Check-ins, Agreements)
-- Dashboard with health metrics, events, and activity feed
-- Events tab with week/month view and event management
-- Check-in screen with sliders and trend charts
-- Check-ins tab with timeline view
+### Theme
+Dark neumorphic Material 3 with warm red accent:
+- **Background**: Pure black (`#0A0A0A`)
+- **Cards**: Dark gray (`#161616`, `#1E1E1E`)
+- **Accent**: Refined red (`#E84545`)
+- **Text**: Warm cream tones (`#EDE6DB`, `#9A938A`, `#6B665F`)
+
+### Typography
+| Purpose | Font | Usage |
+|---------|------|-------|
+| **Display** | Outfit | Headlines, scores, labels |
+| **Body** | Inter | Body text, descriptions |
+| **Tagline** | Cormorant Garamond | Health remarks, elegant text |
+
+### Animations & Haptics
+- **Health Score Loading**: 2.2s animation with normal distribution curve (fast start, slow finish)
+- **Haptic Feedback**: Light impact for each dot, medium impact for card flips
+- **Card Flip**: 3D perspective flip revealing health remark for 2 seconds
+- **Glow Effects**: Red glow on clickable cards, subtle glow on static cards
+
+### Custom Icons
+Located in `assets/icons/`:
+- `flame.svg` - Intimacy indicator (stylized flame)
+- `peace.svg` - Peace indicator (cup/mug)
+- `google_logo.svg` - Google Sign-In
+- `apple_logo.svg` - Apple Sign-In
+- `cocoon_logo.svg` - App logo
 
 ## Getting Started
 
@@ -33,7 +68,7 @@ The app includes:
 
 - Flutter SDK ^3.10.7
 - Firebase project with:
-  - Authentication (Email/Password enabled)
+  - Authentication (Google Sign-In enabled)
   - Firestore Database
 - Platform-specific Firebase config files
 
@@ -73,36 +108,28 @@ service cloud.firestore {
 
     // Spaces
     match /spaces/{spaceId} {
-      // Anyone authenticated can create a space
       allow create: if request.auth != null;
-      
-      // Anyone authenticated can read (needed for join validation)
-      // Router prevents unauthorized dashboard access
       allow read: if request.auth != null;
-      
-      // Update allowed if:
-      // - User is already a member, OR
-      // - User is being added to memberIds (joining)
       allow update: if request.auth != null && (
         request.auth.uid in resource.data.memberIds ||
         (request.auth.uid in request.resource.data.memberIds &&
          request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1)
       );
 
-      // Events subcollection - members can read/write
+      // Events subcollection
       match /events/{eventId} {
         allow read, write: if request.auth != null &&
           request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
       }
 
-      // Check-ins subcollection - members can read/write
+      // Check-ins subcollection
       match /checkins/{checkinId} {
         allow read, write: if request.auth != null &&
           request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
       }
     }
 
-    // Users - read for space members, write only for self
+    // Users
     match /users/{userId} {
       allow read: if request.auth != null && (
         request.auth.uid == userId ||
@@ -125,6 +152,9 @@ cd couple_space
 # Install dependencies
 flutter pub get
 
+# For iOS, install pods
+cd ios && pod install && cd ..
+
 # Run the app
 flutter run -d chrome  # For web
 flutter run -d ios     # For iOS
@@ -135,131 +165,76 @@ flutter run -d android # For Android
 
 ```
 lib/
-├── main.dart                 # App entry point, Firebase init, theme configuration
+├── main.dart                 # App entry, Firebase init, theme config
 ├── firebase_options.dart     # Auto-generated Firebase configuration
 │
 ├── models/
-│   ├── avatar_data.dart      # Avatar and color theme data models
-│   ├── space_event.dart      # Event model (date nights, check-ins, special days)
-│   └── user_checkin.dart     # Check-in model with scores and stats
+│   ├── avatar_data.dart      # Avatar and color theme data
+│   ├── space_event.dart      # Event model with types
+│   └── user_checkin.dart     # Check-in model with stats calculation
 │
 ├── router/
-│   └── app_router.dart       # GoRouter configuration with auth guards
+│   └── app_router.dart       # GoRouter with auth guards
 │
 ├── screens/
-│   ├── splash_screen.dart    # Initial loading & auth state detection
-│   ├── login_screen.dart     # Welcome screen with Google/Apple Sign-In
-│   ├── onboarding_screen.dart # Space creation wizard (name, profile, invite)
-│   ├── join_screen.dart      # Join existing space with invite code
-│   ├── main_shell.dart       # Bottom navigation wrapper (IndexedStack)
-│   ├── dashboard_tab.dart    # Home tab - health metrics, events, activity
-│   ├── calendar_tab.dart     # Events tab - week/month view with events
-│   ├── checkins_tab.dart     # Check-ins tab - timeline of all check-ins
-│   ├── agreements_tab.dart   # Agreements tab - placeholder (coming soon)
-│   ├── checkin_screen.dart   # Check-in form with sliders and trends
-│   └── dashboard_screen.dart # (Legacy - replaced by main_shell + tabs)
+│   ├── splash_screen.dart    # Loading & auth detection
+│   ├── login_screen.dart     # Welcome with social login
+│   ├── onboarding_screen.dart # Space creation wizard
+│   ├── join_screen.dart      # Join space with invite code
+│   ├── main_shell.dart       # Bottom nav wrapper + settings
+│   ├── dashboard_tab.dart    # Home - health, events, check-in
+│   ├── calendar_tab.dart     # Events - week/month view
+│   ├── checkins_tab.dart     # Check-ins timeline
+│   ├── agreements_tab.dart   # Coming soon
+│   └── checkin_screen.dart   # Check-in form with trends
 │
 ├── services/
-│   ├── auth_service.dart     # Firebase Auth wrapper with token storage
-│   └── firestore_service.dart # Firestore operations for couple spaces
+│   ├── auth_service.dart     # Firebase Auth + Google Sign-In
+│   └── firestore_service.dart # All Firestore operations
 │
-└── widgets/
-    ├── avatar_selector.dart      # Avatar and color picker widget
-    ├── glass_container.dart      # Glass morphism container (dark theme)
-    └── neumorphic_container.dart # Neumorphic soft UI container (light theme)
+├── widgets/
+│   ├── avatar_selector.dart      # Avatar & color picker
+│   ├── glass_container.dart      # Glassmorphism widget
+│   └── neumorphic_container.dart # Neumorphic UI widgets
+│
+assets/
+└── icons/
+    ├── flame.svg             # Intimacy icon
+    ├── peace.svg             # Peace icon (cup)
+    ├── google_logo.svg       # Google Sign-In
+    ├── apple_logo.svg        # Apple Sign-In
+    └── cocoon_logo.svg       # App logo
 ```
 
-## Architecture
+## Key Features Implementation
 
-### Services Layer
-
-| Service | Purpose |
-|---------|---------|
-| `AuthService` | Wraps Firebase Auth for Google/Apple Sign-In, manages local token storage |
-| `FirestoreService` | CRUD operations for couple spaces, handles invite codes and membership |
-
-### Data Flow
-
-```
-User Action
-    ↓
-Screen (UI)
-    ↓
-Service (Business Logic)
-    ↓
-Firebase (Backend)
+### Health Score Animation
+```dart
+// Normal distribution curve - fast start, slow finish
+class _SuspensefulCurve extends Curve {
+  double transformInternal(double t) {
+    const k = 3.5;
+    return 1.0 - math.pow(1.0 - t, k).toDouble();
+  }
+}
 ```
 
-### Navigation Architecture
-
-```
-MainShell (bottom navigation bar)
-├── DashboardTab (Home)
-│   ├── Invite Partner Card (if solo)
-│   ├── Events Section (Next up, This Week)
-│   ├── Health Card (Connection, Intimacy)
-│   └── Recent Activity
-├── EventsTab (Events)
-│   ├── Week/Month View Toggle
-│   ├── Day Cards with Events
-│   └── Event Creation FAB
-├── CheckInsTab
-│   ├── Summary Stats
-│   └── Timeline (You & Partner)
-└── AgreementsTab
-    └── Coming Soon Placeholder
+### Card Flip Animation
+```dart
+// 3D perspective flip
+Transform(
+  transform: Matrix4.identity()
+    ..setEntry(3, 2, 0.001) // perspective
+    ..rotateY(angle),
+  child: isBack ? _buildBack() : _buildFront(),
+)
 ```
 
-### Routing
-
-GoRouter handles all navigation with auth guards:
-
-| Route | Screen | Auth Required | Notes |
-|-------|--------|---------------|-------|
-| `/` | Splash | No | Determines initial route |
-| `/login` | Welcome | No | Social login (Google/Apple), supports `?code=` for invites |
-| `/join?code=ABC123` | Join Space | No | Handles auth internally with social login |
-| `/onboarding` | Create Space | Yes | |
-| `/dashboard/:spaceId` | Main Shell | Yes + Member | Bottom nav with 4 tabs |
-| `/checkin/:spaceId` | Check-in | Yes + Member | Submit relationship check-in |
-
-### Bottom Navigation Tabs
-
-The main shell (`/dashboard/:spaceId`) contains 4 tabs:
-
-| Tab | Screen | Description |
-|-----|--------|-------------|
-| Home | `dashboard_tab.dart` | Events, health metrics, recent activity |
-| Events | `calendar_tab.dart` | Week/month view with event planning |
-| Check-ins | `checkins_tab.dart` | Timeline of all check-ins |
-| Agreements | `agreements_tab.dart` | Coming soon placeholder |
-
-## User Flows
-
-### New User (Creating Space)
-
-```
-Splash → Welcome → Google/Apple Sign-In → Onboarding → Dashboard
-                                              ↓
-                                    1. Name your space
-                                    2. Enter name + avatar
-                                    3. Get invite code
-```
-
-### Partner (Joining Space)
-
-```
-Invite URL → Join Screen → Google/Apple Sign-In → Profile Setup → Dashboard
-                                                       ↓
-                                              1. Enter name + avatar
-                                              2. Join space (invite deleted after use)
-```
-
-### Existing User (Joining New Space)
-
-```
-Invite URL → Welcome → Sign-In → Dialog (Switch spaces?) → Join Screen → Dashboard
-```
+### Check-in Stats Calculation
+- Connection, Intimacy, Peace scores (1-10)
+- Peace = inverse of Stress (10 - stress)
+- Overall Health = average of all three × 10 (0-100%)
+- Trends calculated from recent check-ins
 
 ## Dependencies
 
@@ -267,93 +242,32 @@ Invite URL → Welcome → Sign-In → Dialog (Switch spaces?) → Join Screen �
 |---------|---------|---------|
 | `firebase_core` | ^4.4.0 | Firebase initialization |
 | `firebase_auth` | ^6.1.4 | Firebase authentication |
-| `cloud_firestore` | ^6.1.2 | NoSQL database for spaces |
+| `cloud_firestore` | ^6.1.2 | NoSQL database |
 | `google_sign_in` | ^6.2.2 | Google Sign-In |
-| `go_router` | ^17.0.1 | Declarative routing with guards |
-| `shared_preferences` | ^2.5.4 | Local storage for tokens and space ID |
-| `share_plus` | ^10.0.0 | Native share functionality |
-| `intl` | ^0.20.2 | Date/time formatting |
-| `fl_chart` | ^1.1.1 | Trend charts for check-in history |
-| `google_fonts` | ^8.0.0 | Inter typography |
+| `go_router` | ^17.0.1 | Declarative routing |
+| `shared_preferences` | ^2.5.4 | Local storage |
+| `share_plus` | ^10.0.0 | Native share |
+| `intl` | ^0.20.2 | Date formatting |
+| `fl_chart` | ^1.1.1 | Trend charts |
+| `google_fonts` | ^8.0.0 | Outfit, Inter, Cormorant Garamond |
+| `flutter_svg` | ^2.1.0 | SVG icon rendering |
 
-## Firestore Schema
+## Routes
 
-### Collection: `invites` (Temporary, one-time use)
+| Route | Screen | Auth | Notes |
+|-------|--------|------|-------|
+| `/` | Splash | No | Initial route detection |
+| `/login` | Welcome | No | Google/Apple Sign-In |
+| `/join?code=ABC` | Join Space | No | Partner invitation |
+| `/onboarding` | Create Space | Yes | New user setup |
+| `/dashboard/:id` | Main Shell | Yes | 4-tab navigation |
+| `/checkin/:id` | Check-in | Yes | Submit health check-in |
 
-```javascript
-{
-  // Document ID is the invite code (e.g., "ABC123")
-  "spaceId": "auto-generated-space-id",
-  "createdBy": "userId1",
-  "createdAt": Timestamp,
-  "expiresAt": Timestamp  // 7 days from creation
-}
-// Deleted after partner joins (one-time use)
-```
+## Settings
 
-### Collection: `spaces`
-
-```javascript
-{
-  // Document ID is auto-generated (not exposed)
-  "name": "Us ❤️",
-  "memberIds": ["userId1", "userId2"],
-  "createdBy": "userId1",
-  "createdAt": Timestamp,
-  "updatedAt": Timestamp
-}
-```
-
-### Subcollection: `spaces/{spaceId}/events`
-
-```javascript
-{
-  // Document ID is auto-generated
-  "title": "Date Night",
-  "type": "date_night" | "check_in" | "special",
-  "scheduledAt": Timestamp,
-  "createdBy": "userId",
-  "createdAt": Timestamp,
-  "updatedAt": Timestamp
-}
-```
-
-### Subcollection: `spaces/{spaceId}/checkins`
-
-```javascript
-{
-  // Document ID format: {userId}_{timestamp}
-  "userId": "userId",
-  "timestamp": Timestamp,
-  "connection": 1-10,      // Connection score
-  "intimacy": 1-10,        // Intimacy score
-  "stress": 1-10,          // Stress level (higher = more stressed)
-  "notes": "Optional notes or appreciation"
-}
-```
-
-### Collection: `users`
-
-```javascript
-{
-  // Document ID is Firebase Auth UID
-  "name": "Alex",
-  "avatar": "avatar_1_blue",
-  "spaceId": "auto-generated-space-id",
-  "createdAt": Timestamp,
-  "updatedAt": Timestamp
-}
-```
-
-### Security Benefits
-
-- **Invite codes are separate from space IDs** - Brute forcing invite codes doesn't reveal space structure
-- **Invites are one-time use** - Deleted after partner joins
-- **Invites expire** - 7 day expiration for unused codes
-- **Router validates membership** - Users can only access their own space's dashboard
-- **User profiles readable by space members** - Partners can see each other's names and avatars
-- **Join validation** - Users can only add themselves to a space (not others)
-- **Check-ins secured** - Only space members can read/write check-ins
+Accessible from the gear icon in the app bar:
+- **Change Space Name** - Rename your couple space
+- **Sign Out** - Log out of the app
 
 ## Contributing
 
@@ -365,10 +279,11 @@ Invite URL → Welcome → Sign-In → Dialog (Switch spaces?) → Join Screen �
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## Acknowledgments
 
 - Built with [Flutter](https://flutter.dev/)
 - Backend powered by [Firebase](https://firebase.google.com/)
+- Typography from [Google Fonts](https://fonts.google.com/)
 - Icons from [Material Design](https://material.io/icons/)

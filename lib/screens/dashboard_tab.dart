@@ -74,22 +74,56 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
   int _lastHapticDot = -1;
   static const int _totalDots = 32;
 
+  // Card flip animation
+  AnimationController? _flipController;
+  String _healthRemark = '';
+
   @override
   void initState() {
     super.initState();
     _healthAnimController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200), // ~2.2 seconds total
+      duration: const Duration(milliseconds: 2200),
     );
     _healthAnimation = Tween<double>(begin: 0, end: 0).animate(
       CurvedAnimation(parent: _healthAnimController, curve: _suspenseCurve),
     );
     _healthAnimController.addListener(_onHealthAnimationUpdate);
+    _healthAnimController.addStatusListener(_onHealthAnimationStatus);
+
+    _flipController ??= AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+
     _loadData();
   }
 
   // Custom curve: fast start, dramatic slowdown at 80%, crawl to finish
   static const _suspenseCurve = _SuspensefulCurve();
+
+  void _onHealthAnimationStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      // Animation done - flip to show remark
+      _flipToRemark();
+    }
+  }
+
+  Future<void> _flipToRemark() async {
+    if (!mounted || _flipController == null) return;
+    
+    await _flipController!.forward();
+    HapticFeedback.mediumImpact(); // Haptic when landing on back
+    
+    // Stay on back for 2 seconds
+    await Future.delayed(const Duration(milliseconds: 2000));
+    
+    if (!mounted) return;
+    
+    // Flip back
+    await _flipController!.reverse();
+    HapticFeedback.mediumImpact(); // Haptic when landing on front
+  }
 
   void _onHealthAnimationUpdate() {
     // Calculate which dot we're on based on animation value
@@ -122,6 +156,9 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
     final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
     final progress = overallHealth / 100;
     
+    // Store the remark for flip animation
+    _healthRemark = _getHealthRemark(overallHealth);
+    
     // Small delay before starting animation
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) _animateHealthScore(progress);
@@ -131,7 +168,9 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
   @override
   void dispose() {
     _healthAnimController.removeListener(_onHealthAnimationUpdate);
+    _healthAnimController.removeStatusListener(_onHealthAnimationStatus);
     _healthAnimController.dispose();
+    _flipController?.dispose();
     _eventsSubscription?.cancel();
     super.dispose();
   }
@@ -243,8 +282,16 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _darkCard,
+            color: _darkCardLight,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _warmMuted.withValues(alpha: 0.15), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: _accentRed.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,7 +317,7 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   DateFormat('h:mm a').format(todayEvents.first.scheduledAt),
                   style: GoogleFonts.inter(
@@ -309,8 +356,16 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _darkCard,
+            color: _darkCardLight,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _warmMuted.withValues(alpha: 0.15), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: _accentRed.withValues(alpha: 0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +403,7 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
       );
     }
     
-    // Empty state - add event
+    // Empty state - add event (clickable - stronger glow)
     return GestureDetector(
       onTap: () => widget.showCreateEventSheet(context, widget.spaceId),
       child: SizedBox(
@@ -356,8 +411,16 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: _darkCard,
+            color: _darkCardLight,
             borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _accentRed.withValues(alpha: 0.2), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: _accentRed.withValues(alpha: 0.15),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,6 +461,70 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
     // Use animated progress for the visual and number
     final animatedProgress = _healthAnimation.value;
     
+    // If flip controller not ready, just show front
+    if (_flipController == null) {
+      return _buildHealthCardFront(animatedProgress);
+    }
+    
+    return AnimatedBuilder(
+      animation: _flipController!,
+      builder: (context, child) {
+        final angle = _flipController!.value * math.pi;
+        final isBack = angle > math.pi / 2;
+        
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001) // perspective
+            ..rotateY(angle),
+          child: isBack ? _buildHealthCardBack() : _buildHealthCardFront(animatedProgress),
+        );
+      },
+    );
+  }
+
+  Widget _buildHealthCardBack() {
+    return Transform(
+      alignment: Alignment.center,
+      transform: Matrix4.identity()..rotateY(math.pi), // Mirror the back
+      child: GestureDetector(
+        onTap: () => _showHealthDetails(context),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: _darkCardLight,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: _accentRed.withValues(alpha: 0.2),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _healthRemark,
+                style: GoogleFonts.cormorantGaramond(
+                  color: _accentRed,
+                  fontSize: 36,
+                  fontWeight: FontWeight.w700,
+                  fontStyle: FontStyle.italic,
+                  height: 1.1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHealthCardFront(double animatedProgress) {
     return GestureDetector(
       onTap: () => _showHealthDetails(context),
       child: Container(
@@ -425,10 +552,10 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Health',
+              'Relationship Health',
               style: GoogleFonts.outfit(
                 color: _pureBlack.withValues(alpha: 0.9),
-                fontSize: 16,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
                 letterSpacing: -0.3,
               ),
@@ -486,20 +613,35 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
       onTap: () => context.push('/checkin/${widget.spaceId}'),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
-          color: _darkCard,
+          color: _darkCardLight,
           borderRadius: BorderRadius.circular(16),
-        ),
-        child: Center(
-          child: Text(
-            'Check in now',
-            style: GoogleFonts.inter(
-              color: _warmLight,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+          boxShadow: [
+            BoxShadow(
+              color: _accentRed.withValues(alpha: 0.12),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
-          ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Check in',
+              style: GoogleFonts.outfit(
+                color: _accentRed,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Icon(
+              Icons.play_circle_filled_rounded,
+              color: _accentRed,
+              size: 20,
+            ),
+          ],
         ),
       ),
     );
@@ -1328,25 +1470,25 @@ class _EventCreationSheetState extends State<EventCreationSheet> {
   }
 }
 
-/// Custom curve for suspenseful health score animation.
-/// Fast at the start, slows down nicely at the end.
+/// Custom curve following normal distribution pattern.
+/// Fast at start, progressively slower towards the end (right half of bell curve).
 class _SuspensefulCurve extends Curve {
   const _SuspensefulCurve();
 
   @override
   double transformInternal(double t) {
-    // Smooth suspense: fast start, gradual slowdown
-    // - 0-50%: Quick progress (covers 80% of the visual)
-    // - 50-100%: Slowing down for the final stretch
+    // Normal distribution CDF approximation - maps time to progress
+    // This creates the effect where early dots appear rapidly,
+    // and the rate slows down following a bell curve pattern
+    // Peak slowdown is at the very end
     
-    if (t < 0.5) {
-      // First half covers 80% - fast
-      return 0.8 * Curves.easeOut.transform(t / 0.5);
-    } else {
-      // Second half covers last 20% - suspenseful slowdown
-      final localT = (t - 0.5) / 0.5;
-      final easeOutCubic = 1 - math.pow(1 - localT, 3);
-      return 0.8 + 0.2 * easeOutCubic;
-    }
+    // Use error function approximation for normal CDF
+    // We want: fast start -> gradual slowdown -> crawl at end
+    // This is like integrating right half of normal distribution
+    
+    // Simpler approach: use inverse of remaining distance
+    // Progress = 1 - (1-t)^k where k controls the curve steepness
+    const k = 3.5; // Higher = more dramatic slowdown at end
+    return 1.0 - math.pow(1.0 - t, k).toDouble();
   }
 }
