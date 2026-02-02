@@ -8,6 +8,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -18,6 +19,7 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_typography.dart';
+import '../widgets/dotted_slider.dart' show ScoreSelector;
 
 /// Check-in screen for submitting relationship scores.
 class CheckInScreen extends StatefulWidget {
@@ -190,54 +192,48 @@ class _CheckInScreenState extends State<CheckInScreen> {
   List<UserCheckIn> get _partnerCheckIns =>
       _recentCheckIns.where((c) => c.userId != _currentUserId).take(5).toList();
 
-  String _getScoreLabel(double value) {
-    if (value <= 2) return 'Low';
-    if (value <= 4) return 'Fair';
-    if (value <= 6) return 'Good';
-    if (value <= 8) return 'Great';
-    return 'Amazing';
-  }
-
-  Color _getScoreColor(double value) {
-    if (value <= 3) return AppColors.error;
-    if (value <= 5) return AppColors.warning;
-    if (value <= 7) return const Color(0xFFFFB347);
-    return AppColors.success;
-  }
-
   // ---------------------------------------------------------------------------
   // UI Build Methods
   // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.pureBlack,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: Text(
-          'Check-in',
-          style: AppTypography.appBarTitle(weight: FontWeight.w600),
+    return GestureDetector(
+      // Swipe right to go back
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+          HapticFeedback.lightImpact();
+          context.pop();
+        }
+      },
+      child: Scaffold(
+        backgroundColor: AppColors.pureBlack,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            'Check-in',
+            style: AppTypography.appBarTitle(weight: FontWeight.w600),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.lightText),
+            onPressed: () => context.pop(),
+          ),
         ),
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.lightText),
-          onPressed: () => context.pop(),
-        ),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildCheckInForm(),
-            const SizedBox(height: 16),
-            _buildTrendChart(),
-            const SizedBox(height: 16),
-            _buildPartnerCheckIns(),
-            const SizedBox(height: 24),
-          ],
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildCheckInForm(),
+              const SizedBox(height: 16),
+              _buildTrendChart(),
+              const SizedBox(height: 16),
+              _buildPartnerCheckIns(),
+              const SizedBox(height: 24),
+            ],
+          ),
         ),
       ),
     );
@@ -250,157 +246,87 @@ class _CheckInScreenState extends State<CheckInScreen> {
   Widget _buildCheckInForm() {
     final hasLastCheckIn = _hasLoadedDefaults && _myCheckIns.isNotEmpty;
     
-    return _buildCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader(
-            icon: Icons.edit_note_rounded,
-            title: 'How are things?',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'How are things?',
+                style: GoogleFonts.outfit(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.warmLight,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                hasLastCheckIn 
+                    ? 'Starting from your last check-in'
+                    : 'Rate each area from 1-10',
+                style: AppTypography.bodySmall(color: AppColors.warmMuted),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            hasLastCheckIn 
-                ? 'Starting from your last check-in • Rate 1-10'
-                : 'Rate each area from 1-10',
-            style: AppTypography.bodySmall(color: AppColors.warmMuted),
-          ),
-          const SizedBox(height: 24),
+        ),
+        const SizedBox(height: 8),
 
-          // Connection Slider
-          _buildSlider(
-            label: 'Connection',
-            iconWidget: Icon(Icons.favorite_rounded, color: AppColors.accentRed, size: 20),
-            value: _connection,
-            onChanged: (v) => setState(() => _connection = v),
-          ),
-          const SizedBox(height: 20),
+        // Three score selectors - each in their own card
+        ScoreSelector(
+          value: _connection,
+          onChanged: (v) => setState(() => _connection = v),
+          label: 'Connection',
+          icon: Icons.favorite_rounded,
+        ),
+        ScoreSelector(
+          value: _intimacy,
+          onChanged: (v) => setState(() => _intimacy = v),
+          label: 'Intimacy',
+          iconAsset: 'assets/icons/flame.svg',
+        ),
+        ScoreSelector(
+          value: _peace,
+          onChanged: (v) => setState(() => _peace = v),
+          label: 'Peace',
+          iconAsset: 'assets/icons/peace.svg',
+        ),
+        const SizedBox(height: 8),
 
-          // Intimacy Slider
-          _buildSlider(
-            label: 'Intimacy',
-            iconWidget: SvgPicture.asset(
-              'assets/icons/flame.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(AppColors.accentRed, BlendMode.srcIn),
-            ),
-            value: _intimacy,
-            onChanged: (v) => setState(() => _intimacy = v),
+        // Notes field in its own card
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.darkCardLight,
+            borderRadius: BorderRadius.circular(16),
           ),
-          const SizedBox(height: 20),
-
-          // Peace Slider (higher = more peaceful)
-          _buildSlider(
-            label: 'Peace',
-            iconWidget: SvgPicture.asset(
-              'assets/icons/peace.svg',
-              width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(AppColors.accentRed, BlendMode.srcIn),
-            ),
-            value: _peace,
-            onChanged: (v) => setState(() => _peace = v),
-          ),
-          const SizedBox(height: 24),
-
-          // Notes field
-          TextField(
+          child: TextField(
             controller: _notesController,
             style: AppTypography.bodyMedium(color: AppColors.lightText),
             decoration: InputDecoration(
-              labelText: 'Notes (optional)',
-              labelStyle: AppTypography.bodyMedium(color: AppColors.warmMuted),
-              hintText: 'How I\'m feeling / One appreciation...',
+              hintText: 'Add a note (optional)',
               hintStyle: AppTypography.bodySmall(color: AppColors.warmMuted),
               filled: true,
               fillColor: AppColors.cardVariant,
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: AppColors.border(0.2)),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: BorderSide(color: AppColors.border(0.1)),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(16),
-                borderSide: const BorderSide(color: AppColors.accentRed, width: 2),
-              ),
-              alignLabelWithHint: true,
-              counterStyle: AppTypography.labelSmall(color: AppColors.warmMuted),
-            ),
-            maxLines: 3,
-            maxLength: 500,
-          ),
-          const SizedBox(height: 16),
-
-          // Submit button
-          SizedBox(
-            width: double.infinity,
-            child: _buildSubmitButton(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSlider({
-    required String label,
-    required Widget iconWidget,
-    required double value,
-    required ValueChanged<double> onChanged,
-  }) {
-    final color = _getScoreColor(value);
-    final scoreLabel = _getScoreLabel(value);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            iconWidget,
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: AppTypography.titleMedium(color: AppColors.warmLight),
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: color.withValues(alpha: 0.3)),
+                borderSide: BorderSide.none,
               ),
-              child: Text(
-                '${value.round()} · $scoreLabel',
-                style: GoogleFonts.outfit(
-                  fontSize: 14,
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              contentPadding: const EdgeInsets.all(16),
+              isDense: true,
             ),
-          ],
+            maxLines: 2,
+          ),
         ),
-        const SizedBox(height: 12),
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: color,
-            thumbColor: color,
-            inactiveTrackColor: AppColors.cardVariant,
-            overlayColor: color.withValues(alpha: 0.2),
-            trackHeight: 6,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
-          ),
-          child: Slider(
-            value: value,
-            min: 1,
-            max: 10,
-            divisions: 9,
-            onChanged: onChanged,
-          ),
+        const SizedBox(height: 16),
+
+        // Submit button
+        SizedBox(
+          width: double.infinity,
+          child: _buildSubmitButton(),
         ),
       ],
     );

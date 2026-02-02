@@ -36,6 +36,13 @@ A Flutter relationship wellness app for couples to track health, plan events, an
 - **Live Updates** - Events sync across all devices in real-time
 
 ### 💬 Check-ins
+- **Score Selectors** - Custom circular sliders matching dashboard aesthetic
+  - Dotted circle progress (32 dots, like health card)
+  - Horizontal bar with subtle background track
+  - Blue-to-red gradient based on score (low=blue, high=red)
+  - Glowing numbers and bars
+  - Haptic feedback tied to dot filling
+  - Minimum bar width prevents empty state
 - **Health Metrics** - Connection ❤️, Intimacy 🔥, Peace ☕ (1-10 scale)
 - **Smart Defaults** - Sliders start from your last check-in values
 - **Trend Charts** - Visualize your check-in history with smooth curves
@@ -165,6 +172,7 @@ lib/
 └── widgets/
     ├── avatar_selector.dart  # Avatar & color picker
     ├── neumorphic_container.dart # Premium card widgets
+    ├── dotted_slider.dart    # ScoreSelector - circular + bar slider
     ├── animations/
     │   └── suspenseful_curve.dart # Normal distribution curve
     └── painters/

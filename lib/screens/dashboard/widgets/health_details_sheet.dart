@@ -266,7 +266,7 @@ class _HealthDetailsContent extends StatelessWidget {
                     ),
                   ),
                   TextSpan(
-                    text: ' pulse over last 30 days',
+                    text: ' over last 30 days',
                     style: GoogleFonts.inter(
                       color: AppColors.warmLight,
                       fontSize: 13,
@@ -332,7 +332,7 @@ class _HealthDetailsContent extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    'Understanding Pulse',
+                    'Understanding Insights',
                     style: GoogleFonts.outfit(
                       color: AppColors.warmLight,
                       fontSize: 18,
@@ -343,7 +343,7 @@ class _HealthDetailsContent extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Text(
-                'The pulse describes your relationship\'s rhythm over the past 30 days:',
+                'The pulse describes your relationship\'s rhythm over time:',
                 style: GoogleFonts.inter(
                   color: AppColors.warmDim,
                   fontSize: 13,
