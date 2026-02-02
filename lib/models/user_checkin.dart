@@ -122,6 +122,8 @@ class CheckInStats {
     required this.avgIntimacy,
     required this.avgStress,
     required this.checkInCount,
+    this.userCheckInCount = 0,
+    this.partnerCheckInCount = 0,
     this.connectionTrend = 0,
     this.intimacyTrend = 0,
     this.stressTrend = 0,
@@ -138,6 +140,12 @@ class CheckInStats {
 
   /// Number of check-ins included in stats.
   final int checkInCount;
+  
+  /// Number of check-ins from the current user.
+  final int userCheckInCount;
+  
+  /// Number of check-ins from the partner.
+  final int partnerCheckInCount;
 
   /// Connection trend (-1 to 1, positive = improving).
   final double connectionTrend;
@@ -157,13 +165,22 @@ class CheckInStats {
   );
 
   /// Calculates stats from a list of check-ins.
-  factory CheckInStats.fromCheckIns(List<UserCheckIn> checkIns) {
+  /// [currentUserId] is used to separate user vs partner check-in counts.
+  factory CheckInStats.fromCheckIns(List<UserCheckIn> checkIns, {String? currentUserId}) {
     if (checkIns.isEmpty) return empty;
 
     final connection = checkIns.map((c) => c.connection).reduce((a, b) => a + b);
     final intimacy = checkIns.map((c) => c.intimacy).reduce((a, b) => a + b);
     final stress = checkIns.map((c) => c.stress).reduce((a, b) => a + b);
     final count = checkIns.length;
+    
+    // Count user vs partner check-ins
+    int userCount = 0;
+    int partnerCount = 0;
+    if (currentUserId != null) {
+      userCount = checkIns.where((c) => c.userId == currentUserId).length;
+      partnerCount = count - userCount;
+    }
 
     // Calculate trend (compare first half vs second half)
     double connectionTrend = 0;
@@ -193,6 +210,8 @@ class CheckInStats {
       avgIntimacy: intimacy / count,
       avgStress: stress / count,
       checkInCount: count,
+      userCheckInCount: userCount,
+      partnerCheckInCount: partnerCount,
       connectionTrend: connectionTrend.clamp(-1, 1),
       intimacyTrend: intimacyTrend.clamp(-1, 1),
       stressTrend: stressTrend.clamp(-1, 1),

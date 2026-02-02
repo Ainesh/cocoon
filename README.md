@@ -6,107 +6,225 @@ A Flutter relationship wellness app for couples to track health, plan events, an
 
 ## Features
 
-### Core
-- **Social Authentication** - Google Sign-In with Firebase Auth (Apple Sign-In ready)
-- **Couple Spaces** - Create a private space for you and your partner
-- **Invite System** - Share invite codes or URLs to connect with your partner
-- **Bottom Navigation** - 4-tab navigation: Home, Events, Check-ins, Agreements
+### 🔐 Authentication
+- **Email/Password** - Traditional sign up and sign in
+- **Google Sign-In** - One-tap authentication with Google
+- **Apple Sign-In** - Ready for integration (requires paid developer account)
 
-### Dashboard
-- **Relationship Health Card** - Animated score with:
-  - Suspenseful dot-by-dot loading animation (normal distribution timing)
-  - Haptic feedback for each dot
+### 🏠 Couple Spaces
+- Create a private space for you and your partner
+- Invite via 6-character code or shareable URL
+- Space name customization from settings
+
+### 📊 Dashboard
+- **Relationship Health Card**
+  - Animated circular progress with 32 dots
+  - Normal distribution timing curve (fast start, slow suspenseful finish)
+  - Haptic feedback for each dot (light impact)
   - 3D flip animation revealing health remark
-  - Three metric indicators: Connection ❤️, Intimacy 🔥, Peace ☕
-- **Event Cards** - Today's events and upcoming schedule
+  - Tap for detailed breakdown popup
+- **Event Cards** - Today's and upcoming events at a glance
 - **Check-in Button** - Quick access to relationship check-in
 
-### Events
-- **Week/Month View** - Toggle between calendar views
-- **Event Planning** - Create and manage couple events
-- **Event Types** - Date nights, check-ins, special occasions
+### 📅 Events
+- **Week/Month Views** - Toggle between calendar layouts
+- **Event Types** - Date nights 🌙, check-ins ✓, special occasions ⭐
+- **Navigation** - Browse past and future weeks/months
 
-### Check-ins
-- **Health Metrics** - Track Connection, Intimacy, and Stress (1-10 scale)
-- **Trend Charts** - Visualize check-in history with fl_chart
+### 💬 Check-ins
+- **Health Metrics** - Connection, Intimacy, Stress (1-10 scale)
+- **Trend Charts** - Visualize your check-in history
 - **Partner Activity** - See your partner's recent check-ins
 - **Notes** - Add optional appreciation or thoughts
+
+### 📈 Health Score Calculation
+- Connection (1-10) × 10 = Connection %
+- Intimacy (1-10) × 10 = Intimacy %
+- Peace = (10 - Stress) × 10 = Peace %
+- **Overall Health** = Average of all three (0-100%)
+
+Scores are calculated from check-ins in the **past 30 days** from both partners.
 
 ## Design System
 
 ### Theme
 Dark neumorphic Material 3 with warm red accent:
-- **Background**: Pure black (`#0A0A0A`)
-- **Cards**: Dark gray (`#161616`, `#1E1E1E`)
-- **Accent**: Refined red (`#E84545`)
-- **Text**: Warm cream tones (`#EDE6DB`, `#9A938A`, `#6B665F`)
+
+| Token | Color | Usage |
+|-------|-------|-------|
+| `pureBlack` | `#0A0A0A` | Background |
+| `darkCard` | `#161616` | Card backgrounds |
+| `darkCardLight` | `#1E1E1E` | Elevated cards |
+| `accentRed` | `#E84545` | Primary accent |
+| `warmLight` | `#EDE6DB` | High-contrast text |
+| `warmMuted` | `#6B665F` | Subtle text |
 
 ### Typography
+
 | Purpose | Font | Usage |
 |---------|------|-------|
-| **Display** | Outfit | Headlines, scores, labels |
-| **Body** | Inter | Body text, descriptions |
+| **Display** | Outfit | Headlines, scores, app bar |
+| **Body** | Inter | Body text, labels, descriptions |
 | **Tagline** | Cormorant Garamond | Health remarks, elegant text |
 
 ### Animations & Haptics
-- **Health Score Loading**: 2.2s animation with normal distribution curve (fast start, slow finish)
-- **Haptic Feedback**: Light impact for each dot, medium impact for card flips
-- **Card Flip**: 3D perspective flip revealing health remark for 2 seconds
-- **Glow Effects**: Red glow on clickable cards, subtle glow on static cards
+
+| Animation | Duration | Details |
+|-----------|----------|---------|
+| Health dots | 2.2s | Normal distribution curve |
+| Card flip | 400ms | 3D perspective transform |
+| Micro-interactions | 100-150ms | Scale & glow effects |
+
+| Haptic | Trigger |
+|--------|---------|
+| Light impact | Each health dot fills |
+| Medium impact | Card flip lands |
 
 ### Custom Icons
 Located in `assets/icons/`:
-- `flame.svg` - Intimacy indicator (stylized flame)
-- `peace.svg` - Peace indicator (cup/mug)
+- `flame.svg` - Intimacy indicator
+- `peace.svg` - Peace indicator (cup)
 - `google_logo.svg` - Google Sign-In
 - `apple_logo.svg` - Apple Sign-In
 - `cocoon_logo.svg` - App logo
 
+## Architecture
+
+### Project Structure
+
+```
+lib/
+├── main.dart                 # App entry, Firebase init, theme
+├── firebase_options.dart     # Auto-generated Firebase config
+│
+├── theme/                    # 🆕 Centralized theming
+│   ├── theme.dart            # Barrel export
+│   ├── app_colors.dart       # Color constants
+│   └── app_typography.dart   # Text styles
+│
+├── models/
+│   ├── avatar_data.dart      # Avatar and color data
+│   ├── space_event.dart      # Event model with types
+│   └── user_checkin.dart     # Check-in model & stats
+│
+├── router/
+│   └── app_router.dart       # GoRouter with auth guards
+│
+├── screens/
+│   ├── splash_screen.dart    # Loading & auth detection
+│   ├── login_screen.dart     # Welcome with auth options
+│   ├── onboarding_screen.dart # Space creation wizard
+│   ├── join_screen.dart      # Join space with invite
+│   ├── main_shell.dart       # Bottom nav + settings
+│   ├── dashboard_tab.dart    # Home - health, events
+│   ├── calendar_tab.dart     # Events - week/month
+│   ├── checkins_tab.dart     # Check-ins timeline
+│   ├── agreements_tab.dart   # Coming soon
+│   └── checkin_screen.dart   # Check-in form
+│
+├── services/
+│   ├── auth_service.dart     # Firebase Auth + Google
+│   └── firestore_service.dart # All Firestore CRUD
+│
+└── widgets/
+    ├── avatar_selector.dart      # Avatar & color picker
+    └── neumorphic_container.dart # Premium card widgets
+```
+
+### Services
+
+#### AuthService
+- Email/password authentication
+- Google Sign-In with singleton pattern
+- Local token storage via SharedPreferences
+- Error message mapping for Firebase codes
+
+#### FirestoreService
+- Space creation with invite codes
+- User profile management
+- Event CRUD operations
+- Check-in submission and stats
+- Streak calculation
+- Daily health scores
+
+### Data Models
+
+#### SpaceEvent
+```dart
+enum EventType { dateNight, checkIn, special }
+
+SpaceEvent {
+  id, title, type, scheduledAt, createdBy
+}
+```
+
+#### UserCheckIn
+```dart
+UserCheckIn {
+  id, userId, timestamp,
+  connection (1-10), intimacy (1-10), stress (1-10),
+  notes
+}
+```
+
+#### CheckInStats
+```dart
+CheckInStats {
+  avgConnection, avgIntimacy, avgStress,
+  checkInCount, userCheckInCount, partnerCheckInCount,
+  connectionTrend, intimacyTrend, stressTrend (-1 to 1)
+}
+```
+
 ## Getting Started
 
 ### Prerequisites
-
 - Flutter SDK ^3.10.7
 - Firebase project with:
-  - Authentication (Google Sign-In enabled)
+  - Authentication (Email, Google enabled)
   - Firestore Database
-- Platform-specific Firebase config files
+- Platform-specific config files
 
 ### Firebase Setup
 
-1. Create a Firebase project at [Firebase Console](https://console.firebase.google.com)
-2. Enable authentication providers in Authentication → Sign-in method:
-   - **Google** - Enable and configure (required)
-   - **Apple** - Enable (requires paid Apple Developer account)
-3. Create a **Firestore Database** in test mode
-4. Install FlutterFire CLI:
+1. **Create Firebase Project**
    ```bash
+   # Install FlutterFire CLI
    dart pub global activate flutterfire_cli
-   ```
-5. Configure Firebase for your project:
-   ```bash
+   
+   # Configure for your project
    flutterfire configure --project=your-project-id
    ```
-6. For Google Sign-In on web, add to `web/index.html`:
+
+2. **Enable Authentication**
+   - Firebase Console → Authentication → Sign-in method
+   - Enable **Email/Password**
+   - Enable **Google** (configure OAuth consent)
+
+3. **Web Configuration** (for Google Sign-In)
    ```html
+   <!-- web/index.html -->
    <meta name="google-signin-client_id" content="YOUR_WEB_CLIENT_ID">
    ```
-7. For iOS, add the `REVERSED_CLIENT_ID` URL scheme to `ios/Runner/Info.plist`
+
+4. **iOS Configuration**
+   - Add `REVERSED_CLIENT_ID` URL scheme to `ios/Runner/Info.plist`
+
+5. **Enable People API**
+   - Google Cloud Console → APIs → Enable "People API"
 
 ### Firestore Security Rules
-
-Add these rules in Firebase Console → Firestore → Rules:
 
 ```javascript
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Invites - authenticated users can read/write/delete
+    // Invites - authenticated users can manage
     match /invites/{inviteId} {
       allow read, write: if request.auth != null;
     }
 
-    // Spaces
+    // Spaces - members can read/write
     match /spaces/{spaceId} {
       allow create: if request.auth != null;
       allow read: if request.auth != null;
@@ -129,7 +247,7 @@ service cloud.firestore {
       }
     }
 
-    // Users
+    // Users - owner can write, space members can read
     match /users/{userId} {
       allow read: if request.auth != null && (
         request.auth.uid == userId ||
@@ -145,145 +263,119 @@ service cloud.firestore {
 ### Installation
 
 ```bash
-# Clone the repository
+# Clone repository
 git clone https://github.com/your-username/couple_space.git
 cd couple_space
 
 # Install dependencies
 flutter pub get
 
-# For iOS, install pods
+# iOS: Install pods
 cd ios && pod install && cd ..
 
-# Run the app
-flutter run -d chrome  # For web
-flutter run -d ios     # For iOS
-flutter run -d android # For Android
+# Run
+flutter run -d chrome   # Web
+flutter run -d ios      # iOS Simulator
+flutter run -d android  # Android Emulator
 ```
 
-## Project Structure
+### Hot Reload
+- **VS Code/Cursor**: Save file (auto)
+- **Terminal**: Press `r`
+- **Device**: Press `R` for hot restart
 
-```
-lib/
-├── main.dart                 # App entry, Firebase init, theme config
-├── firebase_options.dart     # Auto-generated Firebase configuration
-│
-├── models/
-│   ├── avatar_data.dart      # Avatar and color theme data
-│   ├── space_event.dart      # Event model with types
-│   └── user_checkin.dart     # Check-in model with stats calculation
-│
-├── router/
-│   └── app_router.dart       # GoRouter with auth guards
-│
-├── screens/
-│   ├── splash_screen.dart    # Loading & auth detection
-│   ├── login_screen.dart     # Welcome with social login
-│   ├── onboarding_screen.dart # Space creation wizard
-│   ├── join_screen.dart      # Join space with invite code
-│   ├── main_shell.dart       # Bottom nav wrapper + settings
-│   ├── dashboard_tab.dart    # Home - health, events, check-in
-│   ├── calendar_tab.dart     # Events - week/month view
-│   ├── checkins_tab.dart     # Check-ins timeline
-│   ├── agreements_tab.dart   # Coming soon
-│   └── checkin_screen.dart   # Check-in form with trends
-│
-├── services/
-│   ├── auth_service.dart     # Firebase Auth + Google Sign-In
-│   └── firestore_service.dart # All Firestore operations
-│
-├── widgets/
-│   ├── avatar_selector.dart      # Avatar & color picker
-│   ├── glass_container.dart      # Glassmorphism widget
-│   └── neumorphic_container.dart # Neumorphic UI widgets
-│
-assets/
-└── icons/
-    ├── flame.svg             # Intimacy icon
-    ├── peace.svg             # Peace icon (cup)
-    ├── google_logo.svg       # Google Sign-In
-    ├── apple_logo.svg        # Apple Sign-In
-    └── cocoon_logo.svg       # App logo
-```
+## Routes
 
-## Key Features Implementation
-
-### Health Score Animation
-```dart
-// Normal distribution curve - fast start, slow finish
-class _SuspensefulCurve extends Curve {
-  double transformInternal(double t) {
-    const k = 3.5;
-    return 1.0 - math.pow(1.0 - t, k).toDouble();
-  }
-}
-```
-
-### Card Flip Animation
-```dart
-// 3D perspective flip
-Transform(
-  transform: Matrix4.identity()
-    ..setEntry(3, 2, 0.001) // perspective
-    ..rotateY(angle),
-  child: isBack ? _buildBack() : _buildFront(),
-)
-```
-
-### Check-in Stats Calculation
-- Connection, Intimacy, Peace scores (1-10)
-- Peace = inverse of Stress (10 - stress)
-- Overall Health = average of all three × 10 (0-100%)
-- Trends calculated from recent check-ins
+| Route | Screen | Auth | Description |
+|-------|--------|------|-------------|
+| `/` | Splash | No | Initial routing logic |
+| `/login` | Welcome | No | Auth options |
+| `/join?code=ABC` | Join | No | Partner invitation |
+| `/onboarding` | Create Space | Yes | New user setup |
+| `/dashboard/:id` | Main Shell | Yes | 4-tab navigation |
+| `/checkin/:id` | Check-in | Yes | Submit scores |
 
 ## Dependencies
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `firebase_core` | ^4.4.0 | Firebase initialization |
-| `firebase_auth` | ^6.1.4 | Firebase authentication |
-| `cloud_firestore` | ^6.1.2 | NoSQL database |
-| `google_sign_in` | ^6.2.2 | Google Sign-In |
-| `go_router` | ^17.0.1 | Declarative routing |
+| `firebase_core` | ^4.4.0 | Firebase init |
+| `firebase_auth` | ^6.1.4 | Authentication |
+| `cloud_firestore` | ^6.1.2 | Database |
+| `google_sign_in` | ^6.2.2 | Google auth |
+| `go_router` | ^17.0.1 | Navigation |
 | `shared_preferences` | ^2.5.4 | Local storage |
-| `share_plus` | ^10.0.0 | Native share |
+| `share_plus` | ^10.0.0 | Share functionality |
 | `intl` | ^0.20.2 | Date formatting |
 | `fl_chart` | ^1.1.1 | Trend charts |
-| `google_fonts` | ^8.0.0 | Outfit, Inter, Cormorant Garamond |
-| `flutter_svg` | ^2.1.0 | SVG icon rendering |
+| `google_fonts` | ^8.0.0 | Typography |
+| `flutter_svg` | ^2.1.0 | SVG icons |
 
-## Routes
+## Code Quality
 
-| Route | Screen | Auth | Notes |
-|-------|--------|------|-------|
-| `/` | Splash | No | Initial route detection |
-| `/login` | Welcome | No | Google/Apple Sign-In |
-| `/join?code=ABC` | Join Space | No | Partner invitation |
-| `/onboarding` | Create Space | Yes | New user setup |
-| `/dashboard/:id` | Main Shell | Yes | 4-tab navigation |
-| `/checkin/:id` | Check-in | Yes | Submit health check-in |
+### Centralized Theme
+Import theme constants:
+```dart
+import 'package:couple_space/theme/theme.dart';
 
-## Settings
+// Use colors
+Container(color: AppColors.accentRed)
 
-Accessible from the gear icon in the app bar:
-- **Change Space Name** - Rename your couple space
-- **Sign Out** - Log out of the app
+// Use typography
+Text('Hello', style: AppTypography.headlineLarge())
+```
+
+### Error Handling
+All Firestore operations include try-catch with debug logging:
+```dart
+try {
+  await _firestore.collection('spaces').doc(id).get();
+} catch (e) {
+  debugPrint('Error: $e');
+  return null;
+}
+```
+
+### Singleton Services
+Google Sign-In uses a shared instance to prevent "Future already completed" errors:
+```dart
+static final GoogleSignIn _sharedGoogleSignIn = GoogleSignIn();
+static bool _isSigningIn = false;
+```
+
+## Known Issues & Solutions
+
+### Google Sign-In on Web
+- **Issue**: "Future already completed" error
+- **Solution**: Singleton `GoogleSignIn` instance with `signOut()` before `signIn()`
+
+### Firestore Composite Index
+- **Issue**: Query requires index for `userId` + `timestamp`
+- **Solution**: Create index in Firebase Console or use provided link in error
+
+### iOS CocoaPods
+- **Issue**: Sandbox sync errors
+- **Solution**: `cd ios && pod install --repo-update`
+
+### Hot Reload Errors
+- **Issue**: `LateInitializationError` for AnimationController
+- **Solution**: Make controller nullable with safe initialization
 
 ## Contributing
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License - see LICENSE file for details.
 
 ## Acknowledgments
 
 - Built with [Flutter](https://flutter.dev/)
-- Backend powered by [Firebase](https://firebase.google.com/)
+- Backend by [Firebase](https://firebase.google.com/)
 - Typography from [Google Fonts](https://fonts.google.com/)
 - Icons from [Material Design](https://material.io/icons/)

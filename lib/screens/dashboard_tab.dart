@@ -57,6 +57,7 @@ class DashboardTab extends StatefulWidget {
 
 class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMixin {
   final _firestoreService = FirestoreService();
+  final _authService = AuthService();
 
   bool _isLoading = true;
 
@@ -177,8 +178,12 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
 
   Future<void> _loadData() async {
     try {
+      final currentUserId = _authService.currentUser?.uid;
       final results = await Future.wait([
-        _firestoreService.getSpaceCheckInStats(widget.spaceId),
+        _firestoreService.getSpaceCheckInStats(
+          widget.spaceId,
+          currentUserId: currentUserId,
+        ),
         _firestoreService.getDailyHealthScores(widget.spaceId, days: 7),
         _firestoreService.getCheckInStreak(widget.spaceId),
       ]);
@@ -661,7 +666,7 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) => Container(
-        height: MediaQuery.of(context).size.height * 0.75,
+        height: MediaQuery.of(context).size.height * 0.8,
         decoration: const BoxDecoration(
           color: _darkCard,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
@@ -682,124 +687,144 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Header
-                    Center(
-                      child: Column(
+                    // Top: Centered score
+                    Text(
+                      overallHealth.toString(),
+                      style: GoogleFonts.outfit(
+                        color: _accentRed,
+                        fontSize: 96,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      remark,
+                      style: GoogleFonts.cormorantGaramond(
+                        color: _warmLight,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Two columns: Left insights, Right attributes
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            overallHealth.toString(),
-                            style: GoogleFonts.outfit(
-                              color: _accentRed,
-                              fontSize: 80,
-                              fontWeight: FontWeight.w700,
-                              height: 1,
+                          // Left: Insights
+                          Expanded(
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: _darkCardLight,
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'INSIGHTS',
+                                    style: GoogleFonts.inter(
+                                      color: _warmMuted,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 1.5,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  _buildInsightRow('Past 30 Days', _checkInStats.checkInCount.toString(), 'total'),
+                                  const SizedBox(height: 12),
+                                  _buildInsightRow('Your check-ins', _checkInStats.userCheckInCount.toString(), ''),
+                                  const SizedBox(height: 12),
+                                  _buildInsightRow('Partner check-ins', _checkInStats.partnerCheckInCount.toString(), ''),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: _accentRed.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.local_fire_department_rounded, color: _accentRed, size: 16),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          '$_streak day streak',
+                                          style: GoogleFonts.outfit(
+                                            color: _accentRed,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            remark,
-                            style: GoogleFonts.cormorantGaramond(
-                              color: _warmLight,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w600,
-                              fontStyle: FontStyle.italic,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Relationship Health Score',
-                            style: GoogleFonts.inter(
-                              color: _warmDim,
-                              fontSize: 12,
+                          const SizedBox(width: 12),
+                          // Right: Attribute breakdown
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Expanded(
+                                  child: _buildCompactMetric(
+                                    'Connection',
+                                    Icons.favorite_rounded,
+                                    null,
+                                    connectionPct,
+                                    _checkInStats.connectionTrend,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: _buildCompactMetricSvg(
+                                    'Intimacy',
+                                    'assets/icons/flame.svg',
+                                    intimacyPct,
+                                    _checkInStats.intimacyTrend,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Expanded(
+                                  child: _buildCompactMetricSvg(
+                                    'Peace',
+                                    'assets/icons/peace.svg',
+                                    peacePct,
+                                    -_checkInStats.stressTrend,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 32),
                     
-                    // Individual metrics
-                    Text(
-                      'BREAKDOWN',
-                      style: GoogleFonts.inter(
-                        color: _warmMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildDetailedMetric(
-                      'Connection',
-                      Icons.favorite_rounded,
-                      connectionPct,
-                      _checkInStats.connectionTrend,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDetailedMetric(
-                      'Intimacy',
-                      Icons.local_fire_department_rounded,
-                      intimacyPct,
-                      _checkInStats.intimacyTrend,
-                    ),
-                    const SizedBox(height: 12),
-                    _buildDetailedMetric(
-                      'Peace',
-                      Icons.self_improvement_rounded,
-                      peacePct,
-                      -_checkInStats.stressTrend, // Inverted since lower stress is better
-                    ),
-                    
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
                     
                     // Trend visualization
-                    Text(
-                      'RECENT TREND',
-                      style: GoogleFonts.inter(
-                        color: _warmMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.5,
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'WEEKLY TREND',
+                        style: GoogleFonts.inter(
+                          color: _warmMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     _buildTrendChart(),
-                    
-                    const SizedBox(height: 32),
-                    
-                    // Stats
-                    Text(
-                      'INSIGHTS',
-                      style: GoogleFonts.inter(
-                        color: _warmMuted,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildInsightCard(
-                            'Check-ins',
-                            _checkInStats.checkInCount.toString(),
-                            'Total recorded',
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildInsightCard(
-                            'Streak',
-                            _streak > 0 ? '$_streak day${_streak > 1 ? 's' : ''} 🔥' : 'Start!',
-                            _streak > 0 ? 'Keep it going!' : 'Check in today',
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -810,29 +835,67 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
     );
   }
   
-  Widget _buildDetailedMetric(String label, IconData icon, double value, double trend) {
+  Widget _buildInsightRow(String label, String value, String suffix) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.inter(
+            color: _warmDim,
+            fontSize: 13,
+          ),
+        ),
+        Row(
+          children: [
+            Text(
+              value,
+              style: GoogleFonts.outfit(
+                color: _warmLight,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            if (suffix.isNotEmpty) ...[
+              const SizedBox(width: 4),
+              Text(
+                suffix,
+                style: GoogleFonts.inter(
+                  color: _warmMuted,
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompactMetric(String label, IconData? icon, String? svgPath, double value, double trend) {
     final trendPositive = trend > 0;
-    final trendIcon = trendPositive ? Icons.trending_up_rounded : Icons.trending_down_rounded;
     final trendColor = trendPositive ? const Color(0xFF4ADE80) : const Color(0xFFF87171);
     
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: _darkCardLight,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
         children: [
           Container(
-            width: 48,
-            height: 48,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               color: _accentRed.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: _accentRed, size: 22),
+            child: icon != null 
+                ? Icon(icon, color: _accentRed, size: 18)
+                : null,
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -840,56 +903,101 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
                 Text(
                   label,
                   style: GoogleFonts.inter(
-                    color: _warmDim,
-                    fontSize: 12,
+                    color: _warmMuted,
+                    fontSize: 11,
                   ),
                 ),
-                const SizedBox(height: 4),
                 Row(
                   children: [
                     Text(
                       value.round().toString(),
-                      style: GoogleFonts.spaceMono(
+                      style: GoogleFonts.outfit(
                         color: _warmLight,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Text(
-                      '/100',
-                      style: GoogleFonts.inter(
-                        color: _warmMuted,
-                        fontSize: 14,
+                    if (trend != 0) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        trendPositive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                        color: trendColor,
+                        size: 12,
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ],
             ),
           ),
-          if (trend != 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: trendColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(trendIcon, color: trendColor, size: 14),
-                  const SizedBox(width: 2),
-                  Text(
-                    '${trend.abs().toStringAsFixed(0)}%',
-                    style: GoogleFonts.inter(
-                      color: trendColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactMetricSvg(String label, String svgPath, double value, double trend) {
+    final trendPositive = trend > 0;
+    final trendColor = trendPositive ? const Color(0xFF4ADE80) : const Color(0xFFF87171);
+    
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: _darkCardLight,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: _accentRed.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: SvgPicture.asset(
+                svgPath,
+                width: 18,
+                height: 18,
+                colorFilter: const ColorFilter.mode(_accentRed, BlendMode.srcIn),
               ),
             ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    color: _warmMuted,
+                    fontSize: 11,
+                  ),
+                ),
+                Row(
+                  children: [
+                    Text(
+                      value.round().toString(),
+                      style: GoogleFonts.outfit(
+                        color: _warmLight,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (trend != 0) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        trendPositive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
+                        color: trendColor,
+                        size: 12,
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -961,45 +1069,6 @@ class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMix
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-  
-  Widget _buildInsightCard(String title, String value, String subtitle) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _darkCardLight,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: GoogleFonts.inter(
-              color: _warmMuted,
-              fontSize: 11,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: GoogleFonts.spaceMono(
-              color: _accentRed,
-              fontSize: 24,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            subtitle,
-            style: GoogleFonts.inter(
-              color: _warmDim,
-              fontSize: 11,
-            ),
-          ),
         ],
       ),
     );

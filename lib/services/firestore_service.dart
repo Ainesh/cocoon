@@ -642,43 +642,39 @@ class FirestoreService {
 
   /// Gets combined check-in statistics for all members in a space.
   ///
-  /// Returns stats based on each member's last [checkInsPerUser] check-ins.
+  /// Returns stats based on check-ins from the last [days] days.
   Future<CheckInStats> getSpaceCheckInStats(
     String spaceId, {
-    int checkInsPerUser = 4,
+    int days = 30,
+    String? currentUserId,
   }) async {
     try {
-      // Get space to find member IDs
-      final spaceDoc = await _firestore.collection(_spacesCollection).doc(spaceId).get();
-      if (!spaceDoc.exists) {
-        debugPrint('Space not found: $spaceId');
+      final now = DateTime.now();
+      final cutoffDate = now.subtract(Duration(days: days));
+      
+      // Get all check-ins from the last N days
+      final snapshot = await _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('checkins')
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
+          .get();
+      
+      if (snapshot.docs.isEmpty) {
+        debugPrint('No check-ins in the last $days days');
         return CheckInStats.empty;
       }
+      
+      final allCheckIns = snapshot.docs
+          .map((doc) => UserCheckIn.fromJson(doc.id, doc.data()))
+          .toList();
 
-      final memberIds = List<String>.from(spaceDoc.data()?['memberIds'] ?? []);
-      debugPrint('Getting stats for ${memberIds.length} members');
-    if (memberIds.isEmpty) return CheckInStats.empty;
+      debugPrint('Check-ins in last $days days: ${allCheckIns.length}');
 
-    // Collect recent check-ins from all members
-    final allCheckIns = <UserCheckIn>[];
+      // Sort by timestamp for trend calculation
+      allCheckIns.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-    for (final memberId in memberIds) {
-      final memberCheckIns = await getUserCheckIns(
-        spaceId,
-        memberId,
-        limit: checkInsPerUser,
-      );
-      allCheckIns.addAll(memberCheckIns);
-    }
-
-    debugPrint('Total check-ins found: ${allCheckIns.length}');
-
-    if (allCheckIns.isEmpty) return CheckInStats.empty;
-
-    // Sort by timestamp for trend calculation
-    allCheckIns.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-    return CheckInStats.fromCheckIns(allCheckIns);
+      return CheckInStats.fromCheckIns(allCheckIns, currentUserId: currentUserId);
     } catch (e) {
       debugPrint('Error getting check-in stats: $e');
       return CheckInStats.empty;
