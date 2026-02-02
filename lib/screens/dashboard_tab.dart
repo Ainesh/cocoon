@@ -8,6 +8,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -54,7 +55,7 @@ class DashboardTab extends StatefulWidget {
   State<DashboardTab> createState() => _DashboardTabState();
 }
 
-class _DashboardTabState extends State<DashboardTab> {
+class _DashboardTabState extends State<DashboardTab> with TickerProviderStateMixin {
   final _firestoreService = FirestoreService();
 
   bool _isLoading = true;
@@ -66,14 +67,71 @@ class _DashboardTabState extends State<DashboardTab> {
   List<Map<String, dynamic>>? _dailyScores;
   int _streak = 0;
 
+  // Health score animation
+  late AnimationController _healthAnimController;
+  late Animation<double> _healthAnimation;
+  double _targetProgress = 0;
+  int _lastHapticDot = -1;
+  static const int _totalDots = 32;
+
   @override
   void initState() {
     super.initState();
+    _healthAnimController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200), // ~2.2 seconds total
+    );
+    _healthAnimation = Tween<double>(begin: 0, end: 0).animate(
+      CurvedAnimation(parent: _healthAnimController, curve: _suspenseCurve),
+    );
+    _healthAnimController.addListener(_onHealthAnimationUpdate);
     _loadData();
+  }
+
+  // Custom curve: fast start, dramatic slowdown at 80%, crawl to finish
+  static const _suspenseCurve = _SuspensefulCurve();
+
+  void _onHealthAnimationUpdate() {
+    // Calculate which dot we're on based on animation value
+    final currentDot = (_healthAnimation.value * _totalDots).floor();
+    
+    // Trigger haptic for each new dot
+    if (currentDot > _lastHapticDot && currentDot <= (_targetProgress * _totalDots).ceil()) {
+      _lastHapticDot = currentDot;
+      HapticFeedback.lightImpact();
+    }
+    setState(() {});
+  }
+
+  void _animateHealthScore(double progress) {
+    _targetProgress = progress;
+    _lastHapticDot = -1;
+    _healthAnimation = Tween<double>(
+      begin: 0,
+      end: progress,
+    ).animate(
+      CurvedAnimation(parent: _healthAnimController, curve: _suspenseCurve),
+    );
+    _healthAnimController.forward(from: 0);
+  }
+
+  void _animateHealthScoreFromStats() {
+    final connectionPct = _checkInStats.avgConnection * 10;
+    final intimacyPct = _checkInStats.avgIntimacy * 10;
+    final peacePct = (10 - _checkInStats.avgStress) * 10;
+    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
+    final progress = overallHealth / 100;
+    
+    // Small delay before starting animation
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _animateHealthScore(progress);
+    });
   }
 
   @override
   void dispose() {
+    _healthAnimController.removeListener(_onHealthAnimationUpdate);
+    _healthAnimController.dispose();
     _eventsSubscription?.cancel();
     super.dispose();
   }
@@ -93,6 +151,8 @@ class _DashboardTabState extends State<DashboardTab> {
           _streak = results[2] as int? ?? 0;
           _isLoading = false;
         });
+        // Animate health score after data loads
+        _animateHealthScoreFromStats();
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
@@ -335,13 +395,8 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   Widget _buildHealthCard() {
-    // Scores are 1-10, convert to 0-100 scale
-    final connectionPct = _checkInStats.avgConnection * 10;
-    final intimacyPct = _checkInStats.avgIntimacy * 10;
-    final peacePct = (10 - _checkInStats.avgStress) * 10; // Invert stress: 10 stress = 0 peace, 1 stress = 90 peace
-    
-    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
-    final progress = overallHealth / 100;
+    // Use animated progress for the visual and number
+    final animatedProgress = _healthAnimation.value;
     
     return GestureDetector(
       onTap: () => _showHealthDetails(context),
@@ -390,15 +445,15 @@ class _DashboardTabState extends State<DashboardTab> {
                     CustomPaint(
                       size: const Size(120, 120),
                       painter: _DottedCircleProgressPainter(
-                        progress: progress,
+                        progress: animatedProgress,
                         activeColor: _pureBlack,
                         inactiveColor: _pureBlack.withValues(alpha: 0.2),
-                        dotCount: 32,
+                        dotCount: _totalDots,
                         dotRadius: 3.2,
                       ),
                     ),
                     Text(
-                      overallHealth.toString(),
+                      (animatedProgress * 100).round().toString(),
                       style: GoogleFonts.outfit(
                         color: _pureBlack,
                         fontSize: 52,
@@ -1270,5 +1325,28 @@ class _EventCreationSheetState extends State<EventCreationSheet> {
         ],
       ),
     );
+  }
+}
+
+/// Custom curve for suspenseful health score animation.
+/// Fast at the start, slows down nicely at the end.
+class _SuspensefulCurve extends Curve {
+  const _SuspensefulCurve();
+
+  @override
+  double transformInternal(double t) {
+    // Smooth suspense: fast start, gradual slowdown
+    // - 0-50%: Quick progress (covers 80% of the visual)
+    // - 50-100%: Slowing down for the final stretch
+    
+    if (t < 0.5) {
+      // First half covers 80% - fast
+      return 0.8 * Curves.easeOut.transform(t / 0.5);
+    } else {
+      // Second half covers last 20% - suspenseful slowdown
+      final localT = (t - 0.5) / 0.5;
+      final easeOutCubic = 1 - math.pow(1 - localT, 3);
+      return 0.8 + 0.2 * easeOutCubic;
+    }
   }
 }
