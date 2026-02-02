@@ -13,7 +13,7 @@ import '../services/firestore_service.dart';
 import 'agreements_tab.dart';
 import 'calendar_tab.dart';
 import 'checkins_tab.dart';
-import 'dashboard_tab.dart';
+import 'dashboard/dashboard_tab.dart';
 
 // Theme constants for premium styling
 const _refinedRed = Color(0xFFFF4444);
