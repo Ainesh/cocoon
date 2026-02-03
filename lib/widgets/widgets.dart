@@ -1,0 +1,17 @@
+/// Widgets barrel export.
+///
+/// Exports all reusable widgets for easy importing throughout the app.
+library;
+
+export 'active_card.dart';
+export 'avatar_selector.dart';
+export 'dotted_slider.dart';
+export 'neumorphic_container.dart'; // Includes PremiumCard, SectionHeader
+export 'slide_to_action.dart';
+
+// Painters
+export 'painters/circle_progress_painters.dart';
+export 'painters/trend_chart_painter.dart';
+
+// Animations
+export 'animations/suspenseful_curve.dart';

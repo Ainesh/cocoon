@@ -47,8 +47,10 @@ A Flutter relationship wellness app for couples to track health, plan events, an
 - **Smart Defaults** - Sliders start from your last check-in values
 - **Trend Charts** - Visualize your check-in history with smooth curves
 - **Partner Activity** - Timeline view of partner's recent check-ins
-- **Notes** - Add optional appreciation or thoughts
+- **Reflection** - Add optional appreciation or thoughts
+- **Slide to Check In** - Satisfying swipe-to-confirm submission
 - **Auto-close** - Screen closes automatically after successful submission
+- **Swipe to Dismiss** - Swipe right to go back
 
 ### 📈 Health Score Calculation
 - Connection (1-10) × 10 = Connection %
@@ -123,13 +125,26 @@ Located in `assets/icons/`:
 - `apple_logo.svg` - Apple Sign-In
 - `cocoon_logo.svg` - App logo
 
+### Custom Painters
+Located in `lib/widgets/painters/`:
+- `DottedCircleProgressPainter` - Health score dots animation
+- `ContinuousCircleProgressPainter` - Smooth arc progress
+- `TrendChartPainter` - Dual-line curve with gradient fill
+
 ## Architecture
+
+### Design Principles
+- **Modular Screens** - Large screens split into focused widgets (dashboard/, checkin/)
+- **DRY Widgets** - Reusable components in `lib/widgets/` with barrel exports
+- **Separation of Concerns** - UI widgets, business logic (services), data models
+- **Real-time First** - Firestore streams for live updates across devices
+- **Consistent Theming** - Centralized colors, typography, and component styles
 
 ### Project Structure
 
 ```
 lib/
-├── main.dart                 # App entry, Firebase init
+├── main.dart                 # App entry, Firebase init, portrait lock
 ├── firebase_options.dart     # Auto-generated Firebase config
 │
 ├── theme/                    # Centralized theming
@@ -154,7 +169,13 @@ lib/
 │   ├── calendar_tab.dart     # Events - week/month
 │   ├── checkins_tab.dart     # Check-ins timeline
 │   ├── agreements_tab.dart   # Coming soon
-│   ├── checkin_screen.dart   # Check-in form
+│   │
+│   ├── checkin/              # Modular check-in screen
+│   │   ├── checkin.dart      # Barrel export
+│   │   ├── checkin_screen.dart # Main check-in form
+│   │   └── widgets/
+│   │       ├── partner_checkins.dart # Partner activity timeline
+│   │       └── your_trend.dart       # Personal trend chart
 │   │
 │   └── dashboard/            # Modular dashboard
 │       ├── dashboard.dart    # Barrel export
@@ -170,13 +191,17 @@ lib/
 │   └── firestore_service.dart # All Firestore CRUD + streams
 │
 └── widgets/
+    ├── widgets.dart          # Barrel export for all widgets
+    ├── active_card.dart      # Cards with active state (focus/modified)
     ├── avatar_selector.dart  # Avatar & color picker
-    ├── neumorphic_container.dart # Premium card widgets
+    ├── neumorphic_container.dart # PremiumCard, SectionHeader, etc.
     ├── dotted_slider.dart    # ScoreSelector - circular + bar slider
+    ├── slide_to_action.dart  # Swipe-to-confirm button
     ├── animations/
     │   └── suspenseful_curve.dart # Normal distribution curve
     └── painters/
-        └── circle_progress_painters.dart # Dotted & continuous circles
+        ├── circle_progress_painters.dart # Dotted & continuous circles
+        └── trend_chart_painter.dart      # Dual-line trend curves
 ```
 
 ### Real-time Updates
@@ -393,6 +418,45 @@ Container(color: AppColors.accentRed)
 
 // Use typography
 Text('Hello', style: AppTypography.headlineLarge())
+```
+
+### Reusable Widgets
+Import from barrel export:
+```dart
+import 'package:couple_space/widgets/widgets.dart';
+```
+
+| Widget | Purpose |
+|--------|---------|
+| `PremiumCard` | Dark neumorphic card with red glow + micro-interactions |
+| `SectionHeader` | Icon + title header for card sections |
+| `ActiveCard` | Card that highlights when focused/modified |
+| `ScoreSelector` | Dotted circle + horizontal bar slider |
+| `SlideToAction` | Swipe-to-confirm button |
+| `TrendChartPainter` | Smooth dual-line curve chart |
+| `DottedCircleProgressPainter` | Animated health score circle |
+
+#### SlideToAction Usage
+```dart
+SlideToAction(
+  label: 'Slide to confirm',
+  loadingLabel: 'Processing...',
+  onConfirm: () => doSomething(),
+  isLoading: false,
+)
+```
+
+#### ActiveCard Usage
+```dart
+ActiveCard(
+  heading: 'Pulse Check',
+  isActive: _hasChanges,
+  helperText: 'Rate each area 1-10',
+  hideHelperWhenActive: true,
+  shrinkWhenActive: false,
+  showBorder: _isFocused,
+  child: YourContent(),
+)
 ```
 
 ### Error Handling

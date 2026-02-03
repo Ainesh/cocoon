@@ -6,6 +6,7 @@ library;
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'firebase_options.dart';
@@ -14,6 +15,13 @@ import 'router/app_router.dart';
 /// Application entry point.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Lock to portrait mode only
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+  
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const CocoonApp());
 }

@@ -34,6 +34,7 @@ class ScoreSelector extends StatefulWidget {
     this.iconAsset,
     this.min = 1.0,
     this.max = 10.0,
+    this.embedded = false,
   });
 
   final double value;
@@ -43,6 +44,8 @@ class ScoreSelector extends StatefulWidget {
   final String? iconAsset;
   final double min;
   final double max;
+  /// If true, renders without card wrapper (for embedding in a parent card)
+  final bool embedded;
 
   @override
   State<ScoreSelector> createState() => _ScoreSelectorState();
@@ -89,6 +92,105 @@ class _ScoreSelectorState extends State<ScoreSelector> {
   Widget build(BuildContext context) {
     final color = _valueColor;
     
+    final content = Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Left side: Label + slider vertically stacked
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon + Label row
+              Row(
+                children: [
+                  // Icon container (matching health details sheet)
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Center(
+                      child: widget.icon != null
+                          ? Icon(widget.icon, color: color, size: 18)
+                          : widget.iconAsset != null
+                              ? SvgPicture.asset(
+                                  widget.iconAsset!,
+                                  width: 18,
+                                  height: 18,
+                                  colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                                )
+                              : null,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    widget.label,
+                    style: GoogleFonts.inter(
+                      fontSize: 11,
+                      color: AppColors.warmMuted,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              // Horizontal Slider with visible background track
+              _HorizontalSlider(
+                value: widget.value,
+                onChanged: _handleValueChange,
+                min: widget.min,
+                max: widget.max,
+                color: color,
+                height: barHeight,
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(width: 20),
+        
+        // Right: Dotted Circle with Score
+        SizedBox(
+          width: circleSize,
+          height: circleSize,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size(circleSize, circleSize),
+                painter: DottedCircleProgressPainter(
+                  progress: _progress,
+                  activeColor: color,
+                  inactiveColor: AppColors.cardVariant,
+                  dotCount: dotCount,
+                  dotRadius: 2.8,
+                ),
+              ),
+              Text(
+                widget.value.round().toString(),
+                style: GoogleFonts.outfit(
+                  fontSize: circleSize * 0.42,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    
+    // If embedded, return just the content with padding
+    if (widget.embedded) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: content,
+      );
+    }
+    
+    // Otherwise, wrap in card
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -96,102 +198,7 @@ class _ScoreSelectorState extends State<ScoreSelector> {
         color: AppColors.darkCardLight,
         borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Left side: Label + slider vertically stacked
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Icon + Label row
-                Row(
-                  children: [
-                    // Icon container (like health details sheet)
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: widget.icon != null
-                            ? Icon(widget.icon, color: color, size: 14)
-                            : widget.iconAsset != null
-                                ? SvgPicture.asset(
-                                    widget.iconAsset!,
-                                    width: 14,
-                                    height: 14,
-                                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                                  )
-                                : null,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      widget.label,
-                      style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: AppColors.warmDim,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                // Horizontal Slider with visible background track
-                _HorizontalSlider(
-                  value: widget.value,
-                  onChanged: _handleValueChange,
-                  min: widget.min,
-                  max: widget.max,
-                  color: color,
-                  height: barHeight,
-                ),
-              ],
-            ),
-          ),
-          
-          const SizedBox(width: 20),
-          
-          // Right: Dotted Circle with Score
-          SizedBox(
-            width: circleSize,
-            height: circleSize,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CustomPaint(
-                  size: const Size(circleSize, circleSize),
-                  painter: DottedCircleProgressPainter(
-                    progress: _progress,
-                    activeColor: color,
-                    inactiveColor: AppColors.cardVariant,
-                    dotCount: dotCount,
-                    dotRadius: 2.8,
-                  ),
-                ),
-                Text(
-                  widget.value.round().toString(),
-                  style: GoogleFonts.outfit(
-                    fontSize: circleSize * 0.42,
-                    fontWeight: FontWeight.w700,
-                    color: color,
-                    shadows: [
-                      Shadow(
-                        color: color.withValues(alpha: 0.6),
-                        blurRadius: 12,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+      child: content,
     );
   }
 }
@@ -252,14 +259,14 @@ class _HorizontalSlider extends StatelessWidget {
                   width: trackWidth,
                   height: height,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF252525), // Very subtle, close to card
+                    color: AppColors.cardVariant.withValues(alpha: 0.5), // Subtle against card
                     borderRadius: BorderRadius.circular(borderRadius),
                   ),
                 ),
                 // FOREGROUND: Colored fill with glow (minimum width so it's always visible)
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 50),
-                  width: (trackWidth * progress).clamp(height, trackWidth), // Min width = height (keeps it round)
+                  width: (trackWidth * progress).clamp(trackWidth * 0.05, trackWidth), // Min width = 5% of track
                   height: height,
                   decoration: BoxDecoration(
                     color: color,
