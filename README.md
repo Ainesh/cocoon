@@ -21,8 +21,6 @@ A Flutter relationship wellness app for couples to track health, plan events, an
   - Animated circular progress with 32 dots
   - Normal distribution timing curve (fast start, slow suspenseful finish)
   - Haptic feedback for each dot (light impact)
-  - 3D flip animation revealing health remark
-  - Tension vibration while flipped (like stretched rubber band)
   - Tap for detailed breakdown popup
   - **Live updates** - score refreshes automatically when check-ins are submitted
 - **Event Cards** - Today's and upcoming events at a glance
@@ -105,16 +103,12 @@ Dark neumorphic Material 3 with warm red accent:
 | Animation | Duration | Details |
 |-----------|----------|---------|
 | Health dots | 2.2s | Normal distribution curve (suspenseful) |
-| Card flip | 400ms | 3D perspective transform |
-| Tension hold | 2.5s | While showing remark |
 | Micro-interactions | 100-150ms | Scale & glow effects |
 
 | Haptic | Trigger |
 |--------|---------|
 | Light impact | Each health dot fills |
-| Medium impact | Card flip lands, refresh triggered |
-| Heavy impact | Flip stretch/release |
-| Selection click | Tension vibration pattern |
+| Medium impact | Refresh triggered |
 | Light impact | Refresh complete |
 
 ### Custom Icons
@@ -148,8 +142,9 @@ lib/
 ├── firebase_options.dart     # Auto-generated Firebase config
 │
 ├── theme/                    # Centralized theming
-│   ├── theme.dart            # Barrel export + ThemeData
+│   ├── theme.dart            # Barrel export
 │   ├── app_colors.dart       # Color constants
+│   ├── app_spacing.dart      # Spacing & sizing constants
 │   └── app_typography.dart   # Text styles (Outfit, Inter, Cormorant)
 │
 ├── models/
@@ -409,16 +404,38 @@ flutter run -d android  # Android Emulator
 ## Code Quality
 
 ### Centralized Theme
-Import theme constants:
+All theming constants are in `lib/theme/`:
+
 ```dart
 import 'package:couple_space/theme/theme.dart';
 
-// Use colors
+// Colors - Primary accent, backgrounds, text
 Container(color: AppColors.accentRed)
+Container(color: AppColors.pureBlack)
 
-// Use typography
+// Typography - Outfit, Inter, Cormorant styles
 Text('Hello', style: AppTypography.headlineLarge())
+Text('Body', style: AppTypography.bodyMedium())
+
+// Spacing - Consistent spacing scale
+SizedBox(height: AppSpacing.md)           // 12px
+EdgeInsets.all(AppSpacing.cardPadding)    // 16px
+BorderRadius.circular(AppSpacing.cardRadius) // 16px
 ```
+
+### Spacing System (AppSpacing)
+
+| Constant | Value | Usage |
+|----------|-------|-------|
+| `xs` | 4px | Minimal spacing |
+| `sm` | 8px | Tight spacing |
+| `md` | 12px | Compact spacing |
+| `lg` | 16px | Default spacing |
+| `xl` | 20px | Comfortable |
+| `xxl` | 24px | Generous |
+| `cardPadding` | 16px | Card internal padding |
+| `screenPadding` | 20px | Screen edge padding |
+| `cardRadius` | 16px | Card border radius |
 
 ### Reusable Widgets
 Import from barrel export:

@@ -62,6 +62,10 @@ class _CheckInScreenState extends State<CheckInScreen> {
   
   bool get _isReflectionActive => 
       _isNotesFocused || _notesController.text.isNotEmpty;
+  
+  /// Whether any changes have been made (pulse or reflection)
+  /// Used to enable/disable the save slider
+  bool get _hasChanges => _isPulseModified || _notesController.text.isNotEmpty;
 
   // Loading state
   bool _isSubmitting = false;
@@ -184,21 +188,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Check-in submitted!',
-              style: AppTypography.bodyMedium(color: AppColors.lightText),
-            ),
-            backgroundColor: AppColors.accentRed,
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-
-        // Auto-close after brief delay to show success feedback
-        await Future.delayed(const Duration(milliseconds: 500));
-        if (mounted) context.pop();
+        context.pop();
       }
     } catch (e) {
       debugPrint('Error submitting check-in: $e');
@@ -353,12 +343,13 @@ class _CheckInScreenState extends State<CheckInScreen> {
         ),
         const SizedBox(height: 20),
 
-        // Submit button - slide to confirm
+        // Submit button - slide to confirm (enabled only when changes made)
         SlideToAction(
-          label: 'Slide to check in',
+          label: 'Slide to save',
           loadingLabel: 'Saving...',
           onConfirm: _submitCheckIn,
           isLoading: _isSubmitting,
+          enabled: _hasChanges,
         ),
       ],
     );

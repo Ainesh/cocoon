@@ -1,9 +1,42 @@
 /// Firestore service for Couple Space app.
 ///
-/// Manages all Firestore database operations with secure collection separation:
-/// - `invites` - Temporary, one-time-use invite codes
-/// - `spaces` - Couple space metadata and member IDs
-/// - `users` - User profiles (name, avatar, current space)
+/// Manages all Firestore database operations with secure collection separation.
+/// This service provides a single point of access for all database operations,
+/// ensuring consistent error handling and data validation.
+///
+/// ## Collections
+///
+/// | Collection | Purpose | Subcollections |
+/// |------------|---------|----------------|
+/// | `invites` | One-time invite codes | - |
+/// | `spaces` | Couple space metadata | `events`, `checkins` |
+/// | `users` | User profiles | - |
+///
+/// ## Usage
+///
+/// ```dart
+/// final service = FirestoreService();
+///
+/// // Create a space
+/// final result = await service.createSpace(
+///   userId: 'uid',
+///   spaceName: 'Our Space',
+///   userName: 'Alex',
+///   avatarKey: 'heart_red',
+/// );
+///
+/// // Watch real-time updates
+/// service.watchRecentCheckIns(spaceId).listen((checkIns) {
+///   // Handle updates
+/// });
+/// ```
+///
+/// ## Security
+///
+/// All operations are designed to work with Firestore security rules that:
+/// - Require authentication for all operations
+/// - Restrict space access to members only
+/// - Validate data structure on writes
 library;
 
 import 'dart:math';

@@ -32,10 +32,12 @@ class SlideToAction extends StatefulWidget {
     this.label = 'Slide to confirm',
     this.loadingLabel = 'Processing...',
     this.isLoading = false,
+    this.enabled = true,
     this.height = 52.0,
     this.borderRadius = 12.0,
     this.minBarWidth = 160.0,
     this.barColor,
+    this.disabledBarColor,
     this.trackColor,
   });
 
@@ -51,6 +53,10 @@ class SlideToAction extends StatefulWidget {
   /// Whether the action is in progress
   final bool isLoading;
   
+  /// Whether the slider is enabled (default: true)
+  /// When disabled, slider is grayed out and non-interactive
+  final bool enabled;
+  
   /// Height of the slider (default: 52)
   final double height;
   
@@ -62,6 +68,9 @@ class SlideToAction extends StatefulWidget {
   
   /// Color of the draggable bar (default: accentRed)
   final Color? barColor;
+  
+  /// Color of the bar when disabled (default: warmMuted)
+  final Color? disabledBarColor;
   
   /// Color of the background track (default: cardVariant at 50%)
   final Color? trackColor;
@@ -78,20 +87,20 @@ class _SlideToActionState extends State<SlideToAction> {
   static const double _targetPadding = 10.0;
 
   void _onDragStart(DragStartDetails details) {
-    if (widget.isLoading) return;
+    if (widget.isLoading || !widget.enabled) return;
     setState(() => _isDragging = true);
     HapticFeedback.lightImpact();
   }
 
   void _onDragUpdate(DragUpdateDetails details, double maxDrag) {
-    if (widget.isLoading) return;
+    if (widget.isLoading || !widget.enabled) return;
     setState(() {
       _dragPosition = (_dragPosition + details.delta.dx).clamp(0.0, maxDrag);
     });
   }
 
   void _onDragEnd(DragEndDetails details, double maxDrag) {
-    if (widget.isLoading) return;
+    if (widget.isLoading || !widget.enabled) return;
     
     // Check if reached the target (within 95% of max - swipe all the way)
     if (_dragPosition >= maxDrag * 0.95) {
@@ -114,8 +123,11 @@ class _SlideToActionState extends State<SlideToAction> {
 
   @override
   Widget build(BuildContext context) {
-    final barColor = widget.barColor ?? AppColors.accentRed;
+    final activeBarColor = widget.barColor ?? AppColors.accentRed;
+    final disabledBarColor = widget.disabledBarColor ?? AppColors.warmMuted;
+    final barColor = widget.enabled ? activeBarColor : disabledBarColor;
     final trackColor = widget.trackColor ?? AppColors.cardVariant.withValues(alpha: 0.5);
+    final textColor = widget.enabled ? AppColors.pureBlack : AppColors.warmDim;
     
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -147,7 +159,7 @@ class _SlideToActionState extends State<SlideToAction> {
                 top: (widget.height - _targetIconSize) / 2,
                 child: AnimatedOpacity(
                   duration: const Duration(milliseconds: 150),
-                  opacity: progress > 0.8 ? 0.0 : 1.0, // Fade out as bar approaches
+                  opacity: progress > 0.8 ? 0.0 : (widget.enabled ? 1.0 : 0.4),
                   child: Icon(
                     Icons.play_circle_filled_rounded,
                     color: barColor,
@@ -158,9 +170,9 @@ class _SlideToActionState extends State<SlideToAction> {
               
               // FOREGROUND: Draggable bar with glow - slides over the play button
               GestureDetector(
-                onHorizontalDragStart: _onDragStart,
-                onHorizontalDragUpdate: (d) => _onDragUpdate(d, maxDrag),
-                onHorizontalDragEnd: (d) => _onDragEnd(d, maxDrag),
+                onHorizontalDragStart: widget.enabled ? _onDragStart : null,
+                onHorizontalDragUpdate: widget.enabled ? (d) => _onDragUpdate(d, maxDrag) : null,
+                onHorizontalDragEnd: widget.enabled ? (d) => _onDragEnd(d, maxDrag) : null,
                 child: AnimatedContainer(
                   duration: _isDragging ? Duration.zero : const Duration(milliseconds: 200),
                   width: barWidth,
@@ -168,13 +180,15 @@ class _SlideToActionState extends State<SlideToAction> {
                   decoration: BoxDecoration(
                     color: barColor,
                     borderRadius: BorderRadius.circular(widget.borderRadius),
-                    boxShadow: [
-                      BoxShadow(
-                        color: barColor.withValues(alpha: 0.5),
-                        blurRadius: 12,
-                        spreadRadius: 1,
-                      ),
-                    ],
+                    boxShadow: widget.enabled
+                        ? [
+                            BoxShadow(
+                              color: barColor.withValues(alpha: 0.5),
+                              blurRadius: 12,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null, // No glow when disabled
                   ),
                   child: Center(
                     child: widget.isLoading
@@ -185,7 +199,7 @@ class _SlideToActionState extends State<SlideToAction> {
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
-                                  color: AppColors.pureBlack,
+                                  color: textColor,
                                   strokeWidth: 2,
                                 ),
                               ),
@@ -193,7 +207,7 @@ class _SlideToActionState extends State<SlideToAction> {
                               Text(
                                 widget.loadingLabel,
                                 style: GoogleFonts.outfit(
-                                  color: AppColors.pureBlack,
+                                  color: textColor,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -206,7 +220,7 @@ class _SlideToActionState extends State<SlideToAction> {
                             child: Text(
                               widget.label,
                               style: GoogleFonts.outfit(
-                                color: AppColors.pureBlack,
+                                color: textColor,
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),

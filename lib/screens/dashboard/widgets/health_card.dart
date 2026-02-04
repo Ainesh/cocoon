@@ -1,8 +1,5 @@
-/// Health score card with animated progress and flip animation.
+/// Health score card with animated progress.
 library;
-
-import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,7 +14,7 @@ import '../../../widgets/painters/circle_progress_painters.dart';
 /// Callback type for showing health details.
 typedef ShowHealthDetailsCallback = void Function();
 
-/// Animated health score card with dotted progress and flip animation.
+/// Animated health score card with dotted progress.
 class HealthCard extends StatefulWidget {
   const HealthCard({
     super.key,
@@ -32,7 +29,7 @@ class HealthCard extends StatefulWidget {
   State<HealthCard> createState() => HealthCardState();
 }
 
-class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
+class HealthCardState extends State<HealthCard> with SingleTickerProviderStateMixin {
   // Animation constants
   static const int _totalDots = 32;
   static const _suspenseCurve = SuspensefulCurve(steepness: 3.5);
@@ -43,14 +40,6 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
   double _targetProgress = 0;
   int _lastHapticDot = -1;
   bool _hasAnimated = false;
-
-  // Card flip animation
-  AnimationController? _flipController;
-  String _healthRemark = '';
-  
-  // Rubber band tension vibration
-  Timer? _tensionVibrationTimer;
-  bool _isFlipped = false;
 
   @override
   void initState() {
@@ -66,7 +55,6 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
     final peacePct = (10 - widget.checkInStats.avgStress) * 10;
     final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
     _targetProgress = overallHealth / 100;
-    _healthRemark = _getHealthRemark(overallHealth);
   }
 
   void _initAnimations() {
@@ -78,12 +66,6 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
       CurvedAnimation(parent: _healthAnimController, curve: _suspenseCurve),
     );
     _healthAnimController.addListener(_onHealthAnimationUpdate);
-    _healthAnimController.addStatusListener(_onHealthAnimationStatus);
-
-    _flipController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 400),
-    );
   }
 
   @override
@@ -101,68 +83,9 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _stopTensionVibration();
     _healthAnimController.removeListener(_onHealthAnimationUpdate);
-    _healthAnimController.removeStatusListener(_onHealthAnimationStatus);
     _healthAnimController.dispose();
-    _flipController?.dispose();
     super.dispose();
-  }
-
-  void _onHealthAnimationStatus(AnimationStatus status) {
-    if (status == AnimationStatus.completed) {
-      _flipToRemark();
-    }
-  }
-
-  void _startTensionVibration() {
-    _isFlipped = true;
-    // Subtle continuous vibration like a stretched rubber band under tension
-    // Start with quick vibrations that slow down slightly
-    int vibrationCount = 0;
-    _tensionVibrationTimer = Timer.periodic(const Duration(milliseconds: 80), (timer) {
-      if (!mounted || !_isFlipped) {
-        timer.cancel();
-        return;
-      }
-      
-      // Vary the intensity - alternating between very light and selection click
-      // Creates a "trembling" effect like tension
-      if (vibrationCount % 3 == 0) {
-        HapticFeedback.selectionClick();
-      } else {
-        HapticFeedback.lightImpact();
-      }
-      vibrationCount++;
-    });
-  }
-
-  void _stopTensionVibration() {
-    _isFlipped = false;
-    _tensionVibrationTimer?.cancel();
-    _tensionVibrationTimer = null;
-  }
-
-  Future<void> _flipToRemark() async {
-    if (!mounted || _flipController == null) return;
-    
-    // Flip forward with "stretch" haptic
-    HapticFeedback.heavyImpact();
-    await _flipController!.forward();
-    HapticFeedback.mediumImpact();
-    
-    // Start tension vibration while flipped
-    _startTensionVibration();
-    
-    await Future.delayed(const Duration(milliseconds: 2500));
-    
-    if (!mounted) return;
-    
-    // Stop tension and snap back with "release" haptic
-    _stopTensionVibration();
-    HapticFeedback.heavyImpact();
-    await _flipController!.reverse();
-    HapticFeedback.mediumImpact();
   }
 
   void _onHealthAnimationUpdate() {
@@ -183,8 +106,6 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
     // Reset animation state if re-animating
     if (forceReanimate) {
       _healthAnimController.reset();
-      _flipController?.reset();
-      _stopTensionVibration();
     }
     
     final connectionPct = widget.checkInStats.avgConnection * 10;
@@ -193,7 +114,6 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
     final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
     final progress = overallHealth / 100;
     
-    _healthRemark = _getHealthRemark(overallHealth);
     _targetProgress = progress;
     _lastHapticDot = -1;
     _hasAnimated = true;
@@ -210,82 +130,11 @@ class HealthCardState extends State<HealthCard> with TickerProviderStateMixin {
     });
   }
 
-  String _getHealthRemark(int score) {
-    if (score >= 85) return 'Deeply Connected';
-    if (score >= 70) return 'Thriving Together';
-    if (score >= 50) return 'Growing Stronger';
-    if (score >= 30) return 'Room to Grow';
-    return 'Needs Attention';
-  }
-
   @override
   Widget build(BuildContext context) {
     // Use animated progress if animating, otherwise show static target
     final displayProgress = _hasAnimated ? _healthAnimation.value : _targetProgress;
     
-    if (_flipController == null) {
-      return _buildFront(displayProgress);
-    }
-    
-    return AnimatedBuilder(
-      animation: _flipController!,
-      builder: (context, child) {
-        final angle = _flipController!.value * math.pi;
-        final isBack = angle > math.pi / 2;
-        
-        return Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.001)
-            ..rotateY(angle),
-          child: isBack ? _buildBack() : _buildFront(displayProgress),
-        );
-      },
-    );
-  }
-
-  Widget _buildBack() {
-    return Transform(
-      alignment: Alignment.center,
-      transform: Matrix4.identity()..rotateY(math.pi),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppColors.darkCardLight,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.accentRed.withValues(alpha: 0.2),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                _healthRemark,
-                style: GoogleFonts.cormorantGaramond(
-                  color: AppColors.accentRed,
-                  fontSize: 36,
-                  fontWeight: FontWeight.w700,
-                  fontStyle: FontStyle.italic,
-                  height: 1.1,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFront(double displayProgress) {
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
