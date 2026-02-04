@@ -185,12 +185,12 @@ class _MainShellState extends State<MainShell> {
       0 => _buildPremiumFab(
           icon: Icons.add_rounded,
           label: 'Add event',
-          onPressed: () => _showAddEventSheet(context),
+          onPressed: () => _showAddMoment(context),
         ),
       1 => _buildPremiumFab(
           icon: Icons.add_rounded,
           label: 'Add event',
-          onPressed: () => _showAddEventSheet(context),
+          onPressed: () => _showAddMoment(context),
         ),
       2 => _buildPremiumFab(
           icon: Icons.edit_note_rounded,
@@ -226,10 +226,9 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  void _showAddEventSheet(BuildContext context) {
-    // Get the dashboard tab and call its method
-    final dashboardTab = _tabs[0] as DashboardTab;
-    dashboardTab.showCreateEventSheet(context, widget.spaceId);
+  void _showAddMoment(BuildContext context) {
+    // Navigate to Plan a Moment screen
+    context.push('/moment/${widget.spaceId}');
   }
 
   void _showSettings(BuildContext context) {

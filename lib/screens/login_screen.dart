@@ -9,8 +9,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../main.dart';
 import '../services/auth_service.dart';
+import '../theme/app_colors.dart';
 import '../services/firestore_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -162,7 +162,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: CocoonColors.pureBlack,
+      backgroundColor: AppColors.pureBlack,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -208,7 +208,7 @@ class _LoginScreenState extends State<LoginScreen> {
       style: GoogleFonts.outfit(
         fontSize: 42,
         fontWeight: FontWeight.w600,
-        color: CocoonColors.lightText,
+        color: AppColors.lightText,
         letterSpacing: 2,
       ),
     );
@@ -222,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
         fontSize: 16,
         fontWeight: FontWeight.w400,
         fontStyle: FontStyle.italic,
-        color: CocoonColors.subtleText,
+        color: AppColors.subtleText,
         letterSpacing: 0.5,
       ),
     );
@@ -232,19 +232,19 @@ class _LoginScreenState extends State<LoginScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
-        color: CocoonColors.refinedRed.withValues(alpha: 0.1),
+        color: AppColors.refinedRed.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: CocoonColors.refinedRed.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.favorite_rounded, size: 16, color: CocoonColors.refinedRed),
+          Icon(Icons.favorite_rounded, size: 16, color: AppColors.refinedRed),
           const SizedBox(width: 8),
           Text(
             'You\'ve been invited to a space',
             style: TextStyle(
-              color: CocoonColors.refinedRed,
+              color: AppColors.refinedRed,
               fontWeight: FontWeight.w500,
               fontSize: 13,
             ),
@@ -263,10 +263,10 @@ class _LoginScreenState extends State<LoginScreen> {
           TextFormField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
-            style: TextStyle(color: CocoonColors.lightText),
+            style: TextStyle(color: AppColors.lightText),
             decoration: InputDecoration(
               labelText: 'Email',
-              prefixIcon: Icon(Icons.email_outlined, color: CocoonColors.dimText),
+              prefixIcon: Icon(Icons.email_outlined, color: AppColors.dimText),
             ),
             validator: (value) {
               if (value == null || value.isEmpty) return 'Please enter your email';
@@ -279,14 +279,14 @@ class _LoginScreenState extends State<LoginScreen> {
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
-            style: TextStyle(color: CocoonColors.lightText),
+            style: TextStyle(color: AppColors.lightText),
             decoration: InputDecoration(
               labelText: 'Password',
-              prefixIcon: Icon(Icons.lock_outline, color: CocoonColors.dimText),
+              prefixIcon: Icon(Icons.lock_outline, color: AppColors.dimText),
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                  color: CocoonColors.dimText,
+                  color: AppColors.dimText,
                 ),
                 onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
               ),
@@ -309,7 +309,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       height: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: CocoonColors.pureBlack,
+                        color: AppColors.pureBlack,
                       ),
                     )
                   : Text(_isSignUp ? 'Create Account' : 'Sign In'),
@@ -323,15 +323,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildDivider() {
     return Row(
       children: [
-        Expanded(child: Divider(color: CocoonColors.dimText.withValues(alpha: 0.3))),
+        Expanded(child: Divider(color: AppColors.dimText.withValues(alpha: 0.3))),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
             'or continue with',
-            style: TextStyle(color: CocoonColors.dimText, fontSize: 13),
+            style: TextStyle(color: AppColors.dimText, fontSize: 13),
           ),
         ),
-        Expanded(child: Divider(color: CocoonColors.dimText.withValues(alpha: 0.3))),
+        Expanded(child: Divider(color: AppColors.dimText.withValues(alpha: 0.3))),
       ],
     );
   }
@@ -361,14 +361,14 @@ class _LoginScreenState extends State<LoginScreen> {
       children: [
         Text(
           _isSignUp ? 'Already have an account?' : 'Don\'t have an account?',
-          style: TextStyle(color: CocoonColors.dimText, fontSize: 14),
+          style: TextStyle(color: AppColors.dimText, fontSize: 14),
         ),
         TextButton(
           onPressed: () => setState(() => _isSignUp = !_isSignUp),
           child: Text(
             _isSignUp ? 'Sign In' : 'Sign Up',
             style: TextStyle(
-              color: CocoonColors.refinedRed,
+              color: AppColors.refinedRed,
               fontWeight: FontWeight.w600,
               fontSize: 14,
             ),
@@ -417,15 +417,15 @@ class _SocialButtonState extends State<_SocialButton> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: CocoonColors.darkGlass,
+            color: AppColors.darkGlass,
             shape: BoxShape.circle,
             border: Border.all(
-              color: CocoonColors.refinedRed.withValues(alpha: 0.15),
+              color: AppColors.refinedRed.withValues(alpha: 0.15),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: CocoonColors.refinedRed.withValues(alpha: 0.1),
+                color: AppColors.refinedRed.withValues(alpha: 0.1),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -438,7 +438,7 @@ class _SocialButtonState extends State<_SocialButton> {
                     height: 20,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: CocoonColors.refinedRed,
+                      color: AppColors.refinedRed,
                     ),
                   )
                 : SvgPicture.asset(

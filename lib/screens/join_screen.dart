@@ -9,8 +9,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
-import '../main.dart';
 import '../models/avatar_data.dart';
+import '../theme/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../widgets/avatar_selector.dart';
@@ -114,7 +114,7 @@ class _JoinScreenState extends State<JoinScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: CocoonColors.pureBlack,
+      backgroundColor: AppColors.pureBlack,
       body: SafeArea(
         child: _isAuthenticated ? _buildProfileStep() : _buildAuthStep(),
       ),
@@ -184,8 +184,8 @@ class _JoinScreenState extends State<JoinScreen> {
       decoration: BoxDecoration(
         gradient: RadialGradient(
           colors: [
-            CocoonColors.refinedRed.withValues(alpha: 0.15),
-            CocoonColors.accentPurple.withValues(alpha: 0.08),
+            AppColors.refinedRed.withValues(alpha: 0.15),
+            AppColors.accentPurple.withValues(alpha: 0.08),
             Colors.transparent,
           ],
         ),
@@ -208,7 +208,7 @@ class _JoinScreenState extends State<JoinScreen> {
         fontFamily: 'Oswald',
         fontSize: 28,
         fontWeight: FontWeight.w600,
-        color: CocoonColors.lightText,
+        color: AppColors.lightText,
         letterSpacing: 1,
       ),
       textAlign: TextAlign.center,
@@ -222,7 +222,7 @@ class _JoinScreenState extends State<JoinScreen> {
         fontFamily: 'Cormorant Garamond',
         fontSize: 16,
         fontStyle: FontStyle.italic,
-        color: CocoonColors.subtleText,
+        color: AppColors.subtleText,
       ),
       textAlign: TextAlign.center,
     );
@@ -234,22 +234,22 @@ class _JoinScreenState extends State<JoinScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            CocoonColors.accentPurple.withValues(alpha: 0.15),
-            CocoonColors.refinedRed.withValues(alpha: 0.1),
+            AppColors.accentPurple.withValues(alpha: 0.15),
+            AppColors.refinedRed.withValues(alpha: 0.1),
           ],
         ),
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: CocoonColors.refinedRed.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.2)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.favorite_rounded, size: 18, color: CocoonColors.refinedRed),
+          Icon(Icons.favorite_rounded, size: 18, color: AppColors.refinedRed),
           const SizedBox(width: 10),
           Text(
             'Code: ${widget.inviteCode}',
             style: TextStyle(
-              color: CocoonColors.brightRed,
+              color: AppColors.brightRed,
               fontWeight: FontWeight.w500,
               fontSize: 14,
             ),
@@ -265,7 +265,7 @@ class _JoinScreenState extends State<JoinScreen> {
       style: TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.w500,
-        color: CocoonColors.dimText,
+        color: AppColors.dimText,
         letterSpacing: 1,
       ),
     );
@@ -285,7 +285,7 @@ class _JoinScreenState extends State<JoinScreen> {
   Widget _buildBackLink() {
     return TextButton(
       onPressed: () => context.go('/login'),
-      child: Text('Cancel', style: TextStyle(color: CocoonColors.dimText, fontSize: 16)),
+      child: Text('Cancel', style: TextStyle(color: AppColors.dimText, fontSize: 16)),
     );
   }
 
@@ -295,17 +295,17 @@ class _JoinScreenState extends State<JoinScreen> {
       children: [
         Text(
           'Your Name',
-          style: TextStyle(color: CocoonColors.lightText, fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(color: AppColors.lightText, fontSize: 16, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 12),
         TextFormField(
           controller: _nameController,
           textCapitalization: TextCapitalization.words,
-          style: TextStyle(color: CocoonColors.lightText, fontSize: 16),
+          style: TextStyle(color: AppColors.lightText, fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Enter your name',
-            hintStyle: TextStyle(color: CocoonColors.dimText.withValues(alpha: 0.5)),
-            prefixIcon: Icon(Icons.person_outline, color: CocoonColors.dimText),
+            hintStyle: TextStyle(color: AppColors.dimText.withValues(alpha: 0.5)),
+            prefixIcon: Icon(Icons.person_outline, color: AppColors.dimText),
           ),
           validator: (value) {
             if (value == null || value.isEmpty) return 'Please enter your name';
@@ -320,7 +320,7 @@ class _JoinScreenState extends State<JoinScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: CocoonColors.cardSurface,
+        color: AppColors.cardSurface,
         borderRadius: BorderRadius.circular(20),
       ),
       child: AvatarSelector(
@@ -351,7 +351,7 @@ class _JoinScreenState extends State<JoinScreen> {
         await _authService.signOut();
         if (mounted) setState(() {});
       },
-      child: Text('Use a different account', style: TextStyle(color: CocoonColors.dimText, fontSize: 14)),
+      child: Text('Use a different account', style: TextStyle(color: AppColors.dimText, fontSize: 14)),
     );
   }
 }
@@ -386,12 +386,12 @@ class _SocialButtonState extends State<_SocialButton> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: CocoonColors.darkGlass,
+            color: AppColors.darkGlass,
             shape: BoxShape.circle,
-            border: Border.all(color: CocoonColors.refinedRed.withValues(alpha: 0.15), width: 1),
+            border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.15), width: 1),
             boxShadow: [
               BoxShadow(
-                color: CocoonColors.refinedRed.withValues(alpha: 0.1),
+                color: AppColors.refinedRed.withValues(alpha: 0.1),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -402,7 +402,7 @@ class _SocialButtonState extends State<_SocialButton> {
                 ? SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: CocoonColors.refinedRed),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.refinedRed),
                   )
                 : SvgPicture.asset(
                     widget.isGoogle ? 'assets/icons/google_logo.svg' : 'assets/icons/apple_logo.svg',
