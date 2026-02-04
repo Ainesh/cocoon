@@ -11,6 +11,7 @@ import '../screens/checkin/checkin_screen.dart';
 import '../screens/join_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_shell.dart';
+import '../screens/moment/plan_moment_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/splash_screen.dart';
 import '../services/auth_service.dart';
@@ -115,6 +116,19 @@ abstract final class AppRouter {
         return _slideTransition(
           state,
           CheckInScreen(spaceId: spaceId),
+        );
+      },
+    ),
+
+    // Plan a Moment - Create new moment
+    GoRoute(
+      path: '/moment/:spaceId',
+      name: 'moment',
+      pageBuilder: (context, state) {
+        final spaceId = state.pathParameters['spaceId'] ?? '';
+        return _slideTransition(
+          state,
+          PlanMomentScreen(spaceId: spaceId),
         );
       },
     ),

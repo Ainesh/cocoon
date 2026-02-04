@@ -45,6 +45,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/moment.dart';
 import '../models/space_event.dart';
 import '../models/user_checkin.dart';
 
@@ -570,6 +571,148 @@ class FirestoreService {
         .doc(spaceId)
         .collection('events')
         .doc(eventId)
+        .update(updates);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Moments
+  // ---------------------------------------------------------------------------
+
+  /// Returns a stream of upcoming moments for a space.
+  ///
+  /// Moments are sorted by startDate and include all future moments
+  /// plus any multi-day moments that span today.
+  Stream<List<Moment>> watchUpcomingMoments(
+    String spaceId, {
+    int daysAhead = 60,
+  }) {
+    final now = DateTime.now();
+    final startOfToday = DateTime(now.year, now.month, now.day);
+    final endDate = startOfToday.add(Duration(days: daysAhead));
+
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .where('startDate', isLessThan: Timestamp.fromDate(endDate))
+        .orderBy('startDate')
+        .snapshots()
+        .map((snapshot) {
+      final moments = snapshot.docs
+          .map((doc) => Moment.fromFirestore(doc))
+          .where((m) => m.isUpcoming || m.spansToday)
+          .toList();
+      return moments;
+    });
+  }
+
+  /// Gets the next upcoming moment for display on dashboard.
+  Future<List<Moment>> getUpcomingMoments(
+    String spaceId, {
+    int limit = 5,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final startOfToday = DateTime(now.year, now.month, now.day);
+
+      final snapshot = await _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('moments')
+          .where('startDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
+          .orderBy('startDate')
+          .limit(limit)
+          .get();
+
+      return snapshot.docs.map((doc) => Moment.fromFirestore(doc)).toList();
+    } catch (e) {
+      debugPrint('Error getting upcoming moments: $e');
+      return [];
+    }
+  }
+
+  /// Creates a new moment in a couple space.
+  Future<String> createMoment({
+    required String spaceId,
+    required String name,
+    required MomentType type,
+    required DateTime startDate,
+    required String createdBy,
+    DateTime? endDate,
+    TimeSlot? timeSlot,
+    RepeatSchedule repeatSchedule = RepeatSchedule.never,
+  }) async {
+    final momentRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc();
+
+    final moment = Moment(
+      id: momentRef.id,
+      name: name,
+      type: type,
+      startDate: startDate,
+      endDate: endDate,
+      timeSlot: timeSlot,
+      repeatSchedule: repeatSchedule,
+      createdBy: createdBy,
+    );
+
+    await momentRef.set(moment.toJson());
+
+    // Update space's updatedAt timestamp
+    await _firestore.collection(_spacesCollection).doc(spaceId).update({
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return momentRef.id;
+  }
+
+  /// Deletes a moment from a couple space.
+  Future<void> deleteMoment({
+    required String spaceId,
+    required String momentId,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
+        .delete();
+  }
+
+  /// Updates an existing moment.
+  Future<void> updateMoment({
+    required String spaceId,
+    required String momentId,
+    String? name,
+    MomentType? type,
+    DateTime? startDate,
+    DateTime? endDate,
+    TimeSlot? timeSlot,
+    RepeatSchedule? repeatSchedule,
+  }) async {
+    final updates = <String, dynamic>{
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+
+    if (name != null) updates['name'] = name;
+    if (type != null) updates['type'] = type.value;
+    if (startDate != null) {
+      updates['startDate'] = Timestamp.fromDate(startDate);
+    }
+    if (endDate != null) {
+      updates['endDate'] = Timestamp.fromDate(endDate);
+    }
+    if (timeSlot != null) updates['timeSlot'] = timeSlot.value;
+    if (repeatSchedule != null) updates['repeatSchedule'] = repeatSchedule.value;
+
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
         .update(updates);
   }
 
