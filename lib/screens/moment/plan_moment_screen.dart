@@ -20,6 +20,7 @@ import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/active_card.dart';
+import '../../widgets/moment_type_icon.dart';
 import '../../widgets/slide_to_action.dart';
 
 /// Plan a Moment screen for creating new moments.
@@ -125,14 +126,6 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       null => 'Details',
     };
   }
-  
-  IconData _getTypeIcon(MomentType type) {
-    return switch (type) {
-      MomentType.celebrate => Icons.auto_awesome_rounded,
-      MomentType.connect => Icons.power_rounded,
-      MomentType.escape => Icons.flight_rounded,
-    };
-  }
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -178,6 +171,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   Future<void> _pickStartDate() async {
     _dismissKeyboard();
+    await Future.delayed(const Duration(milliseconds: 50));
     HapticFeedback.lightImpact();
     final now = DateTime.now();
     final date = await showDatePicker(
@@ -199,12 +193,14 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   Future<void> _pickBothDates() async {
     _dismissKeyboard();
+    await Future.delayed(const Duration(milliseconds: 50));
     HapticFeedback.lightImpact();
     await _showDateRangePicker();
   }
 
   Future<void> _pickBothDatesWithStart(DateTime existingStart) async {
     _dismissKeyboard();
+    await Future.delayed(const Duration(milliseconds: 50));
     HapticFeedback.lightImpact();
     await _showDateRangePicker(initialStart: existingStart);
   }
@@ -467,7 +463,6 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   Widget _buildTypeOption(MomentType type, String label) {
     final isSelected = _selectedType == type;
     final noneSelected = _selectedType == null;
-    final icon = _getTypeIcon(type);
     
     // Colors: red when none selected, black when selected, dim when another is selected
     final iconColor = isSelected ? AppColors.pureBlack : (noneSelected ? AppColors.accentRed : AppColors.warmMuted);
@@ -514,11 +509,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                         ],
                       )
                     : null,
-                child: Icon(
-                  icon,
-                  color: iconColor,
-                  size: 24,
-                ),
+                child: getMomentTypeIconWidget(type, size: 24, color: iconColor),
               ),
               const SizedBox(height: 6),
               // Label - red when none selected, black when selected, dim otherwise
@@ -883,20 +874,16 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     );
   }
 
-  // Time slot colors - matching pulse meter range (blue to red)
-  static const _morningColor = Color(0xFF60A5FA);  // Cool blue
-  static const _nightColor = Color(0xFFE84545);    // Warm red
-  
   // Track drag position for stretchy effect
   double? _dragPosition;
   
   Color _getTimeSlotColor(int index) {
     final progress = index / (TimeSlot.values.length - 1);
-    return Color.lerp(_morningColor, _nightColor, progress) ?? _nightColor;
+    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ?? AppColors.nightColor;
   }
   
   Color _getTimeSlotColorFromProgress(double progress) {
-    return Color.lerp(_morningColor, _nightColor, progress.clamp(0.0, 1.0)) ?? _nightColor;
+    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress.clamp(0.0, 1.0)) ?? AppColors.nightColor;
   }
 
   Widget _buildTimeSlotSlider() {

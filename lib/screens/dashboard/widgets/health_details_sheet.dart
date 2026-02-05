@@ -119,25 +119,32 @@ class _HealthDetailsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.8,
-      decoration: BoxDecoration(
-        color: AppColors.darkCard,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.warmMuted,
-              borderRadius: BorderRadius.circular(2),
+    return GestureDetector(
+      // Swipe down to close
+      onVerticalDragEnd: (details) {
+        if (details.velocity.pixelsPerSecond.dy > 300) {
+          Navigator.of(context).pop();
+        }
+      },
+      child: Container(
+        height: MediaQuery.of(context).size.height * 0.8,
+        decoration: BoxDecoration(
+          color: AppColors.darkCard,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.warmMuted,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
-          ),
-          Expanded(
+            Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
@@ -198,6 +205,7 @@ class _HealthDetailsContent extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
@@ -492,7 +500,7 @@ class _HealthDetailsContent extends StatelessWidget {
 
   Widget _buildCompactMetric(String label, IconData? icon, String? svgPath, double value, double trend) {
     final trendPositive = trend > 0;
-    final trendColor = trendPositive ? const Color(0xFF4ADE80) : const Color(0xFFF87171);
+    final trendColor = trendPositive ? AppColors.success : AppColors.trendNegative;
     
     return Container(
       padding: const EdgeInsets.all(12),
@@ -556,7 +564,7 @@ class _HealthDetailsContent extends StatelessWidget {
 
   Widget _buildCompactMetricSvg(String label, String svgPath, double value, double trend) {
     final trendPositive = trend > 0;
-    final trendColor = trendPositive ? const Color(0xFF4ADE80) : const Color(0xFFF87171);
+    final trendColor = trendPositive ? AppColors.success : AppColors.trendNegative;
     
     return Container(
       padding: const EdgeInsets.all(12),

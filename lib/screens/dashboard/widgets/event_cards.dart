@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../models/moment.dart';
 import '../../../theme/theme.dart';
+import '../../../widgets/action_button.dart';
+import '../../../widgets/moment_type_icon.dart';
 
 /// Card showing upcoming moments ("Coming Up").
 class ComingUpCard extends StatelessWidget {
@@ -15,9 +17,10 @@ class ComingUpCard extends StatelessWidget {
     required this.moments,
     this.onTap,
     this.onMomentTap,
+    this.onMoreTap,
   });
 
-  /// Upcoming moments.
+  /// Upcoming moments (shows up to 4).
   final List<Moment> moments;
   
   /// Callback when card header is tapped.
@@ -25,9 +28,16 @@ class ComingUpCard extends StatelessWidget {
   
   /// Callback when a specific moment is tapped.
   final void Function(Moment moment)? onMomentTap;
+  
+  /// Callback when "more" indicator is tapped.
+  final VoidCallback? onMoreTap;
 
   @override
   Widget build(BuildContext context) {
+    // Show up to 3 moments to prevent overflow
+    final displayMoments = moments.take(3).toList();
+    final hasMore = moments.length > 3;
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -66,34 +76,61 @@ class ComingUpCard extends StatelessWidget {
           const Spacer(),
           
           // Content
-          if (moments.isNotEmpty) ...[
-            // First moment
-            _MomentPreview(
-              moment: moments.first,
-              onTap: onMomentTap != null ? () => onMomentTap!(moments.first) : null,
-            ),
-            
-            // Second moment (if exists)
-            if (moments.length > 1) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Divider(
-                  color: AppColors.warmMuted.withValues(alpha: 0.2),
-                  height: 1,
+          if (displayMoments.isNotEmpty) ...[
+            // Show up to 4 moments with dividers
+            for (int i = 0; i < displayMoments.length; i++) ...[
+              if (i > 0)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Divider(
+                    color: AppColors.warmMuted.withValues(alpha: 0.15),
+                    height: 1,
+                  ),
                 ),
-              ),
               _MomentPreview(
-                moment: moments[1],
-                isSecondary: true,
-                onTap: onMomentTap != null ? () => onMomentTap!(moments[1]) : null,
+                moment: displayMoments[i],
+                isSecondary: i > 0,
+                onTap: onMomentTap != null ? () => onMomentTap!(displayMoments[i]) : null,
+              ),
+            ],
+            
+            // "More" indicator if there are more moments
+            if (hasMore) ...[
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: GestureDetector(
+                  onTap: onMoreTap,
+                  behavior: HitTestBehavior.opaque,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        '+${moments.length - 3} more',
+                        style: GoogleFonts.inter(
+                          color: AppColors.accentRed,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.accentRed,
+                        size: 16,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ] else
-            Text(
-              'No moments planned',
-              style: GoogleFonts.inter(
-                color: AppColors.warmDim,
-                fontSize: 15,
+            Center(
+              child: Text(
+                'No moments planned',
+                style: GoogleFonts.inter(
+                  color: AppColors.warmDim,
+                  fontSize: 14,
+                ),
               ),
             ),
         ],
@@ -132,6 +169,9 @@ class _MomentPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = isSecondary ? 14.0 : 16.0;
+    final containerSize = isSecondary ? 24.0 : 28.0;
+    
     return GestureDetector(
       onTap: onTap != null ? () {
         HapticFeedback.selectionClick();
@@ -140,11 +180,20 @@ class _MomentPreview extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       child: Row(
         children: [
-          // Emoji
-          Text(
-            moment.type.emoji,
-            style: TextStyle(
-              fontSize: isSecondary ? 16 : 20,
+          // Flat icon in container
+          Container(
+            width: containerSize,
+            height: containerSize,
+            decoration: BoxDecoration(
+              color: AppColors.accentRed.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Center(
+              child: getMomentTypeIconWidget(
+                moment.type,
+                size: iconSize,
+                color: AppColors.accentRed,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -158,7 +207,7 @@ class _MomentPreview extends StatelessWidget {
                   moment.name,
                   style: GoogleFonts.inter(
                     color: isSecondary ? AppColors.warmMuted : AppColors.warmLight,
-                    fontSize: isSecondary ? 14 : 16,
+                    fontSize: isSecondary ? 13 : 14,
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,
@@ -168,7 +217,7 @@ class _MomentPreview extends StatelessWidget {
                   _dateLabel,
                   style: GoogleFonts.inter(
                     color: AppColors.warmDim,
-                    fontSize: isSecondary ? 11 : 12,
+                    fontSize: isSecondary ? 10 : 11,
                   ),
                 ),
               ],
@@ -180,7 +229,7 @@ class _MomentPreview extends StatelessWidget {
             Icon(
               Icons.chevron_right_rounded,
               color: AppColors.warmMuted.withValues(alpha: 0.5),
-              size: isSecondary ? 18 : 20,
+              size: isSecondary ? 16 : 18,
             ),
         ],
       ),
@@ -199,41 +248,9 @@ class PlanMomentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return ActionButton(
+      label: 'Plan a moment',
       onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: AppColors.darkCardLight,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accentRed.withValues(alpha: 0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Plan a moment',
-              style: GoogleFonts.outfit(
-                color: AppColors.accentRed,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Icon(
-              Icons.play_circle_filled_rounded,
-              color: AppColors.accentRed,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -249,41 +266,9 @@ class CheckInCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return ActionButton(
+      label: 'Check in',
       onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-        decoration: BoxDecoration(
-          color: AppColors.darkCardLight,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accentRed.withValues(alpha: 0.12),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Check in',
-              style: GoogleFonts.outfit(
-                color: AppColors.accentRed,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Icon(
-              Icons.play_circle_filled_rounded,
-              color: AppColors.accentRed,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

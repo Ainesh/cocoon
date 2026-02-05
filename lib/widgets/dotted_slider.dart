@@ -13,12 +13,6 @@ import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_colors.dart';
 import 'painters/circle_progress_painters.dart';
 
-/// Low score color (blue).
-const _lowColor = Color(0xFF60A5FA);
-
-/// High score color (red).
-const _highColor = Color(0xFFE84545);
-
 /// A score selector with:
 /// - Card background (like health details sheet)
 /// - Stat name aligned with top of circle
@@ -66,7 +60,7 @@ class _ScoreSelectorState extends State<ScoreSelector> {
   double get _progress => (widget.value - widget.min) / (widget.max - widget.min);
   
   /// Interpolate between blue (low) and red (high) based on progress.
-  Color get _valueColor => Color.lerp(_lowColor, _highColor, _progress) ?? _highColor;
+  Color get _valueColor => Color.lerp(AppColors.morningColor, AppColors.nightColor, _progress) ?? AppColors.nightColor;
 
   @override
   void initState() {

@@ -1,18 +1,33 @@
 /// Moment details bottom sheet showing full moment information.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
 import '../../theme/theme.dart';
+import '../../widgets/moment_type_icon.dart';
+import '../../widgets/painters/circle_progress_painters.dart';
+
+/// Which field triggered the edit action.
+enum MomentEditField {
+  general,  // Swipe up or general edit
+  date,
+  time,
+  notes,
+}
+
+/// Callback type for edit action with field info.
+typedef OnEditCallback = void Function(MomentEditField field);
 
 /// Shows moment details in a modal bottom sheet.
 void showMomentDetailsSheet({
   required BuildContext context,
   required Moment moment,
-  VoidCallback? onEdit,
+  OnEditCallback? onEdit,
   VoidCallback? onDelete,
 }) {
   HapticFeedback.mediumImpact();
@@ -28,7 +43,7 @@ void showMomentDetailsSheet({
   );
 }
 
-class _MomentDetailsContent extends StatelessWidget {
+class _MomentDetailsContent extends StatefulWidget {
   const _MomentDetailsContent({
     required this.moment,
     this.onEdit,
@@ -36,105 +51,191 @@ class _MomentDetailsContent extends StatelessWidget {
   });
 
   final Moment moment;
-  final VoidCallback? onEdit;
+  final OnEditCallback? onEdit;
   final VoidCallback? onDelete;
 
   @override
+  State<_MomentDetailsContent> createState() => _MomentDetailsContentState();
+}
+
+class _MomentDetailsContentState extends State<_MomentDetailsContent> {
+  bool _isHoldingDelete = false;
+  int _activeDots = 24; // Total dots, counts down to 0
+  Timer? _deleteTimer;
+  OverlayEntry? _overlayEntry;
+  
+  static const _totalDots = 24;
+  static const _totalDurationMs = 3000; // 3 seconds
+  static const _msPerDot = _totalDurationMs ~/ _totalDots; // ~125ms per dot
+
+  @override
+  void dispose() {
+    _cancelDelete();
+    super.dispose();
+  }
+
+  void _startDelete() {
+    setState(() {
+      _isHoldingDelete = true;
+      _activeDots = _totalDots;
+    });
+    HapticFeedback.mediumImpact();
+    _showDeleteOverlay();
+    
+    // Timer fires for each dot
+    _deleteTimer = Timer.periodic(Duration(milliseconds: _msPerDot), (timer) {
+      if (_activeDots > 1) {
+        setState(() => _activeDots--);
+        // Recreate overlay with new dot count
+        _hideDeleteOverlay();
+        _showDeleteOverlay();
+        HapticFeedback.selectionClick(); // Light haptic for each dot
+      } else {
+        // Delete!
+        timer.cancel();
+        _hideDeleteOverlay();
+        HapticFeedback.heavyImpact();
+        Navigator.of(context).pop();
+        widget.onDelete?.call();
+      }
+    });
+  }
+
+  void _cancelDelete() {
+    _deleteTimer?.cancel();
+    _deleteTimer = null;
+    _hideDeleteOverlay();
+    if (mounted) {
+      setState(() {
+        _isHoldingDelete = false;
+        _activeDots = _totalDots;
+      });
+    }
+  }
+
+  void _showDeleteOverlay() {
+    _overlayEntry = OverlayEntry(
+      builder: (context) => _DeleteCountdownOverlay(
+        activeDots: _activeDots,
+        totalDots: _totalDots,
+        momentName: widget.moment.name,
+      ),
+    );
+    Overlay.of(context).insert(_overlayEntry!);
+  }
+
+  void _hideDeleteOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
+  Moment get moment => widget.moment;
+  OnEditCallback? get onEdit => widget.onEdit;
+  VoidCallback? get onDelete => widget.onDelete;
+
+  void _goToEditScreen([MomentEditField field = MomentEditField.general]) {
+    if (onEdit == null) return;
+    Navigator.of(context).pop();
+    onEdit!(field);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
-      ),
-      decoration: const BoxDecoration(
-        color: AppColors.darkCard,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: AppColors.warmMuted,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Type badge with icon
-                  _buildTypeBadge(),
-                  const SizedBox(height: 20),
-                  
-                  // Moment name - large and prominent
-                  Text(
-                    moment.name,
-                    style: GoogleFonts.outfit(
-                      color: AppColors.warmLight,
-                      fontSize: 32,
-                      fontWeight: FontWeight.w700,
-                      height: 1.1,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 32),
-                  
-                  // Info cards row
-                  _buildInfoRow(),
-                  
-                  // Notes section (if available)
-                  if (moment.notes != null && moment.notes!.isNotEmpty) ...[
-                    const SizedBox(height: 20),
-                    _buildNotesSection(),
-                  ],
-                  
-                  const SizedBox(height: 32),
-                  
-                  // Action buttons
-                  _buildActions(context),
-                ],
+    return GestureDetector(
+      onVerticalDragEnd: (details) {
+        final velocity = details.velocity.pixelsPerSecond.dy;
+        // Swipe down to close
+        if (velocity > 300) {
+          Navigator.of(context).pop();
+        }
+        // Swipe up to go to edit screen
+        else if (velocity < -300 && onEdit != null) {
+          HapticFeedback.mediumImpact();
+          _goToEditScreen();
+        }
+      },
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColors.darkCard,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle (swipe up hint)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.warmMuted,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
-        ],
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Type badge with icon
+                    _buildTypeBadge(),
+                    const SizedBox(height: 20),
+                    
+                    // Moment name - large and prominent
+                    Text(
+                      moment.name,
+                      style: GoogleFonts.outfit(
+                        color: AppColors.warmLight,
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+                    
+                    // Info cards row (long-press to edit)
+                    _buildInfoRow(),
+                    
+                    // Notes section (always show, long-press to edit)
+                    const SizedBox(height: 20),
+                    _buildNotesSection(),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Action buttons
+                    _buildActions(context),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildTypeBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
         color: AppColors.accentRed,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accentRed.withValues(alpha: 0.4),
-            blurRadius: 16,
-            spreadRadius: 2,
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            _getTypeIcon(),
-            color: AppColors.pureBlack,
-            size: 24,
-          ),
-          const SizedBox(width: 10),
+          getMomentTypeIconWidget(moment.type, size: 24, color: AppColors.pureBlack),
+          const SizedBox(height: 6),
           Text(
             moment.type.label,
             style: GoogleFonts.outfit(
               color: AppColors.pureBlack,
-              fontSize: 16,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -143,30 +244,47 @@ class _MomentDetailsContent extends StatelessWidget {
     );
   }
 
-  IconData _getTypeIcon() {
-    return switch (moment.type) {
-      MomentType.celebrate => Icons.auto_awesome_rounded,
-      MomentType.connect => Icons.power_rounded,
-      MomentType.escape => Icons.flight_rounded,
-    };
-  }
-
   Widget _buildInfoRow() {
+    // Long-press any card to go to edit screen with that field focused
+    Widget wrapWithLongPress(Widget child, MomentEditField field) {
+      return GestureDetector(
+        onLongPress: () {
+          HapticFeedback.mediumImpact();
+          _goToEditScreen(field);
+        },
+        child: child,
+      );
+    }
+
+    // Escape: single merged card with dates + nights
+    if (moment.type == MomentType.escape) {
+      return wrapWithLongPress(_buildEscapeInfoCard(), MomentEditField.date);
+    }
+    
+    // Celebrate: just the date card (full width)
+    if (moment.type == MomentType.celebrate) {
+      return wrapWithLongPress(_buildDateCard(), MomentEditField.date);
+    }
+    
+    // Connect: two-card layout (date + time)
     return Row(
       children: [
-        // Date card
-        Expanded(child: _buildDateCard()),
+        Expanded(child: wrapWithLongPress(_buildDateCard(), MomentEditField.date)),
         const SizedBox(width: 12),
-        // Time/Duration card
-        Expanded(child: _buildSecondaryCard()),
+        Expanded(child: wrapWithLongPress(_buildTimeCard(), MomentEditField.time)),
       ],
     );
   }
 
-  Widget _buildDateCard() {
-    final isEscape = moment.type == MomentType.escape;
+  Widget _buildEscapeInfoCard() {
+    final nights = moment.endDate != null 
+        ? moment.endDate!.difference(moment.startDate).inDays 
+        : 0;
+    final nightsText = nights == 1 ? '1 night' : '$nights nights';
+    final daysToGo = _getDaysToGo();
     
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.darkCardLight,
@@ -175,24 +293,11 @@ class _MomentDetailsContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.accentRed.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.calendar_today_rounded,
-                  color: AppColors.accentRed,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
               Text(
-                isEscape ? 'DATES' : 'DATE',
+                'DATES',
                 style: GoogleFonts.inter(
                   color: AppColors.warmMuted,
                   fontSize: 10,
@@ -200,45 +305,40 @@ class _MomentDetailsContent extends StatelessWidget {
                   letterSpacing: 1.5,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          if (isEscape && moment.endDate != null) ...[
-            Text(
-              _formatDateShort(moment.startDate),
-              style: GoogleFonts.outfit(
-                color: AppColors.warmLight,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Icon(Icons.arrow_downward_rounded, color: AppColors.warmMuted, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDateShort(moment.endDate!),
-                  style: GoogleFonts.outfit(
-                    color: AppColors.warmLight,
-                    fontSize: 18,
+              const Spacer(),
+              // Nights badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.accentRed.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  nightsText,
+                  style: GoogleFonts.inter(
+                    color: AppColors.accentRed,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
-            ),
-          ] else ...[
-            Text(
-              _formatDateFull(moment.startDate),
-              style: GoogleFonts.outfit(
-                color: AppColors.warmLight,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          // Dates - same format as date card
+          Text(
+            '${_formatDateShort(moment.startDate)} – ${_formatDateShort(moment.endDate ?? moment.startDate)}',
+            style: GoogleFonts.outfit(
+              color: AppColors.warmLight,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
             ),
-            const SizedBox(height: 4),
+          ),
+          // Days to go
+          if (daysToGo != null) ...[
+            const SizedBox(height: 8),
             Text(
-              _getRelativeDate(),
+              daysToGo,
               style: GoogleFonts.inter(
                 color: AppColors.accentRed,
                 fontSize: 13,
@@ -251,10 +351,20 @@ class _MomentDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildSecondaryCard() {
-    // For Connect: show time slot
-    // For Escape: show duration
-    // For Celebrate: show countdown or status
+  String? _getDaysToGo() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final startDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
+    final diff = startDate.difference(today).inDays;
+    
+    if (diff < 0) return 'Already started';
+    if (diff == 0) return 'Starts today!';
+    if (diff == 1) return 'Starts tomorrow';
+    return '$diff days to go';
+  }
+
+  Widget _buildDateCard() {
+    final relativeDateInfo = _getRelativeDateInfo();
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -265,264 +375,220 @@ class _MomentDetailsContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: AppColors.accentRed.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  _getSecondaryIcon(),
-                  color: AppColors.accentRed,
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                _getSecondaryLabel(),
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
+          // Header
           Text(
-            _getSecondaryValue(),
-            style: GoogleFonts.outfit(
-              color: AppColors.warmLight,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            _getSecondarySubtext(),
+            'DATE',
             style: GoogleFonts.inter(
               color: AppColors.warmMuted,
-              fontSize: 13,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  IconData _getSecondaryIcon() {
-    return switch (moment.type) {
-      MomentType.connect => Icons.schedule_rounded,
-      MomentType.escape => Icons.nights_stay_rounded,
-      MomentType.celebrate => Icons.timer_outlined,
-    };
-  }
-
-  String _getSecondaryLabel() {
-    return switch (moment.type) {
-      MomentType.connect => 'TIME',
-      MomentType.escape => 'DURATION',
-      MomentType.celebrate => 'STATUS',
-    };
-  }
-
-  String _getSecondaryValue() {
-    return switch (moment.type) {
-      MomentType.connect => moment.timeSlot?.label ?? 'Anytime',
-      MomentType.escape => _getDurationText(),
-      MomentType.celebrate => _getStatusText(),
-    };
-  }
-
-  String _getSecondarySubtext() {
-    return switch (moment.type) {
-      MomentType.connect => moment.timeSlot?.timeRange ?? 'Flexible timing',
-      MomentType.escape => _getNightsText(),
-      MomentType.celebrate => _getCountdownText(),
-    };
-  }
-
-  String _getDurationText() {
-    if (moment.endDate == null) return '1 day';
-    final days = moment.endDate!.difference(moment.startDate).inDays + 1;
-    return '$days days';
-  }
-
-  String _getNightsText() {
-    if (moment.endDate == null) return 'Day trip';
-    final nights = moment.endDate!.difference(moment.startDate).inDays;
-    return nights == 1 ? '1 night away' : '$nights nights away';
-  }
-
-  String _getStatusText() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final momentDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
-    
-    if (momentDate.isBefore(today)) return 'Celebrated';
-    if (momentDate.isAtSameMomentAs(today)) return 'Today!';
-    return 'Coming up';
-  }
-
-  String _getCountdownText() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final momentDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
-    final diff = momentDate.difference(today).inDays;
-    
-    if (diff < 0) return 'Already happened';
-    if (diff == 0) return "It's the day!";
-    if (diff == 1) return 'Tomorrow';
-    if (diff < 7) return 'In $diff days';
-    if (diff < 30) return 'In ${(diff / 7).ceil()} weeks';
-    return 'In ${(diff / 30).ceil()} months';
-  }
-
-  String _getRelativeDate() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final momentDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
-    final diff = momentDate.difference(today).inDays;
-    
-    if (diff < 0) return 'Past';
-    if (diff == 0) return 'Today';
-    if (diff == 1) return 'Tomorrow';
-    if (diff < 7) return 'In $diff days';
-    return 'In ${(diff / 7).ceil()} weeks';
-  }
-
-  Widget _buildNotesSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: 12),
+          // Date with badge on right
           Row(
             children: [
+              Expanded(
+                child: Text(
+                  _formatDateFull(moment.startDate),
+                  style: GoogleFonts.outfit(
+                    color: AppColors.warmLight,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              // Squarish badge with two lines
               Container(
-                width: 28,
-                height: 28,
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppColors.accentRed.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(
-                  Icons.notes_rounded,
-                  color: AppColors.accentRed,
-                  size: 14,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text(
-                'NOTES',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      relativeDateInfo.$1,
+                      style: GoogleFonts.inter(
+                        color: AppColors.accentRed,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      relativeDateInfo.$2,
+                      style: GoogleFonts.inter(
+                        color: AppColors.accentRed,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            moment.notes!,
-            style: GoogleFonts.inter(
-              color: AppColors.warmDim,
-              fontSize: 14,
-              height: 1.5,
-            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildActions(BuildContext context) {
-    return Row(
-      children: [
-        // Edit button
-        if (onEdit != null)
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.edit_rounded,
-              label: 'Edit',
-              onTap: () {
-                Navigator.of(context).pop();
-                onEdit!();
-              },
-              isPrimary: false,
+  Color _getTimeSlotColor(TimeSlot? slot) {
+    if (slot == null) return AppColors.warmMuted;
+    final index = TimeSlot.values.indexOf(slot);
+    final progress = index / (TimeSlot.values.length - 1);
+    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ?? AppColors.nightColor;
+  }
+
+  IconData _getTimeSlotIcon(TimeSlot? slot) {
+    return switch (slot) {
+      TimeSlot.morning => Icons.wb_sunny_rounded,
+      TimeSlot.afternoon => Icons.light_mode_rounded,
+      TimeSlot.evening => Icons.wb_twilight_rounded,
+      TimeSlot.night => Icons.dark_mode_rounded,
+      null => Icons.schedule_rounded,
+    };
+  }
+
+  /// Simplifies time range: "5 PM - 9 PM" → "5 - 9 PM"
+  String _simplifyTimeRange(String timeRange) {
+    // Handle formats like "6 AM - 12 PM", "5 PM - 9 PM"
+    final parts = timeRange.split(' - ');
+    if (parts.length != 2) return timeRange;
+    
+    final start = parts[0].trim(); // e.g., "6 AM" or "5 PM"
+    final end = parts[1].trim();   // e.g., "12 PM" or "9 PM"
+    
+    // Extract the hour from start (remove AM/PM)
+    final startHour = start.replaceAll(RegExp(r'\s*(AM|PM)'), '');
+    
+    return '$startHour - $end';
+  }
+
+  Widget _buildTimeCard() {
+    // Time card for Connect moments - icon and time on right side
+    final timeColor = _getTimeSlotColor(moment.timeSlot);
+    final hasTimeSlot = moment.timeSlot != null;
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Text(
+            'TIME',
+            style: GoogleFonts.inter(
+              color: AppColors.warmMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
             ),
           ),
-        if (onEdit != null && onDelete != null) const SizedBox(width: 12),
-        // Delete button
-        if (onDelete != null)
-          Expanded(
-            child: _buildActionButton(
-              icon: Icons.delete_outline_rounded,
-              label: 'Delete',
-              onTap: () => _confirmDelete(context),
-              isPrimary: false,
-              isDanger: true,
-            ),
+          const SizedBox(height: 12),
+          // Time slot name with icon and time on right
+          Row(
+            children: [
+              // Time slot name on left
+              Expanded(
+                child: Text(
+                  hasTimeSlot ? moment.timeSlot!.label : 'Anytime',
+                  style: GoogleFonts.outfit(
+                    color: AppColors.warmLight,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              // Icon and time range on right
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: timeColor.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      _getTimeSlotIcon(moment.timeSlot),
+                      size: 18,
+                      color: timeColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
+                    style: GoogleFonts.inter(
+                      color: timeColor,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildActionButton({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isPrimary = false,
-    bool isDanger = false,
-  }) {
-    final color = isDanger 
-        ? const Color(0xFFF87171) 
-        : (isPrimary ? AppColors.accentRed : AppColors.warmMuted);
+  /// Returns (line1, line2) for the date badge.
+  /// e.g., ("13 days", "to go") or ("Today", "")
+  (String, String) _getRelativeDateInfo() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final momentDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
+    final diff = momentDate.difference(today).inDays;
+    
+    if (diff < 0) return ('Past', '');
+    if (diff == 0) return ('Today', '');
+    if (diff == 1) return ('Tomorrow', '');
+    return ('$diff days', 'to go');
+  }
+
+  Widget _buildNotesSection() {
+    final hasNotes = moment.notes != null && moment.notes!.isNotEmpty;
     
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
+      onLongPress: () {
+        HapticFeedback.mediumImpact();
+        _goToEditScreen(MomentEditField.notes);
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isPrimary 
-              ? AppColors.accentRed 
-              : (isDanger 
-                  ? const Color(0xFFF87171).withValues(alpha: 0.15)
-                  : AppColors.darkCardLight),
-          borderRadius: BorderRadius.circular(14),
-          border: isDanger 
-              ? Border.all(color: const Color(0xFFF87171).withValues(alpha: 0.3))
-              : null,
+          color: AppColors.darkCardLight,
+          borderRadius: BorderRadius.circular(16),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              icon,
-              color: isPrimary ? AppColors.pureBlack : color,
-              size: 18,
-            ),
-            const SizedBox(width: 8),
             Text(
-              label,
-              style: GoogleFonts.outfit(
-                color: isPrimary ? AppColors.pureBlack : color,
-                fontSize: 15,
+              'NOTES',
+              style: GoogleFonts.inter(
+                color: AppColors.warmMuted,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              hasNotes ? moment.notes! : 'Nothing added here',
+              style: GoogleFonts.inter(
+                color: hasNotes ? AppColors.warmDim : AppColors.warmMuted,
+                fontSize: 14,
+                height: 1.5,
+                fontStyle: hasNotes ? FontStyle.normal : FontStyle.italic,
               ),
             ),
           ],
@@ -531,101 +597,45 @@ class _MomentDetailsContent extends StatelessWidget {
     );
   }
 
-  void _confirmDelete(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => Dialog(
-        backgroundColor: AppColors.darkCard,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF87171).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: Color(0xFFF87171),
-                  size: 28,
-                ),
+  Widget _buildActions(BuildContext context) {
+    if (onDelete == null) return const SizedBox.shrink();
+    return _buildHoldToDeleteButton();
+  }
+
+  Widget _buildHoldToDeleteButton() {
+    // Use accentRed to match ActionButton (Plan a moment, Check in)
+    const buttonColor = AppColors.accentRed;
+    
+    // When held: bg = buttonColor, text/icon = black (matching ActionButton pattern)
+    final bgColor = _isHoldingDelete ? buttonColor : AppColors.darkCardLight;
+    final fgColor = _isHoldingDelete ? AppColors.pureBlack : buttonColor;
+    
+    return GestureDetector(
+      onLongPressStart: (_) => _startDelete(),
+      onLongPressEnd: (_) => _cancelDelete(),
+      onLongPressCancel: _cancelDelete,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        transform: Matrix4.identity()..scale(_isHoldingDelete ? 0.98 : 1.0),
+        transformAlignment: Alignment.center,
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Hold to cancel',
+              style: GoogleFonts.outfit(
+                color: fgColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
               ),
-              const SizedBox(height: 20),
-              Text(
-                'Delete Moment?',
-                style: GoogleFonts.outfit(
-                  color: AppColors.warmLight,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'This will permanently remove "${moment.name}" from your calendar.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  color: AppColors.warmDim,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      style: TextButton.styleFrom(
-                        backgroundColor: AppColors.darkCardLight,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.outfit(
-                          color: AppColors.warmMuted,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.of(dialogContext).pop();
-                        Navigator.of(context).pop();
-                        onDelete!();
-                      },
-                      style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFFF87171),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(
-                        'Delete',
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -640,5 +650,118 @@ class _MomentDetailsContent extends StatelessWidget {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}';
+  }
+}
+
+/// Overlay shown while holding the delete button
+class _DeleteCountdownOverlay extends StatelessWidget {
+  const _DeleteCountdownOverlay({
+    required this.activeDots,
+    required this.totalDots,
+    required this.momentName,
+  });
+
+  final int activeDots;
+  final int totalDots;
+  final String momentName;
+
+  Color get _currentColor {
+    // activeDots 24 → 0.0 (red), activeDots 0 → 1.0 (blue)
+    final t = 1.0 - (activeDots / totalDots);
+    return Color.lerp(AppColors.nightColor, AppColors.morningColor, t)!;
+  }
+
+  double get _progress {
+    // Progress: activeDots/totalDots (1.0 when full, 0.0 when empty)
+    return activeDots / totalDots;
+  }
+
+  int get _displayCountdown {
+    // Convert dots to seconds (24 dots = 3s, 16 dots = 2s, 8 dots = 1s)
+    return ((activeDots / totalDots) * 3).ceil().clamp(1, 3);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _currentColor;
+    
+    return Material(
+      color: Colors.black.withValues(alpha: 0.8),
+      child: Center(
+        child: Container(
+          margin: const EdgeInsets.all(40),
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
+          decoration: BoxDecoration(
+            color: AppColors.darkCard,
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Heading
+              Text(
+                'Cancelling permanently',
+                style: GoogleFonts.outfit(
+                  color: AppColors.warmLight,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 24),
+              // Dotted circle with timer
+              SizedBox(
+                width: 100,
+                height: 100,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    // Dotted circle progress (starts full, empties dot by dot)
+                    CustomPaint(
+                      size: const Size(100, 100),
+                      painter: DottedCircleProgressPainter(
+                        progress: _progress,
+                        activeColor: color,
+                        inactiveColor: color.withValues(alpha: 0.15),
+                        dotCount: totalDots,
+                        dotRadius: 3.0,
+                      ),
+                    ),
+                    // Countdown number (color matches dots)
+                    Text(
+                      '$_displayCountdown',
+                      style: GoogleFonts.outfit(
+                        color: color,
+                        fontSize: 42,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Moment name
+              Text(
+                momentName,
+                style: GoogleFonts.outfit(
+                  color: AppColors.warmLight,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              // Helper text - subtle
+              Text(
+                'Like it never happened',
+                style: GoogleFonts.inter(
+                  color: AppColors.warmMuted,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

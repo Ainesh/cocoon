@@ -6,5 +6,6 @@
 /// ```
 library;
 
+export 'edit_moment_screen.dart';
 export 'moment_details_sheet.dart';
 export 'plan_moment_screen.dart';

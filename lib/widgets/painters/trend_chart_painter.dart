@@ -45,7 +45,7 @@ class TrendChartPainter extends CustomPainter {
     if (primaryValues.isEmpty) return;
     
     final primary = primaryColor ?? AppColors.accentRed;
-    final secondary = secondaryColor ?? const Color(0xFF60A5FA);
+    final secondary = secondaryColor ?? AppColors.morningColor;
     
     // Draw primary line (red)
     _drawCurveLine(canvas, size, primaryValues, primary);

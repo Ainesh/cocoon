@@ -17,6 +17,7 @@ import '../../models/user_checkin.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
+import '../../widgets/moment_type_icon.dart';
 import '../moment/moment_details_sheet.dart';
 import 'widgets/event_cards.dart';
 import 'widgets/health_card.dart';
@@ -176,9 +177,22 @@ class _DashboardTabState extends State<DashboardTab> {
     showMomentDetailsSheet(
       context: context,
       moment: moment,
-      onEdit: () {
-        // TODO: Navigate to edit screen when implemented
-        context.push('/moment/${widget.spaceId}');
+      onEdit: (field) async {
+        // Map MomentEditField to EditMomentFocus
+        final focus = switch (field) {
+          MomentEditField.date => 'date',
+          MomentEditField.time => 'time',
+          MomentEditField.notes => 'notes',
+          MomentEditField.general => 'none',
+        };
+        final result = await context.push<Moment>(
+          '/moment/${widget.spaceId}/edit?focus=$focus',
+          extra: moment,
+        );
+        // If edit returned an updated moment, re-open MDS with it
+        if (result != null && mounted) {
+          _showMomentDetails(result);
+        }
       },
       onDelete: () async {
         try {
@@ -240,11 +254,15 @@ class _DashboardTabState extends State<DashboardTab> {
             flex: 1,
             child: Column(
               children: [
-                // Coming Up card
+                // Coming Up card (shows up to 4 moments)
                 Expanded(
                   child: ComingUpCard(
                     moments: _upcomingMoments,
                     onMomentTap: (moment) => _showMomentDetails(moment),
+                    onMoreTap: () {
+                      // Navigate to calendar tab (index 1)
+                      // This will be handled by parent shell
+                    },
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -281,9 +299,9 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   Widget _buildUpcomingMoments() {
-    // Filter to moments that are more than a preview (after 2nd one)
-    final additionalMoments = _upcomingMoments.length > 2 
-        ? _upcomingMoments.skip(2).take(3).toList() 
+    // Filter to moments beyond what's shown in Coming Up card (after 3rd one)
+    final additionalMoments = _upcomingMoments.length > 3 
+        ? _upcomingMoments.skip(3).take(5).toList() 
         : <Moment>[];
     
     if (additionalMoments.isEmpty) return const SizedBox.shrink();
@@ -293,17 +311,37 @@ class _DashboardTabState extends State<DashboardTab> {
       children: [
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 12),
-          child: Text(
-            'MORE MOMENTS',
-            style: GoogleFonts.inter(
-              color: AppColors.warmMuted,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 2,
+          child: GestureDetector(
+            onTap: () {
+              // Could navigate to calendar or moments list
+              HapticFeedback.selectionClick();
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Text(
+                  'MORE MOMENTS',
+                  style: GoogleFonts.inter(
+                    color: AppColors.warmMuted,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.warmMuted,
+                  size: 16,
+                ),
+              ],
             ),
           ),
         ),
-        ...additionalMoments.map((moment) => _MomentListItem(moment: moment)),
+        ...additionalMoments.map((moment) => _MomentListItem(
+          moment: moment,
+          onTap: () => _showMomentDetails(moment),
+        )),
       ],
     );
   }
@@ -311,84 +349,106 @@ class _DashboardTabState extends State<DashboardTab> {
 
 /// List item for additional upcoming moments.
 class _MomentListItem extends StatelessWidget {
-  const _MomentListItem({required this.moment});
+  const _MomentListItem({
+    required this.moment,
+    this.onTap,
+  });
 
   final Moment moment;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.darkCard,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          // Type emoji container
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.accentRed.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Text(
-                moment.type.emoji,
-                style: const TextStyle(fontSize: 20),
+    return GestureDetector(
+      onTap: onTap != null ? () {
+        HapticFeedback.selectionClick();
+        onTap!();
+      } : null,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.darkCard,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            // Flat icon container
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppColors.accentRed.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Center(
+                child: getMomentTypeIconWidget(
+                  moment.type,
+                  size: 20,
+                  color: AppColors.accentRed,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          
-          // Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  moment.name,
-                  style: GoogleFonts.inter(
-                    color: AppColors.warmLight,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+            const SizedBox(width: 12),
+            
+            // Details
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    moment.name,
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmLight,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _getSubtitle(),
-                  style: GoogleFonts.inter(
-                    color: AppColors.warmMuted,
-                    fontSize: 12,
+                  const SizedBox(height: 2),
+                  Text(
+                    _getSubtitle(),
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmMuted,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          
-          // Date badge
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: moment.isToday || moment.relativeDate == 'Tomorrow'
-                  ? AppColors.accentRed.withValues(alpha: 0.15)
-                  : AppColors.darkCardLight,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              moment.relativeDate,
-              style: GoogleFonts.inter(
+            
+            // Date badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
                 color: moment.isToday || moment.relativeDate == 'Tomorrow'
-                    ? AppColors.accentRed
-                    : AppColors.warmDim,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                    ? AppColors.accentRed.withValues(alpha: 0.15)
+                    : AppColors.darkCardLight,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                moment.relativeDate,
+                style: GoogleFonts.inter(
+                  color: moment.isToday || moment.relativeDate == 'Tomorrow'
+                      ? AppColors.accentRed
+                      : AppColors.warmDim,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-        ],
+            
+            // Chevron if tappable
+            if (onTap != null) ...[
+              const SizedBox(width: 8),
+              Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.warmMuted.withValues(alpha: 0.5),
+                size: 18,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

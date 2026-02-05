@@ -593,6 +593,7 @@ class FirestoreService {
     DateTime? endDate,
     TimeSlot? timeSlot,
     RepeatSchedule? repeatSchedule,
+    String? notes,
   }) async {
     final updates = <String, dynamic>{
       'updatedAt': FieldValue.serverTimestamp(),
@@ -608,6 +609,8 @@ class FirestoreService {
     }
     if (timeSlot != null) updates['timeSlot'] = timeSlot.value;
     if (repeatSchedule != null) updates['repeatSchedule'] = repeatSchedule.value;
+    // Notes can be explicitly set to null to clear them
+    updates['notes'] = notes;
 
     await _firestore
         .collection(_spacesCollection)

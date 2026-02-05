@@ -3,9 +3,12 @@
 /// Exports all reusable widgets for easy importing throughout the app.
 library;
 
+export 'action_button.dart';
 export 'active_card.dart';
+export 'animated_tap_button.dart';
 export 'avatar_selector.dart';
 export 'dotted_slider.dart';
+export 'moment_type_icon.dart'; // getMomentTypeIcon, getMomentTypeIconWidget
 export 'neumorphic_container.dart'; // Includes PremiumCard, SectionHeader
 export 'slide_to_action.dart';
 

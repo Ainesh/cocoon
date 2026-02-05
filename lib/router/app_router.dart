@@ -7,10 +7,12 @@ library;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/moment.dart';
 import '../screens/checkin/checkin_screen.dart';
 import '../screens/join_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_shell.dart';
+import '../screens/moment/edit_moment_screen.dart';
 import '../screens/moment/plan_moment_screen.dart';
 import '../screens/onboarding_screen.dart';
 import '../screens/splash_screen.dart';
@@ -129,6 +131,31 @@ abstract final class AppRouter {
         return _slideTransition(
           state,
           PlanMomentScreen(spaceId: spaceId),
+        );
+      },
+    ),
+
+    // Edit Moment - Edit existing moment (moment passed via extra)
+    GoRoute(
+      path: '/moment/:spaceId/edit',
+      name: 'editMoment',
+      pageBuilder: (context, state) {
+        final spaceId = state.pathParameters['spaceId'] ?? '';
+        final moment = state.extra as Moment;
+        final focusParam = state.uri.queryParameters['focus'] ?? 'none';
+        final initialFocus = switch (focusParam) {
+          'date' => EditMomentFocus.date,
+          'time' => EditMomentFocus.time,
+          'notes' => EditMomentFocus.notes,
+          _ => EditMomentFocus.none,
+        };
+        return _slideUpTransition(
+          state,
+          EditMomentScreen(
+            spaceId: spaceId,
+            moment: moment,
+            initialFocus: initialFocus,
+          ),
         );
       },
     ),
@@ -262,6 +289,29 @@ abstract final class AppRouter {
             )),
             child: child,
           ),
+        );
+      },
+    );
+  }
+
+  /// Creates a vertical slide-up transition (for modal-style screens).
+  static CustomTransitionPage<void> _slideUpTransition(
+    GoRouterState state,
+    Widget child,
+  ) {
+    return CustomTransitionPage(
+      key: state.pageKey,
+      child: child,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.0, 1.0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: child,
         );
       },
     );

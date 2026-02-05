@@ -5,16 +5,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-// ---------------------------------------------------------------------------
-// Theme Constants
-// ---------------------------------------------------------------------------
-
-const _darkGlass = Color(0xFF1E1E1E);
-const _cardVariant = Color(0xFF2A2A2A);
-const _refinedRed = Color(0xFFFF4444);
-const _lightText = Color(0xFFF5F5F5);
-const _bodyGray = Color(0xFFD1D5DB);
-const _dimText = Color(0xFF9CA3AF);
+import '../theme/app_colors.dart';
 
 // ---------------------------------------------------------------------------
 // Premium Neumorphic Card
@@ -87,10 +78,10 @@ class _PremiumCardState extends State<PremiumCard>
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 150),
               decoration: BoxDecoration(
-                color: _darkGlass,
+                color: AppColors.darkCardLight,
                 borderRadius: BorderRadius.circular(widget.borderRadius),
                 border: Border.all(
-                  color: _refinedRed.withValues(
+                  color: AppColors.refinedRed.withValues(
                     alpha: isActive ? 0.3 : 0.1,
                   ),
                   width: 1,
@@ -98,7 +89,7 @@ class _PremiumCardState extends State<PremiumCard>
                 boxShadow: [
                   // Red glow
                   BoxShadow(
-                    color: _refinedRed.withValues(
+                    color: AppColors.refinedRed.withValues(
                       alpha: 0.15 * widget.glowIntensity * glowMultiplier,
                     ),
                     offset: Offset(0, isActive ? 6 : 4),
@@ -138,7 +129,7 @@ TextStyle cardHeadline(BuildContext context) {
   return const TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.w700,
-    color: _lightText,
+    color: AppColors.lightText,
     height: 1.2,
   );
 }
@@ -148,7 +139,7 @@ TextStyle cardTitle(BuildContext context) {
   return const TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: _lightText,
+    color: AppColors.lightText,
   );
 }
 
@@ -157,7 +148,7 @@ TextStyle cardBody(BuildContext context) {
   return const TextStyle(
     fontSize: 16,
     fontWeight: FontWeight.w400,
-    color: _bodyGray,
+    color: AppColors.bodyGray,
   );
 }
 
@@ -166,7 +157,7 @@ TextStyle cardCaption(BuildContext context) {
   return const TextStyle(
     fontSize: 14,
     fontWeight: FontWeight.w400,
-    color: _dimText,
+    color: AppColors.mutedText,
   );
 }
 
@@ -175,7 +166,7 @@ Widget cardIcon(IconData icon, {double size = 20, Color? color}) {
   return Icon(
     icon,
     size: size,
-    color: color ?? _refinedRed,
+    color: color ?? AppColors.refinedRed,
   );
 }
 
@@ -188,7 +179,7 @@ Widget cardButton({
   return FilledButton(
     onPressed: onPressed,
     style: FilledButton.styleFrom(
-      backgroundColor: _refinedRed,
+      backgroundColor: AppColors.refinedRed,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -215,8 +206,8 @@ Widget cardOutlinedButton({
   return OutlinedButton(
     onPressed: onPressed,
     style: OutlinedButton.styleFrom(
-      foregroundColor: _refinedRed,
-      side: BorderSide(color: _refinedRed.withValues(alpha: 0.5)),
+      foregroundColor: AppColors.refinedRed,
+      side: BorderSide(color: AppColors.refinedRed.withValues(alpha: 0.5)),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
@@ -260,22 +251,22 @@ class MetricDisplay extends StatelessWidget {
     if (trend != null) {
       if (trend! > 0.05) {
         trendIcon = Icons.trending_up;
-        trendColor = const Color(0xFF4ADE80);
+        trendColor = AppColors.success;
       } else if (trend! < -0.05) {
         trendIcon = Icons.trending_down;
-        trendColor = _refinedRed;
+        trendColor = AppColors.refinedRed;
       } else {
         trendIcon = Icons.trending_flat;
-        trendColor = _dimText;
+        trendColor = AppColors.mutedText;
       }
     }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _cardVariant,
+        color: AppColors.cardVariant,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _refinedRed.withValues(alpha: 0.1)),
+        border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +280,7 @@ class MetricDisplay extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: _dimText,
+                  color: AppColors.mutedText,
                 ),
               ),
             ],
@@ -302,7 +293,7 @@ class MetricDisplay extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
-                  color: _lightText,
+                  color: AppColors.lightText,
                 ),
               ),
               if (trendIcon != null) ...[
@@ -337,9 +328,9 @@ class ScoreBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: _cardVariant,
+        color: AppColors.cardVariant,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _refinedRed.withValues(alpha: 0.1)),
+        border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.1)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -351,7 +342,7 @@ class ScoreBadge extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: _lightText,
+              color: AppColors.lightText,
             ),
           ),
         ],
@@ -391,9 +382,9 @@ class EventItem extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: _cardVariant,
+                color: AppColors.cardVariant,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _refinedRed.withValues(alpha: 0.1)),
+                border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.1)),
               ),
               child: Text(emoji, style: const TextStyle(fontSize: 20)),
             ),
@@ -404,7 +395,7 @@ class EventItem extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
-                  color: _lightText,
+                  color: AppColors.lightText,
                 ),
               ),
             ),
@@ -413,7 +404,7 @@ class EventItem extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: _dimText,
+                color: AppColors.mutedText,
               ),
             ),
           ],
@@ -452,18 +443,18 @@ class ActivityItem extends StatelessWidget {
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: isCurrentUser
-                  ? _refinedRed.withValues(alpha: 0.15)
-                  : _cardVariant,
+                  ? AppColors.refinedRed.withValues(alpha: 0.15)
+                  : AppColors.cardVariant,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isCurrentUser
-                    ? _refinedRed.withValues(alpha: 0.3)
-                    : _refinedRed.withValues(alpha: 0.1),
+                    ? AppColors.refinedRed.withValues(alpha: 0.3)
+                    : AppColors.refinedRed.withValues(alpha: 0.1),
               ),
             ),
             child: Icon(
               Icons.check_circle_outline_rounded,
-              color: _refinedRed,
+              color: AppColors.refinedRed,
               size: 20,
             ),
           ),
@@ -477,14 +468,14 @@ class ActivityItem extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
-                    color: _lightText,
+                    color: AppColors.lightText,
                   ),
                 ),
                 Text(
                   subtitle,
                   style: const TextStyle(
                     fontSize: 14,
-                    color: _dimText,
+                    color: AppColors.mutedText,
                   ),
                 ),
               ],
@@ -518,14 +509,14 @@ class SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: _refinedRed, size: 24),
+        Icon(icon, color: AppColors.refinedRed, size: 24),
         const SizedBox(width: 10),
         Text(
           title,
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: _lightText,
+            color: AppColors.lightText,
           ),
         ),
         if (trailing != null) ...[
@@ -566,11 +557,11 @@ class EmptyState extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: _cardVariant,
+            color: AppColors.cardVariant,
             shape: BoxShape.circle,
-            border: Border.all(color: _refinedRed.withValues(alpha: 0.2)),
+            border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.2)),
           ),
-          child: Icon(icon, size: 48, color: _dimText),
+          child: Icon(icon, size: 48, color: AppColors.mutedText),
         ),
         const SizedBox(height: 20),
         Text(
@@ -578,7 +569,7 @@ class EmptyState extends StatelessWidget {
           style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
-            color: _lightText,
+            color: AppColors.lightText,
           ),
         ),
         if (subtitle != null) ...[
@@ -588,7 +579,7 @@ class EmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 16,
-              color: _bodyGray,
+              color: AppColors.bodyGray,
             ),
           ),
         ],
@@ -632,14 +623,14 @@ class NeumorphicContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final glow = glowColor ?? _refinedRed;
+    final glow = glowColor ?? AppColors.refinedRed;
 
     return Container(
       width: width,
       height: height,
       margin: margin,
       decoration: BoxDecoration(
-        color: _darkGlass,
+        color: AppColors.darkCardLight,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
           color: glow.withValues(alpha: 0.1 * intensity),

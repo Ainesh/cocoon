@@ -206,6 +206,10 @@ When your partner submits a check-in, your dashboard automatically:
 | `warmDim` | `#8A8480` | Body text |
 | `warmMuted` | `#6B665F` | Subtle/disabled text |
 | `subtleText` | `#B8B2A8` | Secondary content |
+| `morningColor` | `#60A5FA` | Time slot low (morning/cool) |
+| `nightColor` | `#E84545` | Time slot high (night/warm) |
+| `success` | `#4ADE80` | Positive trends |
+| `trendNegative` | `#F87171` | Negative trends |
 
 ### Typography
 
@@ -259,6 +263,7 @@ Text('Description', style: AppTypography.bodyMedium(color: AppColors.warmDim))
 ### Custom Icons
 
 Located in `assets/icons/`:
+- `connect.svg` - Connect moment type icon
 - `flame.svg` - Intimacy indicator
 - `peace.svg` - Peace indicator
 - `google_logo.svg` - Google Sign-In
@@ -527,7 +532,8 @@ lib/
 │   │
 │   └── moment/                  # Moment planning module
 │       ├── moment.dart          # Barrel export
-│       ├── plan_moment_screen.dart    # Create/edit moment
+│       ├── plan_moment_screen.dart    # Create new moment
+│       ├── edit_moment_screen.dart    # Edit existing moment
 │       └── moment_details_sheet.dart  # View moment details
 │
 ├── services/
@@ -536,8 +542,11 @@ lib/
 │
 └── widgets/
     ├── widgets.dart             # Barrel export
+    ├── action_button.dart       # ActionButton, HoldToActionButton
     ├── active_card.dart         # Card with active state
+    ├── animated_tap_button.dart # Button with tap animation
     ├── avatar_selector.dart     # Avatar & color picker
+    ├── moment_type_icon.dart    # getMomentTypeIconWidget helper
     ├── neumorphic_container.dart # PremiumCard, SectionHeader
     ├── dotted_slider.dart       # ScoreSelector
     ├── slide_to_action.dart     # Swipe-to-confirm
@@ -748,7 +757,8 @@ flutter run -d android   # Android
 | `/onboarding` | Create Space | Yes | New user setup |
 | `/dashboard/:id` | Main Shell | Yes | 4-tab navigation |
 | `/checkin/:id` | Check-in | Yes | Submit scores |
-| `/moment/:id` | Plan Moment | Yes | Create/edit moment |
+| `/moment/:id` | Plan Moment | Yes | Create new moment |
+| `/moment/:id/edit?focus=X` | Edit Moment | Yes | Edit existing moment |
 
 ---
 
@@ -775,11 +785,11 @@ flutter run -d android   # Android
 
 | Issue | Location | Priority | Notes |
 |-------|----------|----------|-------|
-| No edit moment screen | `plan_moment_screen.dart` | Medium | Currently creates new, should support edit |
 | Unused `RepeatSchedule` | `Moment` model | Low | Field exists but UI removed |
 | `agreements_tab.dart` placeholder | Screens | Low | Shows "coming soon" |
 | No offline support | Services | Medium | App fails without network |
 | No image support | Moments | Low | Could add photos to moments |
+| Local color constants | Various files | Low | Some files still have local color constants |
 
 ### Performance Optimizations
 
@@ -908,4 +918,4 @@ MIT License - see LICENSE file for details.
 
 ---
 
-*Last updated: February 2026*
+*Last updated: February 5, 2026*

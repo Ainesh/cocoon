@@ -103,6 +103,19 @@ abstract final class AppColors {
   
   /// Warning orange (#F97316)
   static const warning = Color(0xFFF97316);
+  
+  /// Trend negative/down red (#F87171)
+  static const trendNegative = Color(0xFFF87171);
+
+  // ---------------------------------------------------------------------------
+  // Time Slot Colors (for sliders and gradients)
+  // ---------------------------------------------------------------------------
+  
+  /// Morning/low value color - Cool blue (#60A5FA)
+  static const morningColor = Color(0xFF60A5FA);
+  
+  /// Night/high value color - Warm red (same as accentRed)
+  static const nightColor = accentRed;
 
   // ---------------------------------------------------------------------------
   // Helper Methods
