@@ -406,16 +406,18 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Date text
-              Text(
-                _formatDateFull(moment.startDate),
-                style: GoogleFonts.outfit(
-                  color: AppColors.warmLight,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              // Date text - wrap in Flexible to prevent overflow
+              Flexible(
+                child: Text(
+                  _formatDateFull(moment.startDate),
+                  style: GoogleFonts.outfit(
+                    color: AppColors.warmLight,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              const Spacer(),
+              const SizedBox(width: 8),
               // Two-line badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -486,7 +488,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   }
 
   Widget _buildTimeCard() {
-    // Time card for Connect moments - icon and time on right side
+    // Time card for Connect moments - icon aligned with header, time below
     final timeColor = _getTimeSlotColor(moment.timeSlot);
     final hasTimeSlot = moment.timeSlot != null;
     
@@ -499,18 +501,38 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Text(
-            'TIME',
-            style: GoogleFonts.inter(
-              color: AppColors.warmMuted,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.5,
-            ),
+          // Header row with icon on right
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'TIME',
+                style: GoogleFonts.inter(
+                  color: AppColors.warmMuted,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const Spacer(),
+              // Icon aligned with header
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: timeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _getTimeSlotIcon(moment.timeSlot),
+                  size: 18,
+                  color: timeColor,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
-          // Time slot name with icon and time on right
+          // Time slot name with time range on right
           Row(
             children: [
               // Time slot name on left
@@ -524,32 +546,13 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                   ),
                 ),
               ),
-              // Icon and time range on right
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: timeColor.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      _getTimeSlotIcon(moment.timeSlot),
-                      size: 18,
-                      color: timeColor,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
-                    style: GoogleFonts.inter(
-                      color: timeColor,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
+              // Time range on right
+              Text(
+                hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
+                style: GoogleFonts.inter(
+                  color: timeColor,
+                  fontSize: 13,
+                ),
               ),
             ],
           ),
