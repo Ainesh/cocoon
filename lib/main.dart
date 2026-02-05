@@ -8,7 +8,7 @@
 /// ```
 /// lib/
 /// ├── main.dart           # App entry point and theme
-/// ├── models/             # Data models (SpaceEvent, UserCheckIn, etc.)
+/// ├── models/             # Data models (Moment, UserCheckIn, etc.)
 /// ├── services/           # Business logic (auth, firestore)
 /// ├── screens/            # UI screens organized by feature
 /// │   ├── dashboard/      # Main dashboard with health card

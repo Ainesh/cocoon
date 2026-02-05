@@ -53,6 +53,7 @@ class ActiveCard extends StatelessWidget {
     
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
+      width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.darkCardLight,

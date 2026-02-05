@@ -1,9 +1,12 @@
 /// Plan a Moment screen for Cocoon app.
 ///
 /// Allows users to plan three types of moments:
-/// - **Celebrate**: Special occasions (birthdays, anniversaries)
+/// - **Celebrate**: Special occasions (anniversaries, milestones)
 /// - **Connect**: Quality time together (dates, coffee)
 /// - **Escape**: Multi-day getaways (vacations, trips)
+///
+/// Features progressive reveal - each card appears only after the previous
+/// one is completed. Uses health card-style dotted progress highlights.
 library;
 
 import 'package:flutter/material.dart';
@@ -16,7 +19,7 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
-import '../../widgets/neumorphic_container.dart';
+import '../../widgets/active_card.dart';
 import '../../widgets/slide_to_action.dart';
 
 /// Plan a Moment screen for creating new moments.
@@ -40,29 +43,38 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   // Form state
   MomentType? _selectedType;
   String? _selectedPreset;
-  DateTime _startDate = DateTime.now();
+  DateTime? _startDate; // null until user selects
   DateTime? _endDate;
   TimeSlot? _selectedTimeSlot;
   RepeatSchedule _repeatSchedule = RepeatSchedule.never;
 
   // UI state
   bool _isSubmitting = false;
-  final _customNameController = TextEditingController();
-  final _customNameFocusNode = FocusNode();
-  bool _isCustomNameFocused = false;
+  final _nameController = TextEditingController();
+  final _nameFocusNode = FocusNode();
+  final _notesController = TextEditingController();
+  final _notesFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
-    _customNameFocusNode.addListener(() {
-      setState(() => _isCustomNameFocused = _customNameFocusNode.hasFocus);
+    _nameController.addListener(() {
+      setState(() {}); // Rebuild for validation
+    });
+    _nameFocusNode.addListener(() {
+      setState(() {}); // Rebuild for focus changes
+    });
+    _notesFocusNode.addListener(() {
+      setState(() {}); // Rebuild for focus changes
     });
   }
 
   @override
   void dispose() {
-    _customNameController.dispose();
-    _customNameFocusNode.dispose();
+    _nameController.dispose();
+    _nameFocusNode.dispose();
+    _notesController.dispose();
+    _notesFocusNode.dispose();
     super.dispose();
   }
 
@@ -70,52 +82,55 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   // Computed Properties
   // ---------------------------------------------------------------------------
 
-  /// The name to use for the moment.
-  String get _momentName {
-    if (_customNameController.text.isNotEmpty) {
-      return _customNameController.text;
-    }
-    return _selectedPreset ?? '';
-  }
+  String get _momentName => _nameController.text.trim();
 
-  /// Whether the form is valid and ready to submit.
-  bool get _canSubmit {
-    if (_selectedType == null) return false;
-    if (_momentName.isEmpty) return false;
-    
-    if (_selectedType == MomentType.connect && _selectedTimeSlot == null) {
-      return false;
-    }
-    
-    if (_selectedType == MomentType.escape && _endDate == null) {
-      return false;
-    }
-    
+  /// Step 1: Type selected
+  bool get _step1Complete => _selectedType != null;
+  
+  /// Step 2: Name filled
+  bool get _step2Complete => _step1Complete && _momentName.isNotEmpty;
+  
+  /// Step 3: Date filled (must be selected, not default)
+  bool get _step3Complete {
+    if (!_step2Complete) return false;
+    if (_startDate == null) return false;
+    if (_selectedType == MomentType.escape) return _endDate != null;
+    return true;
+  }
+  
+  /// Step 4: Time filled (only for Connect)
+  bool get _step4Complete {
+    if (!_step3Complete) return false;
+    if (_selectedType == MomentType.connect) return _selectedTimeSlot != null;
     return true;
   }
 
-  /// Get presets for the selected type.
+  bool get _canSubmit => _step4Complete;
+
   List<String> get _presets {
     return switch (_selectedType) {
-      MomentType.celebrate => CelebratePresets.options,
-      MomentType.connect => ConnectPresets.options,
-      MomentType.escape => EscapePresets.options,
+      MomentType.celebrate => ['Anniversary', 'Promotion', 'Move in', '...'],
+      MomentType.connect => ['Date Night', 'Brunch', 'Movie', 'Walk', 'House Party', 'Shopping', 'Socials', '...'],
+      MomentType.escape => ['Festival', 'Retreat', 'Time off', 'Weekend Getaway', 'Beach Trip', '...'],
       null => [],
     };
   }
 
-  /// Get repeat options for the selected type.
-  List<RepeatSchedule> get _repeatOptions {
+  
+  String get _nameCardHeading {
     return switch (_selectedType) {
-      MomentType.celebrate => [RepeatSchedule.never, RepeatSchedule.yearly],
-      MomentType.connect => [
-          RepeatSchedule.never,
-          RepeatSchedule.daily,
-          RepeatSchedule.weekly,
-          RepeatSchedule.monthly,
-        ],
-      MomentType.escape => [RepeatSchedule.never, RepeatSchedule.yearly],
-      null => [RepeatSchedule.never],
+      MomentType.celebrate => 'Occasion',
+      MomentType.connect => 'Activity',
+      MomentType.escape => 'Your Escape',
+      null => 'Details',
+    };
+  }
+  
+  IconData _getTypeIcon(MomentType type) {
+    return switch (type) {
+      MomentType.celebrate => Icons.auto_awesome_rounded,
+      MomentType.connect => Icons.power_rounded,
+      MomentType.escape => Icons.flight_rounded,
     };
   }
 
@@ -124,73 +139,158 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   // ---------------------------------------------------------------------------
 
   void _selectType(MomentType type) {
-    HapticFeedback.lightImpact();
+    _dismissKeyboard();
+    HapticFeedback.mediumImpact();
     setState(() {
       _selectedType = type;
       _selectedPreset = null;
-      _customNameController.clear();
-      _selectedTimeSlot = null;
+      _nameController.clear();
+      _startDate = null;
       _endDate = null;
+      _selectedTimeSlot = null;
       _repeatSchedule = RepeatSchedule.never;
     });
   }
 
   void _selectPreset(String preset) {
     HapticFeedback.lightImpact();
-    setState(() {
-      _selectedPreset = preset;
-      _customNameController.clear();
-    });
-  }
-
-  void _onCustomNameChanged(String value) {
-    setState(() {
-      if (value.isNotEmpty) {
-        _selectedPreset = null;
-      }
-    });
+    if (preset == '...') {
+      _nameFocusNode.requestFocus();
+      return;
+    }
+    _nameController.value = TextEditingValue(
+      text: preset,
+      selection: TextSelection.collapsed(offset: preset.length),
+    );
+    setState(() => _selectedPreset = preset);
+    _nameFocusNode.requestFocus();
   }
 
   void _selectTimeSlot(TimeSlot slot) {
+    _dismissKeyboard();
     HapticFeedback.mediumImpact();
     setState(() => _selectedTimeSlot = slot);
   }
 
-  void _selectRepeat(RepeatSchedule schedule) {
-    HapticFeedback.lightImpact();
-    setState(() => _repeatSchedule = schedule);
+  void _selectDate(DateTime date) {
+    _dismissKeyboard();
+    setState(() => _startDate = date);
   }
 
   Future<void> _pickStartDate() async {
+    _dismissKeyboard();
     HapticFeedback.lightImpact();
+    final now = DateTime.now();
     final date = await showDatePicker(
       context: context,
-      initialDate: _startDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      initialDate: _startDate ?? now,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365 * 2)),
+      builder: _datePickerTheme,
     );
     if (date != null) {
       setState(() {
         _startDate = date;
-        // If end date is before start date, reset it
-        if (_endDate != null && _endDate!.isBefore(_startDate)) {
+        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
           _endDate = null;
         }
       });
     }
   }
 
-  Future<void> _pickEndDate() async {
+  Future<void> _pickBothDates() async {
+    _dismissKeyboard();
     HapticFeedback.lightImpact();
-    final date = await showDatePicker(
+    await _showDateRangePicker();
+  }
+
+  Future<void> _pickBothDatesWithStart(DateTime existingStart) async {
+    _dismissKeyboard();
+    HapticFeedback.lightImpact();
+    await _showDateRangePicker(initialStart: existingStart);
+  }
+
+  Future<void> _showDateRangePicker({DateTime? initialStart}) async {
+    final now = DateTime.now();
+    final initialRange = initialStart != null
+        ? DateTimeRange(start: initialStart, end: _endDate ?? initialStart.add(const Duration(days: 2)))
+        : _startDate != null
+            ? DateTimeRange(start: _startDate!, end: _endDate ?? _startDate!.add(const Duration(days: 2)))
+            : DateTimeRange(start: now, end: now.add(const Duration(days: 2)));
+
+    final result = await showDateRangePicker(
       context: context,
-      initialDate: _endDate ?? _startDate.add(const Duration(days: 2)),
-      firstDate: _startDate,
-      lastDate: _startDate.add(const Duration(days: 60)),
+      initialDateRange: initialRange,
+      firstDate: now,
+      lastDate: now.add(const Duration(days: 365 * 2)),
+      saveText: 'CONFIRM',
+      builder: _datePickerTheme,
     );
-    if (date != null) {
-      setState(() => _endDate = date);
+
+    if (result != null) {
+      setState(() {
+        _startDate = result.start;
+        _endDate = result.end;
+      });
     }
+  }
+
+  /// Shared theme for date pickers
+  Widget _datePickerTheme(BuildContext context, Widget? child) {
+    return Theme(
+      data: ThemeData.dark().copyWith(
+        colorScheme: ColorScheme.dark(
+          primary: AppColors.accentRed,
+          onPrimary: Colors.white,
+          primaryContainer: AppColors.accentRed.withValues(alpha: 0.2),
+          surface: AppColors.pureBlack,
+          onSurface: AppColors.lightText,
+          secondary: AppColors.accentRed,
+          onSecondary: Colors.white,
+          surfaceContainerHighest: AppColors.darkCardLight,
+        ),
+        scaffoldBackgroundColor: AppColors.pureBlack,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: AppColors.pureBlack,
+          foregroundColor: AppColors.lightText,
+          elevation: 0,
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(foregroundColor: AppColors.accentRed),
+        ),
+        datePickerTheme: DatePickerThemeData(
+          backgroundColor: AppColors.pureBlack,
+          headerBackgroundColor: AppColors.pureBlack,
+          headerForegroundColor: AppColors.lightText,
+          dayForegroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return Colors.white;
+            if (states.contains(WidgetState.disabled)) return AppColors.warmMuted;
+            return AppColors.lightText;
+          }),
+          dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) return AppColors.accentRed;
+            return Colors.transparent;
+          }),
+          todayForegroundColor: WidgetStateProperty.all(AppColors.accentRed),
+          todayBackgroundColor: WidgetStateProperty.all(Colors.transparent),
+          surfaceTintColor: Colors.transparent,
+          dividerColor: AppColors.cardVariant,
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: AppColors.darkCardLight,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.accentRed),
+            ),
+          ),
+        ),
+      ),
+      child: child!,
+    );
   }
 
   Future<void> _submitMoment() async {
@@ -202,22 +302,21 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     setState(() => _isSubmitting = true);
 
     try {
+      final notes = _notesController.text.trim();
       await _firestoreService.createMoment(
         spaceId: widget.spaceId,
         name: _momentName,
         type: _selectedType!,
-        startDate: _startDate,
+        startDate: _startDate!,
         endDate: _selectedType == MomentType.escape ? _endDate : null,
         timeSlot: _selectedType == MomentType.connect ? _selectedTimeSlot : null,
         repeatSchedule: _repeatSchedule,
+        notes: notes.isNotEmpty ? notes : null,
         createdBy: userId,
       );
 
       HapticFeedback.heavyImpact();
-
-      if (mounted) {
-        context.pop();
-      }
+      if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -228,9 +327,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -240,286 +337,281 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.pureBlack,
-      appBar: AppBar(
+    return GestureDetector(
+      onTap: _dismissKeyboard,
+      onHorizontalDragEnd: (details) {
+        if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+          HapticFeedback.lightImpact();
+          context.pop();
+        }
+      },
+      child: Scaffold(
         backgroundColor: AppColors.pureBlack,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.warmLight),
-          onPressed: () => context.pop(),
-        ),
-        title: Text(
-          'Plan a Moment',
-          style: GoogleFonts.outfit(
-            color: AppColors.warmLight,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          title: Text(
+            'Plan a Moment',
+            style: AppTypography.appBarTitle(weight: FontWeight.w600),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.lightText),
+            onPressed: () => context.pop(),
           ),
         ),
-        centerTitle: true,
-      ),
-      body: GestureDetector(
-        onHorizontalDragEnd: (details) {
-          // Swipe right to dismiss
-          if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
-            HapticFeedback.lightImpact();
-            context.pop();
-          }
-        },
-        child: SingleChildScrollView(
+        body: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Type Selection
               _buildTypeSelection(),
-              
-              // Show form if type is selected
-              if (_selectedType != null) ...[
-                const SizedBox(height: 24),
-                _buildForm(),
+              if (_step1Complete) ...[
+                const SizedBox(height: 16),
+                _buildNameCard(),
               ],
-              
-              // Bottom padding for slide button
-              const SizedBox(height: 100),
+              if (_step2Complete) ...[
+                const SizedBox(height: 16),
+                _buildDateCard(),
+              ],
+              if (_step3Complete && _selectedType == MomentType.connect) ...[
+                const SizedBox(height: 16),
+                _buildTimeCard(),
+              ],
+              if (_step4Complete) ...[
+                const SizedBox(height: 16),
+                _buildNotesCard(),
+              ],
+              const SizedBox(height: 120),
             ],
           ),
         ),
-      ),
-      bottomNavigationBar: _selectedType != null
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: SlideToAction(
-                  label: 'Slide to plan moment',
-                  loadingLabel: 'Creating...',
-                  onConfirm: _submitMoment,
-                  isLoading: _isSubmitting,
-                  enabled: _canSubmit,
+        bottomNavigationBar: _canSubmit
+            ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: SlideToAction(
+                    label: 'Slide to save',
+                    loadingLabel: 'Saving...',
+                    onConfirm: _submitMoment,
+                    isLoading: _isSubmitting,
+                    enabled: _canSubmit,
+                  ),
                 ),
-              ),
-            )
-          : null,
+              )
+            : null,
+      ),
     );
+  }
+  
+  void _dismissKeyboard() => FocusScope.of(context).unfocus();
+
+  // ---------------------------------------------------------------------------
+  // Type Selection - Health Card Style
+  // ---------------------------------------------------------------------------
+
+  String _getTypeHint(MomentType type) {
+    return switch (type) {
+      MomentType.celebrate => 'your special day',
+      MomentType.connect => 'over a date',
+      MomentType.escape => 'the everyday',
+    };
   }
 
   Widget _buildTypeSelection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'What kind of moment?',
-          style: GoogleFonts.outfit(
-            color: AppColors.warmLight,
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 16),
-        
-        // Type cards
-        _buildTypeCard(
-          MomentType.celebrate,
-          'Birthdays, anniversaries, special occasions',
-        ),
-        const SizedBox(height: 12),
-        _buildTypeCard(
-          MomentType.connect,
-          'Dates, coffee, quality time together',
-        ),
-        const SizedBox(height: 12),
-        _buildTypeCard(
-          MomentType.escape,
-          'Vacations, trips, weekend getaways',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTypeCard(MomentType type, String description) {
-    final isSelected = _selectedType == type;
-    
-    return GestureDetector(
-      onTap: () => _selectType(type),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.darkCardLight,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? AppColors.accentRed : Colors.transparent,
-            width: 1.5,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.accentRed.withValues(alpha: 0.15),
-                    blurRadius: 12,
-                    spreadRadius: 1,
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          children: [
-            // Emoji
-            Text(
-              type.emoji,
-              style: TextStyle(
-                fontSize: 28,
-                color: isSelected ? null : AppColors.warmMuted,
-              ),
-            ),
-            const SizedBox(width: 16),
-            
-            // Text
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    type.label.toUpperCase(),
-                    style: GoogleFonts.outfit(
-                      color: isSelected ? AppColors.accentRed : AppColors.warmLight,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: AppTypography.bodySmall(
-                      color: AppColors.warmMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Checkmark
-            if (isSelected)
-              const Icon(
-                Icons.check_circle,
-                color: AppColors.accentRed,
-                size: 24,
-              ),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(16),
       ),
-    );
-  }
-
-  Widget _buildForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Selected type indicator
-        Row(
-          children: [
-            Text(
-              _selectedType!.emoji,
-              style: const TextStyle(fontSize: 20),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              _selectedType!.label.toUpperCase(),
-              style: GoogleFonts.outfit(
-                color: AppColors.accentRed,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        
-        // Presets & custom name
-        _buildNameSection(),
-        const SizedBox(height: 20),
-        
-        // Date section
-        _buildDateSection(),
-        const SizedBox(height: 20),
-        
-        // Time slot (only for Connect)
-        if (_selectedType == MomentType.connect) ...[
-          _buildTimeSlotSection(),
-          const SizedBox(height: 20),
-        ],
-        
-        // Repeat section
-        _buildRepeatSection(),
-      ],
-    );
-  }
-
-  Widget _buildNameSection() {
-    final headerText = switch (_selectedType) {
-      MomentType.celebrate => "What's the occasion?",
-      MomentType.connect => "What are you planning?",
-      MomentType.escape => "Where to?",
-      null => "",
-    };
-
-    return PremiumCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            icon: Icons.edit_outlined,
-            title: headerText,
+          Text(
+            'MOMENT TO',
+            style: GoogleFonts.inter(
+              color: _step1Complete ? AppColors.accentRed : AppColors.warmMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
+            ),
           ),
-          const SizedBox(height: 12),
-          
-          // Preset chips
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ..._presets.take(6).map((preset) => _buildPresetChip(preset)),
-              _buildCustomChip(),
-            ],
-          ),
-          
-          // Custom name input (if custom selected)
-          if (_selectedPreset == null && 
-              (_customNameController.text.isNotEmpty || _isCustomNameFocused)) ...[
-            const SizedBox(height: 16),
-            TextField(
-              controller: _customNameController,
-              focusNode: _customNameFocusNode,
-              onChanged: _onCustomNameChanged,
-              style: AppTypography.bodyMedium(color: AppColors.warmLight),
-              decoration: InputDecoration(
-                hintText: 'Type custom name...',
-                hintStyle: AppTypography.bodyMedium(color: AppColors.warmMuted),
-                filled: false,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.accentRed.withValues(alpha: 0.3)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: AppColors.cardVariant),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: AppColors.accentRed),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          // Helper text - only show when nothing selected
+          if (!_step1Complete) ...[
+            const SizedBox(height: 4),
+            Text(
+              'What kind of moment are you dreaming of?',
+              style: GoogleFonts.inter(
+                color: AppColors.warmMuted.withValues(alpha: 0.7),
+                fontSize: 12,
               ),
             ),
           ],
+          const SizedBox(height: 20),
+          
+          Row(
+            children: [
+              _buildTypeOption(MomentType.connect, 'Connect'),
+              const SizedBox(width: 12),
+              _buildTypeOption(MomentType.celebrate, 'Celebrate'),
+              const SizedBox(width: 12),
+              _buildTypeOption(MomentType.escape, 'Escape'),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildPresetChip(String preset) {
+  Widget _buildTypeOption(MomentType type, String label) {
+    final isSelected = _selectedType == type;
+    final noneSelected = _selectedType == null;
+    final icon = _getTypeIcon(type);
+    
+    // Colors: red when none selected, black when selected, dim when another is selected
+    final iconColor = isSelected ? AppColors.pureBlack : (noneSelected ? AppColors.accentRed : AppColors.warmMuted);
+    final textColor = isSelected ? AppColors.pureBlack : (noneSelected ? AppColors.accentRed : AppColors.warmMuted);
+    
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => _selectType(type),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(
+            vertical: 16,
+            horizontal: 8,
+          ),
+          decoration: BoxDecoration(
+            color: isSelected 
+                ? AppColors.accentRed
+                : AppColors.cardVariant,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.accentRed.withValues(alpha: 0.4),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Icon - red with glow when none selected, black when selected, dim otherwise
+              Container(
+                decoration: (noneSelected && !isSelected)
+                    ? BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accentRed.withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      )
+                    : null,
+                child: Icon(
+                  icon,
+                  color: iconColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Label - red when none selected, black when selected, dim otherwise
+              Text(
+                label,
+                style: GoogleFonts.outfit(
+                  color: textColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              // Flowing hint appears when selected - same color as label
+              if (isSelected) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _getTypeHint(type),
+                  style: GoogleFonts.inter(
+                    color: AppColors.pureBlack.withValues(alpha: 0.7),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Name / Occasion Card
+  // ---------------------------------------------------------------------------
+
+  Widget _buildNameCard() {
+    final hasName = _momentName.isNotEmpty;
+    final isFocused = _nameFocusNode.hasFocus;
+    final isActive = hasName || isFocused;
+    // Show presets when no text and not focused
+    final showPresets = !hasName && !isFocused;
+    
+    return GestureDetector(
+      onTap: () => _nameFocusNode.requestFocus(),
+      behavior: HitTestBehavior.opaque,
+      child: ActiveCard(
+        heading: _nameCardHeading,
+        isActive: isActive,
+        helperText: showPresets ? _getHelperText() : null,
+        hideHelperWhenActive: true,
+        shrinkWhenActive: true,
+        showBorder: isFocused,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Text field - always present, like Reflection
+            TextField(
+              controller: _nameController,
+              focusNode: _nameFocusNode,
+              style: AppTypography.bodyMedium(color: AppColors.subtleText),
+              cursorColor: AppColors.accentRed,
+              decoration: InputDecoration(
+                hintText: showPresets ? null : 'Type something...',
+                hintStyle: AppTypography.bodyMedium(color: AppColors.dimText),
+                filled: false,
+                border: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                isDense: true,
+              ),
+              maxLines: 1,
+              minLines: 1,
+            ),
+            // Preset suggestions - only when empty and not focused
+            if (showPresets) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _presets.map((preset) => _buildPresetPill(preset)).toList(),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+  
+  String _getHelperText() => 'Pick one or name your own';
+
+  Widget _buildPresetPill(String preset) {
     final isSelected = _selectedPreset == preset;
     
     return GestureDetector(
@@ -532,10 +624,6 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
               ? AppColors.accentRed.withValues(alpha: 0.2)
               : AppColors.cardVariant,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.accentRed : Colors.transparent,
-            width: 1,
-          ),
         ),
         child: Text(
           preset,
@@ -549,239 +637,466 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     );
   }
 
-  Widget _buildCustomChip() {
+  // ---------------------------------------------------------------------------
+  // Date Card
+  // ---------------------------------------------------------------------------
+
+  Widget _buildDateCard() {
+    final isEscape = _selectedType == MomentType.escape;
+    
+    if (isEscape) {
+      return _buildEscapeDatesCard();
+    }
+    
+    // Non-escape: simple single date - tapping anywhere opens picker
+    final hasDate = _startDate != null;
     return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        setState(() {
-          _selectedPreset = null;
-        });
-        _customNameFocusNode.requestFocus();
+      onTap: _pickStartDate,
+      behavior: HitTestBehavior.opaque,
+      child: ActiveCard(
+        heading: 'Date',
+        isActive: hasDate,
+        hideHelperWhenActive: true,
+        shrinkWhenActive: true,
+        child: hasDate ? _buildDateSelected() : _buildDateOptions(),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Escape Dates - Two-step flow with nights
+  // ---------------------------------------------------------------------------
+
+  Widget _buildEscapeDatesCard() {
+    final hasStartDate = _startDate != null;
+    final hasEndDate = _endDate != null;
+    final isComplete = hasStartDate && hasEndDate;
+    
+    // Determine helper text based on state
+    String? helperText;
+    if (!hasStartDate) {
+      helperText = 'When are you leaving?';
+    } else if (!hasEndDate) {
+      helperText = 'How long is the getaway?';
+    }
+    
+    // In nights selection state, tapping anywhere opens two-date picker
+    final isInNightsState = hasStartDate && !hasEndDate;
+    
+    final card = ActiveCard(
+      heading: 'Dates',
+      isActive: isComplete,
+      helperText: helperText,
+      hideHelperWhenActive: true,
+      shrinkWhenActive: true,
+      child: _buildEscapeDatesContent(),
+    );
+    
+    if (isInNightsState) {
+      return GestureDetector(
+        onTap: () => _pickBothDatesWithStart(_startDate!),
+        behavior: HitTestBehavior.opaque,
+        child: card,
+      );
+    }
+    
+    return card;
+  }
+
+  Widget _buildEscapeDatesContent() {
+    final hasStartDate = _startDate != null;
+    final hasEndDate = _endDate != null;
+    
+    // State 1: No start date - show start date options
+    if (!hasStartDate) {
+      return _buildDateOptions();
+    }
+    
+    // State 2: Has start date but no end date - show nights options
+    if (!hasEndDate) {
+      return _buildNightsOptions();
+    }
+    
+    // State 3: Both dates selected - show summary
+    return _buildEscapeSummary();
+  }
+
+  Widget _buildNightsOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Show selected start date (tappable to open two-date picker)
+        GestureDetector(
+          onTap: () => _pickBothDatesWithStart(_startDate!),
+          child: Row(
+            children: [
+              Text('From ', style: GoogleFonts.inter(color: AppColors.dimText, fontSize: 13)),
+              Text(
+                _formatDate(_startDate!),
+                style: AppTypography.bodyMedium(color: AppColors.accentRed),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Nights options
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _buildNightPill(1),
+            _buildNightPill(2),
+            _buildNightPill(3),
+            _buildDatePill('Pick date', _pickEndDateOnly),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Future<void> _pickEndDateOnly() async {
+    _dismissKeyboard();
+    HapticFeedback.lightImpact();
+    await _showDateRangePicker(initialStart: _startDate);
+  }
+
+  Widget _buildNightPill(int nights) {
+    final label = nights == 1 ? '1 night' : '$nights nights';
+    return _buildPill(label, () {
+      _dismissKeyboard();
+      HapticFeedback.lightImpact();
+      setState(() => _endDate = _startDate!.add(Duration(days: nights)));
+    });
+  }
+
+  Widget _buildEscapeSummary() {
+    final nights = _endDate!.difference(_startDate!).inDays;
+    final nightsText = nights == 1 ? '1 night' : '$nights nights';
+    
+    return GestureDetector(
+      onTap: _pickBothDates,
+      child: Row(
+        children: [
+          // Dates - matching "Weekend Getaway" style
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                style: AppTypography.bodyMedium(color: AppColors.subtleText),
+                children: [
+                  TextSpan(
+                    text: 'From ',
+                    style: GoogleFonts.inter(color: AppColors.dimText),
+                  ),
+                  TextSpan(text: _formatDate(_startDate!)),
+                  TextSpan(
+                    text: ' to ',
+                    style: GoogleFonts.inter(color: AppColors.dimText),
+                  ),
+                  TextSpan(text: _formatDate(_endDate!)),
+                ],
+              ),
+            ),
+          ),
+          // Nights badge on the right
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppColors.accentRed.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              nightsText,
+              style: GoogleFonts.inter(
+                color: AppColors.accentRed,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Date Options (shared for non-escape and escape start date)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildDateOptions() {
+    final today = DateTime.now();
+    final tomorrow = today.add(const Duration(days: 1));
+    final isEscape = _selectedType == MomentType.escape;
+    
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _buildDatePill('Today', () => _selectDate(today)),
+        _buildDatePill('Tomorrow', () => _selectDate(tomorrow)),
+        _buildDatePill(
+          isEscape ? 'Pick dates' : 'Pick a date', 
+          isEscape ? _pickBothDates : _pickStartDate,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDatePill(String label, VoidCallback onTap) => _buildPill(label, onTap);
+
+  Widget _buildDateSelected() {
+    return GestureDetector(
+      onTap: _pickStartDate,
+      child: Text(
+        _formatDate(_startDate!),
+        style: AppTypography.bodyMedium(color: AppColors.subtleText),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Time Card (Connect only)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildTimeCard() {
+    final hasTime = _selectedTimeSlot != null;
+    
+    return ActiveCard(
+      heading: 'Time',
+      isActive: hasTime,
+      helperText: !hasTime ? 'What time of day?' : null,
+      hideHelperWhenActive: true,
+      shrinkWhenActive: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Selected time label - matching Date card style
+          if (hasTime) ...[
+            Text(
+              _selectedTimeSlot!.label,
+              style: AppTypography.bodyMedium(color: AppColors.subtleText),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // Slider
+          _buildTimeSlotSlider(),
+        ],
+      ),
+    );
+  }
+
+  // Time slot colors - matching pulse meter range (blue to red)
+  static const _morningColor = Color(0xFF60A5FA);  // Cool blue
+  static const _nightColor = Color(0xFFE84545);    // Warm red
+  
+  // Track drag position for stretchy effect
+  double? _dragPosition;
+  
+  Color _getTimeSlotColor(int index) {
+    final progress = index / (TimeSlot.values.length - 1);
+    return Color.lerp(_morningColor, _nightColor, progress) ?? _nightColor;
+  }
+  
+  Color _getTimeSlotColorFromProgress(double progress) {
+    return Color.lerp(_morningColor, _nightColor, progress.clamp(0.0, 1.0)) ?? _nightColor;
+  }
+
+  Widget _buildTimeSlotSlider() {
+    final slots = TimeSlot.values;
+    final selectedIndex = _selectedTimeSlot != null 
+        ? slots.indexOf(_selectedTimeSlot!) 
+        : 0;
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final slotWidth = constraints.maxWidth / slots.length;
+        final totalWidth = constraints.maxWidth;
+        final padding = 4.0;
+        
+        // Position is either drag position or snapped to selected slot center
+        final targetX = _dragPosition ?? ((selectedIndex + 0.5) * slotWidth);
+        final colorProgress = (targetX / totalWidth).clamp(0.0, 1.0);
+        
+        // Calculate highlight position (centered on targetX)
+        final highlightWidth = slotWidth - (padding * 2);
+        final highlightLeft = (targetX - highlightWidth / 2).clamp(padding, totalWidth - highlightWidth - padding);
+        
+        return GestureDetector(
+          onHorizontalDragStart: (details) {
+            setState(() {
+              _dragPosition = details.localPosition.dx.clamp(padding, totalWidth - padding);
+            });
+          },
+          onHorizontalDragUpdate: (details) {
+            final pos = details.localPosition.dx.clamp(padding, totalWidth - padding);
+            setState(() => _dragPosition = pos);
+            
+            // Snap selection at slot boundaries
+            final index = ((pos - padding) / slotWidth).floor().clamp(0, slots.length - 1);
+            if (_selectedTimeSlot != slots[index]) {
+              HapticFeedback.selectionClick();
+              _selectTimeSlot(slots[index]);
+            }
+          },
+          onHorizontalDragEnd: (_) {
+            HapticFeedback.mediumImpact();
+            setState(() => _dragPosition = null);
+          },
+          child: Container(
+            height: 56,
+            decoration: BoxDecoration(
+              color: AppColors.cardVariant,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Smooth sliding highlight
+                AnimatedPositioned(
+                  duration: _dragPosition != null 
+                      ? const Duration(milliseconds: 0) 
+                      : const Duration(milliseconds: 280),
+                  curve: Curves.easeOutCubic,
+                  left: highlightLeft,
+                  top: padding,
+                  bottom: padding,
+                  width: highlightWidth,
+                  child: TweenAnimationBuilder<Color?>(
+                    tween: ColorTween(
+                      begin: _getTimeSlotColorFromProgress(colorProgress),
+                      end: _getTimeSlotColorFromProgress(colorProgress),
+                    ),
+                    duration: const Duration(milliseconds: 150),
+                    builder: (context, color, _) => Container(
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: (color ?? _morningColor).withValues(alpha: 0.5),
+                            blurRadius: 16,
+                            spreadRadius: 0,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // Time slot icons
+                Row(
+                  children: slots.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final slot = entry.value;
+                    final isSelected = _selectedTimeSlot == slot;
+                    
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          _selectTimeSlot(slot);
+                          setState(() => _dragPosition = null);
+                        },
+                        behavior: HitTestBehavior.opaque,
+                        child: Center(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: Icon(
+                              _getTimeSlotIcon(slot),
+                              key: ValueKey('$index-$isSelected'),
+                              size: 22,
+                              color: isSelected 
+                                  ? AppColors.pureBlack 
+                                  : _getTimeSlotColor(index).withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        );
       },
+    );
+  }
+  
+  IconData _getTimeSlotIcon(TimeSlot slot) {
+    return switch (slot) {
+      TimeSlot.morning => Icons.wb_sunny_rounded,
+      TimeSlot.afternoon => Icons.light_mode_rounded,
+      TimeSlot.evening => Icons.wb_twilight_rounded,
+      TimeSlot.night => Icons.dark_mode_rounded,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notes Card (optional)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildNotesCard() {
+    final hasNotes = _notesController.text.trim().isNotEmpty;
+    final isFocused = _notesFocusNode.hasFocus;
+    final isActive = hasNotes || isFocused;
+    
+    return GestureDetector(
+      onTap: () => _notesFocusNode.requestFocus(),
+      behavior: HitTestBehavior.opaque,
+      child: ActiveCard(
+        heading: 'Notes',
+        isActive: isActive,
+        helperText: !isActive ? 'Space for your thoughts' : null,
+        hideHelperWhenActive: true,
+        shrinkWhenActive: true,
+        showBorder: isFocused,
+        child: TextField(
+          controller: _notesController,
+          focusNode: _notesFocusNode,
+          style: AppTypography.bodyMedium(color: AppColors.subtleText),
+          cursorColor: AppColors.accentRed,
+          decoration: const InputDecoration(
+            filled: false,
+            border: InputBorder.none,
+            focusedBorder: InputBorder.none,
+            enabledBorder: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+            isDense: true,
+          ),
+          maxLines: 15,
+          minLines: 1,
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  /// Reusable pill button for date/night options
+  Widget _buildPill(String label, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: AppColors.cardVariant,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: _isCustomNameFocused ? AppColors.accentRed : Colors.transparent,
-            width: 1,
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.inter(
+            color: AppColors.warmMuted,
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.add,
-              size: 16,
-              color: _isCustomNameFocused ? AppColors.accentRed : AppColors.warmMuted,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Custom',
-              style: GoogleFonts.inter(
-                color: _isCustomNameFocused ? AppColors.accentRed : AppColors.warmMuted,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDateSection() {
-    return PremiumCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            icon: Icons.calendar_today_outlined,
-            title: _selectedType == MomentType.escape ? 'DATES' : 'DATE',
-          ),
-          const SizedBox(height: 12),
-          
-          if (_selectedType == MomentType.escape) ...[
-            // Start and end date for Escape
-            Row(
-              children: [
-                Expanded(child: _buildDateButton(_startDate, 'Start', _pickStartDate)),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 12),
-                  child: Icon(Icons.arrow_forward, color: AppColors.warmMuted, size: 20),
-                ),
-                Expanded(child: _buildDateButton(_endDate, 'End', _pickEndDate)),
-              ],
-            ),
-            if (_endDate != null) ...[
-              const SizedBox(height: 12),
-              Center(
-                child: Text(
-                  '${_endDate!.difference(_startDate).inDays} nights',
-                  style: AppTypography.bodySmall(color: AppColors.warmMuted),
-                ),
-              ),
-            ],
-          ] else ...[
-            // Single date for Celebrate/Connect
-            _buildDateButton(_startDate, null, _pickStartDate),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateButton(DateTime? date, String? label, VoidCallback onTap) {
-    final hasDate = date != null;
-    
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.cardVariant,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: hasDate ? AppColors.accentRed.withValues(alpha: 0.3) : Colors.transparent,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.calendar_today_outlined,
-              size: 18,
-              color: hasDate ? AppColors.accentRed : AppColors.warmMuted,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              hasDate ? _formatDate(date) : (label ?? 'Select date'),
-              style: GoogleFonts.inter(
-                color: hasDate ? AppColors.warmLight : AppColors.warmMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTimeSlotSection() {
-    return PremiumCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            icon: Icons.access_time_outlined,
-            title: 'TIME',
-          ),
-          const SizedBox(height: 12),
-          
-          Row(
-            children: TimeSlot.values.map((slot) {
-              final isSelected = _selectedTimeSlot == slot;
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => _selectTimeSlot(slot),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: EdgeInsets.only(
-                      right: slot != TimeSlot.night ? 8 : 0,
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? AppColors.accentRed.withValues(alpha: 0.15)
-                          : AppColors.cardVariant,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isSelected ? AppColors.accentRed : Colors.transparent,
-                        width: 1,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Text(
-                          slot.emoji,
-                          style: const TextStyle(fontSize: 20),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          slot.label.substring(0, 4),
-                          style: GoogleFonts.inter(
-                            color: isSelected ? AppColors.accentRed : AppColors.warmMuted,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRepeatSection() {
-    return PremiumCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            icon: Icons.repeat,
-            title: 'REPEAT',
-          ),
-          const SizedBox(height: 12),
-          
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _repeatOptions.map((schedule) {
-              final isSelected = _repeatSchedule == schedule;
-              return GestureDetector(
-                onTap: () => _selectRepeat(schedule),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppColors.accentRed.withValues(alpha: 0.2)
-                        : AppColors.cardVariant,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected ? AppColors.accentRed : Colors.transparent,
-                      width: 1,
-                    ),
-                  ),
-                  child: Text(
-                    schedule.label,
-                    style: GoogleFonts.inter(
-                      color: isSelected ? AppColors.accentRed : AppColors.warmMuted,
-                      fontSize: 13,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
       ),
     );
   }
 
   String _formatDate(DateTime date) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}';
   }

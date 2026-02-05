@@ -9,7 +9,7 @@
 /// | Collection | Purpose | Subcollections |
 /// |------------|---------|----------------|
 /// | `invites` | One-time invite codes | - |
-/// | `spaces` | Couple space metadata | `events`, `checkins` |
+/// | `spaces` | Couple space metadata | `moments`, `checkins` |
 /// | `users` | User profiles | - |
 ///
 /// ## Usage
@@ -46,7 +46,6 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/moment.dart';
-import '../models/space_event.dart';
 import '../models/user_checkin.dart';
 
 // -----------------------------------------------------------------------------
@@ -475,106 +474,6 @@ class FirestoreService {
   }
 
   // ---------------------------------------------------------------------------
-  // Events
-  // ---------------------------------------------------------------------------
-
-  /// Returns a stream of upcoming events for a space.
-  ///
-  /// Events are sorted by scheduledAt and filtered to only include
-  /// events within [daysAhead] days from now.
-  Stream<List<SpaceEvent>> watchUpcomingEvents(
-    String spaceId, {
-    int daysAhead = 14,
-  }) {
-    final now = DateTime.now();
-    final startOfToday = DateTime(now.year, now.month, now.day);
-    final endDate = startOfToday.add(Duration(days: daysAhead));
-
-    return _firestore
-        .collection(_spacesCollection)
-        .doc(spaceId)
-        .collection('events')
-        .where('scheduledAt', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
-        .where('scheduledAt', isLessThan: Timestamp.fromDate(endDate))
-        .orderBy('scheduledAt')
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => SpaceEvent.fromFirestore(doc)).toList();
-    });
-  }
-
-  /// Creates a new event in a couple space.
-  Future<String> createEvent({
-    required String spaceId,
-    required String title,
-    required EventType type,
-    required DateTime scheduledAt,
-    required String createdBy,
-  }) async {
-    final eventRef = _firestore
-        .collection(_spacesCollection)
-        .doc(spaceId)
-        .collection('events')
-        .doc();
-
-    final event = SpaceEvent(
-      id: eventRef.id,
-      title: title,
-      type: type,
-      scheduledAt: scheduledAt,
-      createdBy: createdBy,
-    );
-
-    await eventRef.set(event.toJson());
-
-    // Update space's updatedAt timestamp
-    await _firestore.collection(_spacesCollection).doc(spaceId).update({
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    return eventRef.id;
-  }
-
-  /// Deletes an event from a couple space.
-  Future<void> deleteEvent({
-    required String spaceId,
-    required String eventId,
-  }) async {
-    await _firestore
-        .collection(_spacesCollection)
-        .doc(spaceId)
-        .collection('events')
-        .doc(eventId)
-        .delete();
-  }
-
-  /// Updates an existing event.
-  Future<void> updateEvent({
-    required String spaceId,
-    required String eventId,
-    String? title,
-    EventType? type,
-    DateTime? scheduledAt,
-  }) async {
-    final updates = <String, dynamic>{
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-
-    if (title != null) updates['title'] = title;
-    if (type != null) updates['type'] = type.value;
-    if (scheduledAt != null) {
-      updates['scheduledAt'] = Timestamp.fromDate(scheduledAt);
-    }
-
-    await _firestore
-        .collection(_spacesCollection)
-        .doc(spaceId)
-        .collection('events')
-        .doc(eventId)
-        .update(updates);
-  }
-
-  // ---------------------------------------------------------------------------
   // Moments
   // ---------------------------------------------------------------------------
 
@@ -641,6 +540,7 @@ class FirestoreService {
     DateTime? endDate,
     TimeSlot? timeSlot,
     RepeatSchedule repeatSchedule = RepeatSchedule.never,
+    String? notes,
   }) async {
     final momentRef = _firestore
         .collection(_spacesCollection)
@@ -656,6 +556,7 @@ class FirestoreService {
       endDate: endDate,
       timeSlot: timeSlot,
       repeatSchedule: repeatSchedule,
+      notes: notes,
       createdBy: createdBy,
     );
 

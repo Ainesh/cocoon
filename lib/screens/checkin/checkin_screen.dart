@@ -223,6 +223,8 @@ class _CheckInScreenState extends State<CheckInScreen> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      // Tap anywhere to unfocus text fields
+      onTap: () => FocusScope.of(context).unfocus(),
       // Swipe right to go back
       onHorizontalDragEnd: (details) {
         if (details.primaryVelocity != null && details.primaryVelocity! > 300) {

@@ -142,6 +142,7 @@ class Moment {
     this.endDate,
     this.timeSlot,
     this.repeatSchedule = RepeatSchedule.never,
+    this.notes,
     this.createdAt,
     this.updatedAt,
   });
@@ -166,6 +167,9 @@ class Moment {
 
   /// Repeat schedule.
   final RepeatSchedule repeatSchedule;
+
+  /// Optional notes about the moment.
+  final String? notes;
 
   /// User ID who created this moment.
   final String createdBy;
@@ -204,6 +208,7 @@ class Moment {
       repeatSchedule: RepeatSchedule.fromValue(
         json['repeatSchedule'] as String? ?? 'never',
       ),
+      notes: json['notes'] as String?,
       createdBy: json['createdBy'] as String? ?? '',
       createdAt: json['createdAt'] != null
           ? (json['createdAt'] as Timestamp).toDate()
@@ -227,6 +232,7 @@ class Moment {
       'endDate': endDate != null ? Timestamp.fromDate(endDate!) : null,
       'timeSlot': timeSlot?.value,
       'repeatSchedule': repeatSchedule.value,
+      'notes': notes,
       'createdBy': createdBy,
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)

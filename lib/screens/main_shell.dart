@@ -182,16 +182,8 @@ class _MainShellState extends State<MainShell> {
 
   Widget? _buildFab() {
     return switch (_currentIndex) {
-      0 => _buildPremiumFab(
-          icon: Icons.add_rounded,
-          label: 'Add event',
-          onPressed: () => _showAddMoment(context),
-        ),
-      1 => _buildPremiumFab(
-          icon: Icons.add_rounded,
-          label: 'Add event',
-          onPressed: () => _showAddMoment(context),
-        ),
+      0 => null, // Plan a Moment is accessible from dashboard card
+      1 => null, // Events tab - no FAB needed
       2 => _buildPremiumFab(
           icon: Icons.edit_note_rounded,
           label: 'Check-in now',
@@ -224,11 +216,6 @@ class _MainShellState extends State<MainShell> {
       label: label,
       onPressed: onPressed,
     );
-  }
-
-  void _showAddMoment(BuildContext context) {
-    // Navigate to Plan a Moment screen
-    context.push('/moment/${widget.spaceId}');
   }
 
   void _showSettings(BuildContext context) {

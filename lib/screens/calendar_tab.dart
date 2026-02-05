@@ -1,6 +1,6 @@
-/// Events tab for Couple Space app.
+/// Events tab for Cocoon app.
 ///
-/// Displays upcoming events with week and month view options.
+/// Displays upcoming moments with week and month view options.
 /// Premium neumorphic UI with micro-interactions.
 library;
 
@@ -9,18 +9,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import '../models/space_event.dart';
+import '../models/moment.dart';
 import '../services/firestore_service.dart';
+import '../theme/theme.dart';
 import '../widgets/neumorphic_container.dart';
 
-// Theme constants for premium styling
-const _refinedRed = Color(0xFFFF4444);
-const _lightText = Color(0xFFF5F5F5);
-const _dimText = Color(0xFF9CA3AF);
-const _cardVariant = Color(0xFF2A2A2A);
-const _darkGlass = Color(0xFF1E1E1E);
-
-/// View mode for events display.
+/// View mode for moments display.
 enum EventViewMode { week, month }
 
 /// Events tab with week and month views.
@@ -40,8 +34,8 @@ class _CalendarTabState extends State<CalendarTab> {
   final _firestoreService = FirestoreService();
   final _scrollController = ScrollController();
 
-  StreamSubscription<List<SpaceEvent>>? _eventsSubscription;
-  List<SpaceEvent> _events = [];
+  StreamSubscription<List<Moment>>? _momentsSubscription;
+  List<Moment> _moments = [];
   bool _isLoading = true;
 
   // View mode
@@ -58,31 +52,31 @@ class _CalendarTabState extends State<CalendarTab> {
   @override
   void initState() {
     super.initState();
-    _subscribeToEvents();
+    _subscribeToMoments();
   }
 
   @override
   void dispose() {
-    _eventsSubscription?.cancel();
+    _momentsSubscription?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
 
-  void _subscribeToEvents() {
-    _eventsSubscription?.cancel();
+  void _subscribeToMoments() {
+    _momentsSubscription?.cancel();
     setState(() => _isLoading = true);
 
-    _eventsSubscription = _firestoreService
-        .watchUpcomingEvents(widget.spaceId, daysAhead: 60)
+    _momentsSubscription = _firestoreService
+        .watchUpcomingMoments(widget.spaceId, daysAhead: 60)
         .listen(
-      (events) {
+      (moments) {
         setState(() {
-          _events = events;
+          _moments = moments;
           _isLoading = false;
         });
       },
       onError: (error) {
-        debugPrint('Error loading events: $error');
+        debugPrint('Error loading moments: $error');
         setState(() => _isLoading = false);
       },
     );
@@ -128,14 +122,24 @@ class _CalendarTabState extends State<CalendarTab> {
   }
 
   // ---------------------------------------------------------------------------
-  // Event Helpers
+  // Moment Helpers
   // ---------------------------------------------------------------------------
 
-  List<SpaceEvent> _getEventsForDay(DateTime day) {
-    return _events.where((event) {
-      return event.scheduledAt.year == day.year &&
-          event.scheduledAt.month == day.month &&
-          event.scheduledAt.day == day.day;
+  List<Moment> _getMomentsForDay(DateTime day) {
+    return _moments.where((moment) {
+      final startDay = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
+      final targetDay = DateTime(day.year, day.month, day.day);
+      
+      // Check if moment starts on this day
+      if (startDay == targetDay) return true;
+      
+      // Check if multi-day moment spans this day
+      if (moment.endDate != null) {
+        final endDay = DateTime(moment.endDate!.year, moment.endDate!.month, moment.endDate!.day);
+        return !targetDay.isBefore(startDay) && !targetDay.isAfter(endDay);
+      }
+      
+      return false;
     }).toList();
   }
 
@@ -154,8 +158,8 @@ class _CalendarTabState extends State<CalendarTab> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: _refinedRed, strokeWidth: 2),
+      return Center(
+        child: CircularProgressIndicator(color: AppColors.accentRed, strokeWidth: 2),
       );
     }
 
@@ -164,8 +168,8 @@ class _CalendarTabState extends State<CalendarTab> {
         _buildHeader(),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () async => _subscribeToEvents(),
-            color: _refinedRed,
+            onRefresh: () async => _subscribeToMoments(),
+            color: AppColors.accentRed,
             child: _viewMode == EventViewMode.week
                 ? _buildWeekView()
                 : _buildMonthView(),
@@ -179,9 +183,9 @@ class _CalendarTabState extends State<CalendarTab> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _darkGlass,
+        color: AppColors.darkCardLight,
         border: Border(
-          bottom: BorderSide(color: _refinedRed.withValues(alpha: 0.1)),
+          bottom: BorderSide(color: AppColors.accentRed.withValues(alpha: 0.1)),
         ),
       ),
       child: Column(
@@ -202,9 +206,9 @@ class _CalendarTabState extends State<CalendarTab> {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: _cardVariant,
+        color: AppColors.cardVariant,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _refinedRed.withValues(alpha: 0.1)),
+        border: Border.all(color: AppColors.accentRed.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
@@ -242,17 +246,17 @@ class _CalendarTabState extends State<CalendarTab> {
             children: [
               Text(
                 '${monthFormat.format(_weekStart)} - ${monthFormat.format(weekEnd)}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: _lightText,
+                  color: AppColors.warmLight,
                 ),
               ),
               if (!isCurrentWeek)
                 TextButton(
                   onPressed: _goToToday,
                   style: TextButton.styleFrom(
-                    foregroundColor: _refinedRed,
+                    foregroundColor: AppColors.accentRed,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   ),
                   child: const Text('Go to today'),
@@ -278,17 +282,17 @@ class _CalendarTabState extends State<CalendarTab> {
             children: [
               Text(
                 monthFormat.format(_currentMonth),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
-                  color: _lightText,
+                  color: AppColors.warmLight,
                 ),
               ),
               if (!isCurrentMonth)
                 TextButton(
                   onPressed: _goToToday,
                   style: TextButton.styleFrom(
-                    foregroundColor: _refinedRed,
+                    foregroundColor: AppColors.accentRed,
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                   ),
                   child: const Text('Go to today'),
@@ -303,11 +307,11 @@ class _CalendarTabState extends State<CalendarTab> {
 
   Widget _buildNavButton(IconData icon, VoidCallback onPressed, String tooltip) {
     return IconButton(
-      icon: Icon(icon, color: _refinedRed),
+      icon: Icon(icon, color: AppColors.accentRed),
       onPressed: onPressed,
       tooltip: tooltip,
       style: IconButton.styleFrom(
-        backgroundColor: _cardVariant,
+        backgroundColor: AppColors.cardVariant,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
@@ -324,13 +328,13 @@ class _CalendarTabState extends State<CalendarTab> {
       itemCount: 7,
       itemBuilder: (context, index) {
         final day = _weekStart.add(Duration(days: index));
-        final dayEvents = _getEventsForDay(day);
-        return _buildDayCard(day, dayEvents);
+        final dayMoments = _getMomentsForDay(day);
+        return _buildDayCard(day, dayMoments);
       },
     );
   }
 
-  Widget _buildDayCard(DateTime day, List<SpaceEvent> events) {
+  Widget _buildDayCard(DateTime day, List<Moment> moments) {
     final now = DateTime.now();
     final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
     final isPast = day.isBefore(DateTime(now.year, now.month, now.day));
@@ -346,10 +350,10 @@ class _CalendarTabState extends State<CalendarTab> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: isToday ? _refinedRed.withValues(alpha: 0.15) : _cardVariant,
+              color: isToday ? AppColors.accentRed.withValues(alpha: 0.15) : AppColors.cardVariant,
               borderRadius: BorderRadius.circular(12),
               border: isToday
-                  ? Border.all(color: _refinedRed.withValues(alpha: 0.3), width: 1)
+                  ? Border.all(color: AppColors.accentRed.withValues(alpha: 0.3), width: 1)
                   : null,
             ),
             child: Row(
@@ -359,7 +363,7 @@ class _CalendarTabState extends State<CalendarTab> {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
-                      color: _refinedRed,
+                      color: AppColors.accentRed,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
@@ -377,37 +381,34 @@ class _CalendarTabState extends State<CalendarTab> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: isPast && !isToday ? _dimText : _lightText,
+                    color: isPast && !isToday ? AppColors.warmDim : AppColors.warmLight,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   dateFormat.format(day),
-                  style: const TextStyle(fontSize: 14, color: _dimText),
+                  style: TextStyle(fontSize: 14, color: AppColors.warmDim),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 8),
 
-          // Events list
-          if (events.isEmpty)
+          // Moments list
+          if (moments.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
-                isPast ? 'No events' : 'No events planned',
-                style: const TextStyle(
+                isPast ? 'No moments' : 'No moments planned',
+                style: TextStyle(
                   fontSize: 14,
-                  color: _dimText,
+                  color: AppColors.warmDim,
                   fontStyle: FontStyle.italic,
                 ),
               ),
             )
           else
-            ...events.map((event) => _TappableEventTile(
-                  event: event,
-                  timeFormat: DateFormat.jm(),
-                )),
+            ...moments.map((moment) => _TappableMomentTile(moment: moment)),
         ],
       ),
     );
@@ -447,13 +448,13 @@ class _CalendarTabState extends State<CalendarTab> {
                 return const SizedBox.shrink();
               }
               final day = DateTime(_currentMonth.year, _currentMonth.month, dayOffset);
-              final dayEvents = _getEventsForDay(day);
-              return _buildMonthDayCell(day, dayEvents);
+              final dayMoments = _getMomentsForDay(day);
+              return _buildMonthDayCell(day, dayMoments);
             },
           ),
           const SizedBox(height: 16),
-          // Events list for selected month
-          _buildMonthEventsList(),
+          // Moments list for selected month
+          _buildMonthMomentsList(),
         ],
       ),
     );
@@ -467,10 +468,10 @@ class _CalendarTabState extends State<CalendarTab> {
           child: Center(
             child: Text(
               day,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: _dimText,
+                color: AppColors.warmDim,
               ),
             ),
           ),
@@ -479,29 +480,29 @@ class _CalendarTabState extends State<CalendarTab> {
     );
   }
 
-  Widget _buildMonthDayCell(DateTime day, List<SpaceEvent> events) {
+  Widget _buildMonthDayCell(DateTime day, List<Moment> moments) {
     final now = DateTime.now();
     final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
     final isPast = day.isBefore(DateTime(now.year, now.month, now.day));
-    final hasEvents = events.isNotEmpty;
+    final hasMoments = moments.isNotEmpty;
 
     return GestureDetector(
-      onTap: hasEvents
-          ? () => _showDayEventsSheet(day, events)
+      onTap: hasMoments
+          ? () => _showDayMomentsSheet(day, moments)
           : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
           color: isToday
-              ? _refinedRed.withValues(alpha: 0.2)
-              : hasEvents
-                  ? _cardVariant
+              ? AppColors.accentRed.withValues(alpha: 0.2)
+              : hasMoments
+                  ? AppColors.cardVariant
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: isToday
-              ? Border.all(color: _refinedRed, width: 2)
-              : hasEvents
-                  ? Border.all(color: _refinedRed.withValues(alpha: 0.3))
+              ? Border.all(color: AppColors.accentRed, width: 2)
+              : hasMoments
+                  ? Border.all(color: AppColors.accentRed.withValues(alpha: 0.3))
                   : null,
         ),
         child: Column(
@@ -513,33 +514,33 @@ class _CalendarTabState extends State<CalendarTab> {
                 fontSize: 16,
                 fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
                 color: isPast && !isToday
-                    ? _dimText
+                    ? AppColors.warmDim
                     : isToday
-                        ? _refinedRed
-                        : _lightText,
+                        ? AppColors.accentRed
+                        : AppColors.warmLight,
               ),
             ),
-            if (hasEvents) ...[
+            if (hasMoments) ...[
               const SizedBox(height: 4),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  for (var i = 0; i < events.length.clamp(0, 3); i++)
+                  for (var i = 0; i < moments.length.clamp(0, 3); i++)
                     Container(
                       width: 6,
                       height: 6,
                       margin: const EdgeInsets.symmetric(horizontal: 1),
                       decoration: BoxDecoration(
-                        color: _refinedRed,
+                        color: AppColors.accentRed,
                         shape: BoxShape.circle,
                       ),
                     ),
-                  if (events.length > 3)
+                  if (moments.length > 3)
                     Text(
                       '+',
                       style: TextStyle(
                         fontSize: 10,
-                        color: _refinedRed,
+                        color: AppColors.accentRed,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -552,12 +553,12 @@ class _CalendarTabState extends State<CalendarTab> {
     );
   }
 
-  void _showDayEventsSheet(DateTime day, List<SpaceEvent> events) {
+  void _showDayMomentsSheet(DateTime day, List<Moment> moments) {
     final dateFormat = DateFormat('EEEE, MMMM d');
     
     showModalBottomSheet(
       context: context,
-      backgroundColor: _darkGlass,
+      backgroundColor: AppColors.darkCardLight,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -569,50 +570,47 @@ class _CalendarTabState extends State<CalendarTab> {
           children: [
             Row(
               children: [
-                const Icon(Icons.event_rounded, color: _refinedRed, size: 24),
+                Icon(Icons.event_rounded, color: AppColors.accentRed, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     dateFormat.format(day),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: _lightText,
+                      color: AppColors.warmLight,
                     ),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close_rounded, color: _dimText),
+                  icon: Icon(Icons.close_rounded, color: AppColors.warmDim),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
             ),
             const SizedBox(height: 16),
-            ...events.map((event) => _TappableEventTile(
-                  event: event,
-                  timeFormat: DateFormat.jm(),
-                )),
+            ...moments.map((moment) => _TappableMomentTile(moment: moment)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildMonthEventsList() {
-    // Get all events for the current month
-    final monthEvents = _events.where((event) {
-      return event.scheduledAt.year == _currentMonth.year &&
-          event.scheduledAt.month == _currentMonth.month;
+  Widget _buildMonthMomentsList() {
+    // Get all moments for the current month
+    final monthMoments = _moments.where((moment) {
+      return moment.startDate.year == _currentMonth.year &&
+          moment.startDate.month == _currentMonth.month;
     }).toList()
-      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
 
-    if (monthEvents.isEmpty) {
+    if (monthMoments.isEmpty) {
       return PremiumCard(
         padding: const EdgeInsets.all(24),
         child: EmptyState(
           icon: Icons.event_busy_rounded,
-          title: 'No events this month',
-          subtitle: 'Tap the + button to add a date night or check-in.',
+          title: 'No moments this month',
+          subtitle: 'Plan a moment from the dashboard to get started.',
         ),
       );
     }
@@ -623,16 +621,15 @@ class _CalendarTabState extends State<CalendarTab> {
         children: [
           SectionHeader(
             icon: Icons.list_rounded,
-            title: 'All Events',
+            title: 'All Moments',
             trailing: Text(
-              '${monthEvents.length} events',
-              style: const TextStyle(fontSize: 14, color: _dimText),
+              '${monthMoments.length} moments',
+              style: TextStyle(fontSize: 14, color: AppColors.warmDim),
             ),
           ),
           const SizedBox(height: 12),
-          ...monthEvents.map((event) => _TappableEventTile(
-                event: event,
-                timeFormat: DateFormat('MMM d, h:mm a'),
+          ...monthMoments.map((moment) => _TappableMomentTile(
+                moment: moment,
                 showDate: true,
               )),
         ],
@@ -682,11 +679,11 @@ class _ViewModeButtonState extends State<_ViewModeButton> {
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
             color: widget.isSelected
-                ? _refinedRed.withValues(alpha: 0.2)
+                ? AppColors.accentRed.withValues(alpha: 0.2)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: widget.isSelected
-                ? Border.all(color: _refinedRed.withValues(alpha: 0.4))
+                ? Border.all(color: AppColors.accentRed.withValues(alpha: 0.4))
                 : null,
           ),
           child: Row(
@@ -695,7 +692,7 @@ class _ViewModeButtonState extends State<_ViewModeButton> {
               Icon(
                 widget.icon,
                 size: 18,
-                color: widget.isSelected ? _refinedRed : _dimText,
+                color: widget.isSelected ? AppColors.accentRed : AppColors.warmDim,
               ),
               const SizedBox(width: 8),
               Text(
@@ -703,7 +700,7 @@ class _ViewModeButtonState extends State<_ViewModeButton> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: widget.isSelected ? _refinedRed : _dimText,
+                  color: widget.isSelected ? AppColors.accentRed : AppColors.warmDim,
                 ),
               ),
             ],
@@ -715,26 +712,37 @@ class _ViewModeButtonState extends State<_ViewModeButton> {
 }
 
 // ---------------------------------------------------------------------------
-// Tappable Event Tile
+// Tappable Moment Tile
 // ---------------------------------------------------------------------------
 
-class _TappableEventTile extends StatefulWidget {
-  const _TappableEventTile({
-    required this.event,
-    required this.timeFormat,
+class _TappableMomentTile extends StatefulWidget {
+  const _TappableMomentTile({
+    required this.moment,
     this.showDate = false,
   });
 
-  final SpaceEvent event;
-  final DateFormat timeFormat;
+  final Moment moment;
   final bool showDate;
 
   @override
-  State<_TappableEventTile> createState() => _TappableEventTileState();
+  State<_TappableMomentTile> createState() => _TappableMomentTileState();
 }
 
-class _TappableEventTileState extends State<_TappableEventTile> {
+class _TappableMomentTileState extends State<_TappableMomentTile> {
   bool _isPressed = false;
+
+  String get _timeLabel {
+    if (widget.showDate) {
+      return widget.moment.dateDisplay;
+    }
+    if (widget.moment.timeSlot != null) {
+      return widget.moment.timeSlot!.label;
+    }
+    if (widget.moment.type == MomentType.escape && widget.moment.nights > 0) {
+      return '${widget.moment.nights} nights';
+    }
+    return 'All day';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -742,7 +750,7 @@ class _TappableEventTileState extends State<_TappableEventTile> {
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
         setState(() => _isPressed = false);
-        // TODO: Navigate to event details
+        // TODO: Navigate to moment details
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
@@ -753,10 +761,10 @@ class _TappableEventTileState extends State<_TappableEventTile> {
           margin: const EdgeInsets.symmetric(vertical: 4),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: _isPressed ? _cardVariant : Colors.transparent,
+            color: _isPressed ? AppColors.cardVariant : Colors.transparent,
             borderRadius: BorderRadius.circular(12),
             border: _isPressed
-                ? Border.all(color: _refinedRed.withValues(alpha: 0.2))
+                ? Border.all(color: AppColors.accentRed.withValues(alpha: 0.2))
                 : null,
           ),
           child: Row(
@@ -764,11 +772,11 @@ class _TappableEventTileState extends State<_TappableEventTile> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: _cardVariant,
+                  color: AppColors.cardVariant,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _refinedRed.withValues(alpha: 0.2)),
+                  border: Border.all(color: AppColors.accentRed.withValues(alpha: 0.2)),
                 ),
-                child: Text(widget.event.type.emoji, style: const TextStyle(fontSize: 20)),
+                child: Text(widget.moment.type.emoji, style: const TextStyle(fontSize: 20)),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -776,23 +784,23 @@ class _TappableEventTileState extends State<_TappableEventTile> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      widget.event.title,
-                      style: const TextStyle(
+                      widget.moment.name,
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
-                        color: _lightText,
+                        color: AppColors.warmLight,
                       ),
                     ),
                     Text(
-                      widget.timeFormat.format(widget.event.scheduledAt),
-                      style: const TextStyle(fontSize: 14, color: _dimText),
+                      _timeLabel,
+                      style: TextStyle(fontSize: 14, color: AppColors.warmDim),
                     ),
                   ],
                 ),
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                color: _refinedRed.withValues(alpha: 0.6),
+                color: AppColors.accentRed.withValues(alpha: 0.6),
                 size: 20,
               ),
             ],
