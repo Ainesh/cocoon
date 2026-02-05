@@ -1,14 +1,67 @@
-# Cocoon
+# Cocoon 🦋
 
-A Flutter relationship wellness app for couples to track health, plan events, and stay intentionally connected. Built with Firebase Authentication and Firestore.
+A premium Flutter relationship wellness app for couples to nurture their connection through intentional check-ins, planned moments, and shared reflection. Built with Firebase for real-time sync across devices.
 
 **"Grow together, intentionally."**
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Features](#features)
+3. [Architecture](#architecture)
+4. [Design System](#design-system)
+5. [Coding Practices](#coding-practices)
+6. [Project Structure](#project-structure)
+7. [Data Models](#data-models)
+8. [Services](#services)
+9. [Getting Started](#getting-started)
+10. [Routes](#routes)
+11. [Dependencies](#dependencies)
+12. [Tech Debt & Future Optimizations](#tech-debt--future-optimizations)
+13. [Contributing & Maintenance](#contributing--maintenance)
+
+---
+
+## Overview
+
+### What is Cocoon?
+
+Cocoon helps couples stay intentionally connected through:
+
+- **Daily Check-ins**: Rate connection, intimacy, and peace on a 1-10 scale
+- **Relationship Health Score**: Aggregated score from both partners' check-ins over 30 days
+- **Planned Moments**: Schedule dates (Connect), celebrations (Celebrate), and getaways (Escape)
+- **Real-time Sync**: Both partners see updates instantly across all devices
+
+### Core Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Space** | A private shared space for a couple (2 members max) |
+| **Check-in** | Daily reflection with 3 metrics + optional notes |
+| **Moment** | A planned event (Connect, Celebrate, or Escape) |
+| **Health Score** | 0-100 score derived from check-in averages |
+| **Pulse** | Single word describing relationship rhythm |
+
+### Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Framework** | Flutter 3.10+ |
+| **State** | StatefulWidget + setState (intentionally simple) |
+| **Backend** | Firebase (Auth + Firestore) |
+| **Navigation** | GoRouter with auth guards |
+| **Styling** | Centralized theme system |
+
+---
 
 ## Features
 
 ### 🔐 Authentication
 - **Email/Password** - Traditional sign up and sign in
-- **Google Sign-In** - One-tap authentication with Google
+- **Google Sign-In** - One-tap authentication
 - **Apple Sign-In** - Ready for integration (requires paid developer account)
 
 ### 🏠 Couple Spaces
@@ -19,47 +72,57 @@ A Flutter relationship wellness app for couples to track health, plan events, an
 ### 📊 Dashboard
 - **Relationship Health Card**
   - Animated circular progress with 32 dots
-  - Normal distribution timing curve (fast start, slow suspenseful finish)
-  - Haptic feedback for each dot (light impact)
-  - Tap for detailed breakdown popup
-  - **Live updates** - score refreshes automatically when check-ins are submitted
-- **Event Cards** - Today's and upcoming events at a glance
-- **Check-in Button** - Quick access to relationship check-in
+  - Normal distribution timing curve (suspenseful finish)
+  - Haptic feedback for each dot
+  - Tap for detailed breakdown sheet
+  - **Live updates** - refreshes when partner checks in
+- **Coming Up Card** - Next 2 moments at a glance (tappable)
+- **Plan a Moment** - Quick access to moment planning
+- **Check-in Button** - Quick access to daily check-in
 - **Pull-to-refresh** with haptic feedback
 
-### 📅 Events
-- **Week/Month Views** - Toggle between calendar layouts
-- **Event Types** - Date nights 🌙, check-ins ✓, special occasions ⭐
-- **Navigation** - Browse past and future weeks/months
-- **Live Updates** - Events sync across all devices in real-time
+### 💫 Plan a Moment
+Three types of moments with progressive reveal UI:
+
+| Type | Purpose | Duration | Fields |
+|------|---------|----------|--------|
+| **Connect** 🔌 | Quality time | Part of day | Activity, Date, Time slot |
+| **Celebrate** ✨ | Special occasions | Full day | Occasion, Date |
+| **Escape** ✈️ | Getaways | Multi-day | Destination, Date range |
+
+Features:
+- Health card-style type selection with glow effects
+- Preset suggestions with custom input option
+- Stretchy time slot slider with color gradient
+- Slide to save confirmation
+- Swipe right to dismiss
 
 ### 💬 Check-ins
-- **Score Selectors** - Custom circular sliders matching dashboard aesthetic
-  - Dotted circle progress (32 dots, like health card)
-  - Horizontal bar with subtle background track
-  - Blue-to-red gradient based on score (low=blue, high=red)
+- **Score Selectors** - Custom circular sliders (32 dots like health card)
+  - Blue-to-red gradient based on score
   - Glowing numbers and bars
   - Haptic feedback tied to dot filling
-  - Minimum bar width prevents empty state
-- **Health Metrics** - Connection ❤️, Intimacy 🔥, Peace ☕ (1-10 scale)
-- **Smart Defaults** - Sliders start from your last check-in values
-- **Trend Charts** - Visualize your check-in history with smooth curves
-- **Partner Activity** - Timeline view of partner's recent check-ins
-- **Reflection** - Add optional appreciation or thoughts
-- **Slide to Check In** - Satisfying swipe-to-confirm submission
-- **Auto-close** - Screen closes automatically after successful submission
+- **Health Metrics** - Connection ❤️, Intimacy 🔥, Peace ☕ (1-10)
+- **Smart Defaults** - Sliders start from your last check-in
+- **Trend Charts** - Visualize your history with smooth curves
+- **Partner Activity** - Timeline of partner's recent check-ins
+- **Reflection** - Optional appreciation or thoughts
+- **Slide to Save** - Swipe-to-confirm submission
 - **Swipe to Dismiss** - Swipe right to go back
 
 ### 📈 Health Score Calculation
-- Connection (1-10) × 10 = Connection %
-- Intimacy (1-10) × 10 = Intimacy %
-- Peace (1-10) × 10 = Peace % *(higher = more peaceful)*
-- **Overall Health** = Average of all three (0-100%)
 
-Scores are calculated from check-ins in the **past 30 days** from both partners.
+```
+Connection (1-10) × 10 = Connection %
+Intimacy (1-10) × 10 = Intimacy %
+Peace (1-10) × 10 = Peace %
+
+Overall Health = Average of all three (0-100%)
+```
+
+Scores calculated from **past 30 days** of check-ins from both partners.
 
 ### 💫 Relationship Pulse
-A single word describing your relationship's rhythm over the past 30 days:
 
 | Pulse | Meaning |
 |-------|---------|
@@ -74,137 +137,47 @@ A single word describing your relationship's rhythm over the past 30 days:
 | **Rebuilding** | Working through lows |
 | **Starting** | Need more check-ins |
 
-Tap the Insights card for a full glossary.
-
-## Design System
-
-### Theme
-Dark neumorphic Material 3 with warm red accent:
-
-| Token | Color | Usage |
-|-------|-------|-------|
-| `pureBlack` | `#0A0A0A` | Background |
-| `darkCard` | `#161616` | Card backgrounds |
-| `darkCardLight` | `#1E1E1E` | Elevated cards |
-| `accentRed` | `#E84545` | Primary accent |
-| `warmLight` | `#EDE6DB` | High-contrast text |
-| `warmMuted` | `#6B665F` | Subtle text |
-
-### Typography
-
-| Purpose | Font | Usage |
-|---------|------|-------|
-| **Display** | Outfit | Headlines, scores, app bar, pulse words |
-| **Body** | Inter | Body text, labels, descriptions |
-| **Tagline** | Cormorant Garamond | Health remarks, elegant accents |
-
-### Animations & Haptics
-
-| Animation | Duration | Details |
-|-----------|----------|---------|
-| Health dots | 2.2s | Normal distribution curve (suspenseful) |
-| Micro-interactions | 100-150ms | Scale & glow effects |
-
-| Haptic | Trigger |
-|--------|---------|
-| Light impact | Each health dot fills |
-| Medium impact | Refresh triggered |
-| Light impact | Refresh complete |
-
-### Custom Icons
-Located in `assets/icons/`:
-- `flame.svg` - Intimacy indicator
-- `peace.svg` - Peace indicator (cup)
-- `google_logo.svg` - Google Sign-In
-- `apple_logo.svg` - Apple Sign-In
-- `cocoon_logo.svg` - App logo
-
-### Custom Painters
-Located in `lib/widgets/painters/`:
-- `DottedCircleProgressPainter` - Health score dots animation
-- `ContinuousCircleProgressPainter` - Smooth arc progress
-- `TrendChartPainter` - Dual-line curve with gradient fill
+---
 
 ## Architecture
 
-### Design Principles
-- **Modular Screens** - Large screens split into focused widgets (dashboard/, checkin/)
-- **DRY Widgets** - Reusable components in `lib/widgets/` with barrel exports
-- **Separation of Concerns** - UI widgets, business logic (services), data models
-- **Real-time First** - Firestore streams for live updates across devices
-- **Consistent Theming** - Centralized colors, typography, and component styles
+### Design Philosophy
 
-### Project Structure
+1. **Simplicity First** - `setState` for local state, no complex state management
+2. **Real-time by Default** - Firestore streams for live updates
+3. **Modular Screens** - Large screens split into focused widgets
+4. **DRY Widgets** - Reusable components with barrel exports
+5. **Centralized Theming** - All colors, typography, spacing in one place
+6. **Progressive Disclosure** - UI reveals as user completes steps
+
+### Layer Architecture
 
 ```
-lib/
-├── main.dart                 # App entry, Firebase init, portrait lock
-├── firebase_options.dart     # Auto-generated Firebase config
-│
-├── theme/                    # Centralized theming
-│   ├── theme.dart            # Barrel export
-│   ├── app_colors.dart       # Color constants
-│   ├── app_spacing.dart      # Spacing & sizing constants
-│   └── app_typography.dart   # Text styles (Outfit, Inter, Cormorant)
-│
-├── models/
-│   ├── avatar_data.dart      # Avatar and color data
-│   ├── space_event.dart      # Event model with types
-│   └── user_checkin.dart     # Check-in model & CheckInStats
-│
-├── router/
-│   └── app_router.dart       # GoRouter with auth guards
-│
-├── screens/
-│   ├── splash_screen.dart    # Loading & auth detection
-│   ├── login_screen.dart     # Welcome with auth options
-│   ├── onboarding_screen.dart # Space creation wizard
-│   ├── join_screen.dart      # Join space with invite
-│   ├── main_shell.dart       # Bottom nav + settings
-│   ├── calendar_tab.dart     # Events - week/month
-│   ├── checkins_tab.dart     # Check-ins timeline
-│   ├── agreements_tab.dart   # Coming soon
-│   │
-│   ├── checkin/              # Modular check-in screen
-│   │   ├── checkin.dart      # Barrel export
-│   │   ├── checkin_screen.dart # Main check-in form
-│   │   └── widgets/
-│   │       ├── partner_checkins.dart # Partner activity timeline
-│   │       └── your_trend.dart       # Personal trend chart
-│   │
-│   └── dashboard/            # Modular dashboard
-│       ├── dashboard.dart    # Barrel export
-│       ├── dashboard_tab.dart # Main orchestrator
-│       └── widgets/
-│           ├── event_cards.dart         # Event & check-in cards
-│           ├── event_creation_sheet.dart # Event form modal
-│           ├── health_card.dart         # Animated health score
-│           └── health_details_sheet.dart # Detailed metrics popup
-│
-├── services/
-│   ├── auth_service.dart     # Firebase Auth + Google
-│   └── firestore_service.dart # All Firestore CRUD + streams
-│
-└── widgets/
-    ├── widgets.dart          # Barrel export for all widgets
-    ├── active_card.dart      # Cards with active state (focus/modified)
-    ├── avatar_selector.dart  # Avatar & color picker
-    ├── neumorphic_container.dart # PremiumCard, SectionHeader, etc.
-    ├── dotted_slider.dart    # ScoreSelector - circular + bar slider
-    ├── slide_to_action.dart  # Swipe-to-confirm button
-    ├── animations/
-    │   └── suspenseful_curve.dart # Normal distribution curve
-    └── painters/
-        ├── circle_progress_painters.dart # Dotted & continuous circles
-        └── trend_chart_painter.dart      # Dual-line trend curves
+┌─────────────────────────────────────────────┐
+│                   Screens                    │
+│   (UI composition, local state, gestures)   │
+├─────────────────────────────────────────────┤
+│                   Widgets                    │
+│  (Reusable UI components, painters, etc.)   │
+├─────────────────────────────────────────────┤
+│                  Services                    │
+│     (Firebase Auth, Firestore CRUD)         │
+├─────────────────────────────────────────────┤
+│                   Models                     │
+│   (Data classes, enums, factory methods)    │
+├─────────────────────────────────────────────┤
+│                   Theme                      │
+│   (Colors, Typography, Spacing constants)   │
+└─────────────────────────────────────────────┘
 ```
 
 ### Real-time Updates
-The dashboard uses Firestore streams for live data sync:
+
+The app uses Firestore streams for live data sync:
 
 ```dart
-// Events stream - updates when any partner adds/edits events
-_firestoreService.watchUpcomingEvents(spaceId, daysAhead: 30)
+// Moments stream - updates when any partner adds/edits moments
+_firestoreService.watchUpcomingMoments(spaceId)
 
 // Check-ins stream - updates health score when anyone checks in
 _firestoreService.watchRecentCheckIns(spaceId, daysBack: 30)
@@ -216,58 +189,479 @@ When your partner submits a check-in, your dashboard automatically:
 3. Updates the health card
 4. Triggers the animation
 
-### Services
+---
 
-#### AuthService
-- Email/password authentication
-- Google Sign-In with singleton pattern
-- Local token storage via SharedPreferences
+## Design System
+
+### Color Palette
+
+| Token | Hex | Usage |
+|-------|-----|-------|
+| `pureBlack` | `#0A0A0A` | Background |
+| `darkCard` | `#161616` | Card backgrounds |
+| `darkCardLight` | `#1E1E1E` | Elevated cards |
+| `cardVariant` | `#252525` | Pills, inputs |
+| `accentRed` | `#E84545` | Primary accent, CTAs |
+| `warmLight` | `#EDE6DB` | High-contrast text |
+| `warmDim` | `#8A8480` | Body text |
+| `warmMuted` | `#6B665F` | Subtle/disabled text |
+| `subtleText` | `#B8B2A8` | Secondary content |
+
+### Typography
+
+| Purpose | Font | Weight | Usage |
+|---------|------|--------|-------|
+| **Display** | Outfit | 600-700 | Headlines, scores, pulse words |
+| **Body** | Inter | 400-500 | Body text, labels |
+| **Accent** | Cormorant Garamond | 500-600 | Health remarks, hints |
+
+```dart
+// Import
+import 'package:couple_space/theme/theme.dart';
+
+// Usage
+Text('Score', style: AppTypography.headlineLarge())
+Text('Description', style: AppTypography.bodyMedium(color: AppColors.warmDim))
+```
+
+### Spacing System
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `xs` | 4px | Minimal gaps |
+| `sm` | 8px | Tight spacing |
+| `md` | 12px | Compact spacing |
+| `lg` | 16px | Default spacing |
+| `xl` | 20px | Comfortable |
+| `xxl` | 24px | Generous |
+| `cardPadding` | 16px | Card internal |
+| `screenPadding` | 20px | Screen edges |
+| `cardRadius` | 16px | Card corners |
+
+### Animation Guidelines
+
+| Animation | Duration | Curve | Usage |
+|-----------|----------|-------|-------|
+| Health dots | 2200ms | SuspensefulCurve | Score reveal |
+| Card transitions | 200-300ms | easeOutCubic | State changes |
+| Slider snapping | 60ms (drag) / 280ms (release) | easeOut | Time slider |
+| Micro-interactions | 100-150ms | easeInOut | Hover, press |
+
+### Haptic Feedback
+
+| Haptic | Trigger |
+|--------|---------|
+| `lightImpact` | Dot fills, navigation, pills |
+| `mediumImpact` | Type selection, submission |
+| `selectionClick` | Slider crossing slots |
+| `heavyImpact` | Successful save |
+
+### Custom Icons
+
+Located in `assets/icons/`:
+- `flame.svg` - Intimacy indicator
+- `peace.svg` - Peace indicator
+- `google_logo.svg` - Google Sign-In
+- `apple_logo.svg` - Apple Sign-In
+- `cocoon_logo.svg` - App logo
+
+---
+
+## Coding Practices
+
+### 1. File Organization
+
+**One widget per file** - Large widgets get their own file. Related widgets can share a file if tightly coupled.
+
+```dart
+// Good: Focused files
+lib/screens/moment/plan_moment_screen.dart  // Main screen
+lib/screens/moment/moment_details_sheet.dart // Details sheet
+
+// Good: Barrel exports for clean imports
+lib/screens/moment/moment.dart
+export 'plan_moment_screen.dart';
+export 'moment_details_sheet.dart';
+```
+
+### 2. Widget Structure
+
+Follow this structure for screen widgets:
+
+```dart
+class MyScreen extends StatefulWidget {
+  // 1. Constructor with required params
+  const MyScreen({super.key, required this.spaceId});
+  
+  final String spaceId;
+  
+  @override
+  State<MyScreen> createState() => _MyScreenState();
+}
+
+class _MyScreenState extends State<MyScreen> {
+  // 2. Services (final, instantiated inline)
+  final _firestoreService = FirestoreService();
+  
+  // 3. State variables (grouped by purpose)
+  MomentType? _selectedType;
+  bool _isSubmitting = false;
+  
+  // 4. Controllers and focus nodes
+  final _nameController = TextEditingController();
+  final _nameFocusNode = FocusNode();
+  
+  // 5. Computed properties (getters)
+  bool get _canSubmit => _selectedType != null && _name.isNotEmpty;
+  
+  // 6. Lifecycle methods
+  @override
+  void initState() { ... }
+  
+  @override
+  void dispose() { ... }
+  
+  // 7. Action methods (grouped with dividers)
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+  
+  void _selectType(MomentType type) { ... }
+  
+  Future<void> _submit() async { ... }
+  
+  // 8. Build methods
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+  
+  @override
+  Widget build(BuildContext context) { ... }
+  
+  Widget _buildTypeSelection() { ... }
+}
+```
+
+### 3. Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Files | `snake_case` | `plan_moment_screen.dart` |
+| Classes | `PascalCase` | `PlanMomentScreen` |
+| Variables | `camelCase` | `selectedType` |
+| Private | `_prefixed` | `_isSubmitting` |
+| Constants | `camelCase` | `static const cardPadding = 16.0` |
+| Callbacks | `onVerb` | `onTap`, `onMomentTap` |
+| Builders | `_buildNoun` | `_buildTypeSelection()` |
+
+### 4. State Management
+
+**Use `setState` for local widget state.** Keep it simple.
+
+```dart
+// Good: Simple local state
+void _selectType(MomentType type) {
+  setState(() {
+    _selectedType = type;
+    _startDate = null;  // Reset dependent state
+  });
+}
+
+// Good: Computed properties instead of duplicate state
+bool get _canSubmit => _selectedType != null && _momentName.isNotEmpty;
+```
+
+### 5. DRY Patterns
+
+**Extract repeated UI patterns into helper methods or widgets:**
+
+```dart
+// Good: Reusable helper within a file
+Widget _buildPill(String label, VoidCallback onTap) {
+  return GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.cardVariant,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(label, style: _pillTextStyle),
+    ),
+  );
+}
+
+// Usage
+_buildPill('Today', () => _selectDate(today))
+_buildPill('Tomorrow', () => _selectDate(tomorrow))
+```
+
+### 6. Theme Usage
+
+**Always use centralized theme constants:**
+
+```dart
+// Good
+Container(color: AppColors.darkCardLight)
+Text('Hello', style: AppTypography.bodyMedium())
+SizedBox(height: AppSpacing.md)
+
+// Bad - hardcoded values
+Container(color: Color(0xFF1E1E1E))
+Text('Hello', style: TextStyle(fontSize: 14))
+SizedBox(height: 12)
+```
+
+### 7. Error Handling
+
+**Wrap async operations in try-catch with user feedback:**
+
+```dart
+Future<void> _submit() async {
+  if (_isSubmitting) return;
+  setState(() => _isSubmitting = true);
+  
+  try {
+    await _firestoreService.createMoment(...);
+    HapticFeedback.heavyImpact();
+    if (mounted) context.pop();
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isSubmitting = false);
+  }
+}
+```
+
+### 8. Keyboard Dismissal
+
+**Always dismiss keyboard when tapping outside text fields or on actions:**
+
+```dart
+// At screen level
+GestureDetector(
+  onTap: () => FocusScope.of(context).unfocus(),
+  child: Scaffold(...),
+)
+
+// In action handlers
+void _selectType(MomentType type) {
+  FocusScope.of(context).unfocus();  // Dismiss first
+  HapticFeedback.mediumImpact();
+  setState(() => _selectedType = type);
+}
+```
+
+### 9. Import Organization
+
+```dart
+// 1. Dart SDK
+import 'dart:async';
+
+// 2. Flutter
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+// 3. External packages (alphabetical)
+import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+
+// 4. Local imports (relative paths, grouped)
+import '../../models/moment.dart';
+import '../../services/firestore_service.dart';
+import '../../theme/theme.dart';
+import '../../widgets/widgets.dart';
+```
+
+---
+
+## Project Structure
+
+```
+lib/
+├── main.dart                    # App entry, Firebase init, portrait lock
+├── firebase_options.dart        # Auto-generated Firebase config
+│
+├── theme/                       # Centralized theming
+│   ├── theme.dart               # Barrel export
+│   ├── app_colors.dart          # Color constants
+│   ├── app_spacing.dart         # Spacing & sizing constants
+│   └── app_typography.dart      # Text styles (Outfit, Inter, Cormorant)
+│
+├── models/
+│   ├── avatar_data.dart         # Avatar and color data
+│   ├── moment.dart              # Moment model (Connect, Celebrate, Escape)
+│   └── user_checkin.dart        # Check-in model & CheckInStats
+│
+├── router/
+│   └── app_router.dart          # GoRouter with auth guards
+│
+├── screens/
+│   ├── splash_screen.dart       # Loading & auth detection
+│   ├── login_screen.dart        # Welcome with auth options
+│   ├── onboarding_screen.dart   # Space creation wizard
+│   ├── join_screen.dart         # Join space with invite
+│   ├── main_shell.dart          # Bottom nav + settings
+│   ├── calendar_tab.dart        # Moments calendar view
+│   ├── checkins_tab.dart        # Check-ins timeline
+│   ├── agreements_tab.dart      # Coming soon
+│   │
+│   ├── checkin/                 # Check-in screen module
+│   │   ├── checkin.dart         # Barrel export
+│   │   ├── checkin_screen.dart  # Main check-in form
+│   │   └── widgets/
+│   │       ├── partner_checkins.dart
+│   │       └── your_trend.dart
+│   │
+│   ├── dashboard/               # Dashboard module
+│   │   ├── dashboard.dart       # Barrel export
+│   │   ├── dashboard_tab.dart   # Main orchestrator
+│   │   └── widgets/
+│   │       ├── event_cards.dart        # ComingUpCard, PlanMomentCard
+│   │       ├── health_card.dart        # Animated health score
+│   │       └── health_details_sheet.dart
+│   │
+│   └── moment/                  # Moment planning module
+│       ├── moment.dart          # Barrel export
+│       ├── plan_moment_screen.dart    # Create/edit moment
+│       └── moment_details_sheet.dart  # View moment details
+│
+├── services/
+│   ├── auth_service.dart        # Firebase Auth + Google
+│   └── firestore_service.dart   # All Firestore CRUD + streams
+│
+└── widgets/
+    ├── widgets.dart             # Barrel export
+    ├── active_card.dart         # Card with active state
+    ├── avatar_selector.dart     # Avatar & color picker
+    ├── neumorphic_container.dart # PremiumCard, SectionHeader
+    ├── dotted_slider.dart       # ScoreSelector
+    ├── slide_to_action.dart     # Swipe-to-confirm
+    ├── animations/
+    │   └── suspenseful_curve.dart
+    └── painters/
+        ├── circle_progress_painters.dart
+        └── trend_chart_painter.dart
+```
+
+---
+
+## Data Models
+
+### Moment
+
+```dart
+enum MomentType { celebrate, connect, escape }
+enum TimeSlot { morning, afternoon, evening, night }
+enum RepeatSchedule { never, daily, weekly, monthly, yearly }
+
+class Moment {
+  final String id;
+  final String name;
+  final MomentType type;
+  final DateTime startDate;
+  final DateTime? endDate;        // Only for escape
+  final TimeSlot? timeSlot;       // Only for connect
+  final RepeatSchedule repeatSchedule;
+  final String? notes;
+  final String createdBy;
+  final DateTime? createdAt;
+  
+  // Computed properties
+  String get relativeDate;        // "Today", "Tomorrow", "In 3 days"
+  int get nights;                 // Days between start and end
+  bool get isToday;
+  bool get isPast;
+}
+```
+
+### UserCheckIn
+
+```dart
+class UserCheckIn {
+  final String id;
+  final String oderId;
+  final DateTime timestamp;
+  final int connection;           // 1-10
+  final int intimacy;             // 1-10
+  final int stress;               // 1-10 (higher = more stressed)
+  final String? notes;
+}
+
+class CheckInStats {
+  final double avgConnection;
+  final double avgIntimacy;
+  final double avgStress;
+  final int checkInCount;
+  final int userCheckInCount;
+  final int partnerCheckInCount;
+  final double connectionTrend;   // -1 to 1
+  final double intimacyTrend;
+  final double stressTrend;
+  
+  factory CheckInStats.fromCheckIns(List<UserCheckIn>, {required String currentUserId});
+}
+```
+
+---
+
+## Services
+
+### AuthService
+
+Handles authentication with Firebase Auth and Google Sign-In.
+
+```dart
+class AuthService {
+  User? get currentUser;
+  Stream<User?> get authStateChanges;
+  
+  Future<UserCredential> signInWithEmail(email, password);
+  Future<UserCredential> signUpWithEmail(email, password);
+  Future<UserCredential?> signInWithGoogle();
+  Future<void> signOut();
+}
+```
+
+**Key patterns:**
+- Singleton `GoogleSignIn` instance to prevent "Future already completed" errors
+- `signOut()` before `signIn()` for clean state
 - Error message mapping for Firebase codes
 
-#### FirestoreService
-- Space creation with invite codes
-- User profile management
-- Event CRUD operations
-- Check-in submission and stats
-- Streak calculation
-- Daily health scores for trend charts
-- **Stream-based** methods for real-time updates
+### FirestoreService
 
-### Data Models
+Handles all Firestore operations with streams for real-time updates.
 
-#### SpaceEvent
 ```dart
-enum EventType { dateNight, checkIn, special }
-
-SpaceEvent {
-  id, title, type, scheduledAt, createdBy
+class FirestoreService {
+  // Spaces
+  Future<String?> getUserSpaceId(userId);
+  Future<String> createSpace(name, creatorId);
+  Future<void> joinSpace(spaceId, userId);
+  
+  // Moments
+  Stream<List<Moment>> watchUpcomingMoments(spaceId);
+  Future<String> createMoment({spaceId, name, type, startDate, ...});
+  Future<void> deleteMoment({spaceId, momentId});
+  
+  // Check-ins
+  Stream<List<UserCheckIn>> watchRecentCheckIns(spaceId, {daysBack});
+  Future<void> submitCheckIn({spaceId, userId, connection, intimacy, stress, notes});
+  Future<int> getCheckInStreak(spaceId, userId);
+  Future<List<Map<String, dynamic>>> getDailyScores(spaceId, {daysBack});
 }
 ```
 
-#### UserCheckIn
-```dart
-UserCheckIn {
-  id, userId, timestamp,
-  connection (1-10), intimacy (1-10), stress (1-10),
-  notes
-}
-```
-
-#### CheckInStats
-```dart
-CheckInStats {
-  avgConnection, avgIntimacy, avgStress,
-  checkInCount, userCheckInCount, partnerCheckInCount,
-  connectionTrend, intimacyTrend, stressTrend (-1 to 1)
-}
-
-// Factory to calculate from check-in list
-CheckInStats.fromCheckIns(checkIns, currentUserId: userId)
-```
+---
 
 ## Getting Started
 
 ### Prerequisites
+
 - Flutter SDK ^3.10.7
 - Firebase project with:
   - Authentication (Email, Google enabled)
@@ -278,101 +672,71 @@ CheckInStats.fromCheckIns(checkIns, currentUserId: userId)
 
 1. **Create Firebase Project**
    ```bash
-   # Install FlutterFire CLI
    dart pub global activate flutterfire_cli
-   
-   # Configure for your project
    flutterfire configure --project=your-project-id
    ```
 
 2. **Enable Authentication**
    - Firebase Console → Authentication → Sign-in method
-   - Enable **Email/Password**
-   - Enable **Google** (configure OAuth consent)
+   - Enable **Email/Password** and **Google**
 
-3. **Web Configuration** (for Google Sign-In)
-   ```html
-   <!-- web/index.html -->
-   <meta name="google-signin-client_id" content="YOUR_WEB_CLIENT_ID">
+3. **Firestore Security Rules**
+   ```javascript
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /invites/{inviteId} {
+         allow read, write: if request.auth != null;
+       }
+
+       match /spaces/{spaceId} {
+         allow create: if request.auth != null;
+         allow read: if request.auth != null;
+         allow update: if request.auth != null && (
+           request.auth.uid in resource.data.memberIds ||
+           (request.auth.uid in request.resource.data.memberIds &&
+            request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1)
+         );
+
+         match /moments/{momentId} {
+           allow read, write: if request.auth != null &&
+             request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+         }
+
+         match /checkins/{checkinId} {
+           allow read, write: if request.auth != null &&
+             request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+         }
+       }
+
+       match /users/{userId} {
+         allow read: if request.auth != null && (
+           request.auth.uid == userId ||
+           (resource.data.spaceId != null &&
+            request.auth.uid in get(/databases/$(database)/documents/spaces/$(resource.data.spaceId)).data.memberIds)
+         );
+         allow write: if request.auth != null && request.auth.uid == userId;
+       }
+     }
+   }
    ```
-
-4. **iOS Configuration**
-   - Add `REVERSED_CLIENT_ID` URL scheme to `ios/Runner/Info.plist`
-
-5. **Enable People API**
-   - Google Cloud Console → APIs → Enable "People API"
-
-### Firestore Security Rules
-
-```javascript
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Invites - authenticated users can manage
-    match /invites/{inviteId} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Spaces - members can read/write
-    match /spaces/{spaceId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null;
-      allow update: if request.auth != null && (
-        request.auth.uid in resource.data.memberIds ||
-        (request.auth.uid in request.resource.data.memberIds &&
-         request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1)
-      );
-
-      // Events subcollection
-      match /events/{eventId} {
-        allow read, write: if request.auth != null &&
-          request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-      }
-
-      // Check-ins subcollection
-      match /checkins/{checkinId} {
-        allow read, write: if request.auth != null &&
-          request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-      }
-    }
-
-    // Users - owner can write, space members can read
-    match /users/{userId} {
-      allow read: if request.auth != null && (
-        request.auth.uid == userId ||
-        (resource.data.spaceId != null &&
-         request.auth.uid in get(/databases/$(database)/documents/spaces/$(resource.data.spaceId)).data.memberIds)
-      );
-      allow write: if request.auth != null && request.auth.uid == userId;
-    }
-  }
-}
-```
 
 ### Installation
 
 ```bash
-# Clone repository
 git clone https://github.com/your-username/couple_space.git
 cd couple_space
 
-# Install dependencies
 flutter pub get
 
-# iOS: Install pods
 cd ios && pod install && cd ..
 
-# Run
-flutter run -d chrome   # Web
-flutter run -d ios      # iOS Simulator
-flutter run -d android  # Android Emulator
+flutter run -d chrome    # Web
+flutter run -d ios       # iOS
+flutter run -d android   # Android
 ```
 
-### Hot Reload
-- **VS Code/Cursor**: Save file (auto)
-- **Terminal**: Press `r`
-- **Device**: Press `R` for hot restart
-- **Phone**: `flutter run` then shake device or use `r` in terminal
+---
 
 ## Routes
 
@@ -384,145 +748,156 @@ flutter run -d android  # Android Emulator
 | `/onboarding` | Create Space | Yes | New user setup |
 | `/dashboard/:id` | Main Shell | Yes | 4-tab navigation |
 | `/checkin/:id` | Check-in | Yes | Submit scores |
+| `/moment/:id` | Plan Moment | Yes | Create/edit moment |
+
+---
 
 ## Dependencies
 
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `firebase_core` | ^4.4.0 | Firebase init |
-| `firebase_auth` | ^6.1.4 | Authentication |
-| `cloud_firestore` | ^6.1.2 | Database |
-| `google_sign_in` | ^6.2.2 | Google auth |
-| `go_router` | ^17.0.1 | Navigation |
-| `shared_preferences` | ^2.5.4 | Local storage |
-| `share_plus` | ^10.0.0 | Share functionality |
-| `intl` | ^0.20.2 | Date formatting |
-| `google_fonts` | ^8.0.0 | Typography |
-| `flutter_svg` | ^2.1.0 | SVG icons |
-| `flutter_animate` | - | Animation utilities |
+| Package | Purpose |
+|---------|---------|
+| `firebase_core` | Firebase initialization |
+| `firebase_auth` | Authentication |
+| `cloud_firestore` | Database |
+| `google_sign_in` | Google auth |
+| `go_router` | Declarative routing |
+| `shared_preferences` | Local storage |
+| `share_plus` | Share functionality |
+| `intl` | Date formatting |
+| `google_fonts` | Typography |
+| `flutter_svg` | SVG icons |
 
-## Code Quality
+---
 
-### Centralized Theme
-All theming constants are in `lib/theme/`:
+## Tech Debt & Future Optimizations
 
-```dart
-import 'package:couple_space/theme/theme.dart';
+### Current Tech Debt
 
-// Colors - Primary accent, backgrounds, text
-Container(color: AppColors.accentRed)
-Container(color: AppColors.pureBlack)
+| Issue | Location | Priority | Notes |
+|-------|----------|----------|-------|
+| No edit moment screen | `plan_moment_screen.dart` | Medium | Currently creates new, should support edit |
+| Unused `RepeatSchedule` | `Moment` model | Low | Field exists but UI removed |
+| `agreements_tab.dart` placeholder | Screens | Low | Shows "coming soon" |
+| No offline support | Services | Medium | App fails without network |
+| No image support | Moments | Low | Could add photos to moments |
 
-// Typography - Outfit, Inter, Cormorant styles
-Text('Hello', style: AppTypography.headlineLarge())
-Text('Body', style: AppTypography.bodyMedium())
+### Performance Optimizations
 
-// Spacing - Consistent spacing scale
-SizedBox(height: AppSpacing.md)           // 12px
-EdgeInsets.all(AppSpacing.cardPadding)    // 16px
-BorderRadius.circular(AppSpacing.cardRadius) // 16px
+| Optimization | Impact | Effort |
+|--------------|--------|--------|
+| **Lazy load calendar months** | High | Medium |
+| **Cache check-in stats** | Medium | Low |
+| **Paginate check-in history** | Medium | Medium |
+| **Image caching** | Medium | Low |
+| **Firestore indexes** | High | Low |
+
+### Future Features
+
+| Feature | Description | Complexity |
+|---------|-------------|------------|
+| **Push notifications** | Remind to check in, moment alerts | Medium |
+| **Recurring moments** | Weekly date nights, etc. | Medium |
+| **Shared notes** | Both partners can edit | Low |
+| **Photo memories** | Attach photos to moments | Medium |
+| **Export data** | PDF reports of relationship health | High |
+| **Widgets** | iOS/Android home screen widgets | High |
+
+---
+
+## Contributing & Maintenance
+
+### Code Review Checklist
+
+- [ ] Follows naming conventions
+- [ ] Uses centralized theme (no hardcoded colors/sizes)
+- [ ] Includes haptic feedback where appropriate
+- [ ] Handles errors with user feedback
+- [ ] Dismisses keyboard on action taps
+- [ ] Uses `mounted` check after async operations
+- [ ] Disposes controllers in `dispose()`
+
+### Updating This README
+
+**When to update:**
+- Adding new features
+- Changing data models
+- Adding new dependencies
+- Discovering new tech debt
+- Changing design patterns
+
+**How to update:**
+1. Update relevant sections (don't just append)
+2. Keep examples current with actual code
+3. Update the project structure if files changed
+4. Add new tech debt to the table
+5. Remove completed items from tech debt
+
+### Git Workflow
+
+```bash
+# Feature branches
+git checkout -b feature/moment-details
+
+# Commit messages (conventional commits)
+git commit -m "feat(moment): add moment details sheet"
+git commit -m "fix(dashboard): correct health score calculation"
+git commit -m "refactor(checkin): extract trend chart widget"
+git commit -m "docs(readme): update data models section"
+
+# Merge via PR
 ```
 
-### Spacing System (AppSpacing)
+### Commit Message Types
 
-| Constant | Value | Usage |
-|----------|-------|-------|
-| `xs` | 4px | Minimal spacing |
-| `sm` | 8px | Tight spacing |
-| `md` | 12px | Compact spacing |
-| `lg` | 16px | Default spacing |
-| `xl` | 20px | Comfortable |
-| `xxl` | 24px | Generous |
-| `cardPadding` | 16px | Card internal padding |
-| `screenPadding` | 20px | Screen edge padding |
-| `cardRadius` | 16px | Card border radius |
+| Type | Usage |
+|------|-------|
+| `feat` | New feature |
+| `fix` | Bug fix |
+| `refactor` | Code restructuring (no behavior change) |
+| `style` | Formatting, styling |
+| `docs` | Documentation |
+| `test` | Tests |
+| `chore` | Build, config, dependencies |
 
-### Reusable Widgets
-Import from barrel export:
-```dart
-import 'package:couple_space/widgets/widgets.dart';
+### Testing Locally
+
+```bash
+# Run all platforms
+flutter run -d chrome
+flutter run -d ios
+flutter run -d android
+
+# Hot reload
+Press 'r' in terminal
+
+# Hot restart (clears state)
+Press 'R' in terminal
+
+# Check for issues
+flutter analyze
 ```
 
-| Widget | Purpose |
-|--------|---------|
-| `PremiumCard` | Dark neumorphic card with red glow + micro-interactions |
-| `SectionHeader` | Icon + title header for card sections |
-| `ActiveCard` | Card that highlights when focused/modified |
-| `ScoreSelector` | Dotted circle + horizontal bar slider |
-| `SlideToAction` | Swipe-to-confirm button |
-| `TrendChartPainter` | Smooth dual-line curve chart |
-| `DottedCircleProgressPainter` | Animated health score circle |
+### Deploying
 
-#### SlideToAction Usage
-```dart
-SlideToAction(
-  label: 'Slide to confirm',
-  loadingLabel: 'Processing...',
-  onConfirm: () => doSomething(),
-  isLoading: false,
-)
+```bash
+# iOS
+flutter build ios --release
+
+# Android
+flutter build apk --release
+flutter build appbundle --release
+
+# Web
+flutter build web --release
 ```
 
-#### ActiveCard Usage
-```dart
-ActiveCard(
-  heading: 'Pulse Check',
-  isActive: _hasChanges,
-  helperText: 'Rate each area 1-10',
-  hideHelperWhenActive: true,
-  shrinkWhenActive: false,
-  showBorder: _isFocused,
-  child: YourContent(),
-)
-```
-
-### Error Handling
-All Firestore operations include try-catch with debug logging:
-```dart
-try {
-  await _firestore.collection('spaces').doc(id).get();
-} catch (e) {
-  debugPrint('Error: $e');
-  return null;
-}
-```
-
-### Singleton Services
-Google Sign-In uses a shared instance to prevent "Future already completed" errors:
-```dart
-static final GoogleSignIn _sharedGoogleSignIn = GoogleSignIn();
-static bool _isSigningIn = false;
-```
-
-## Known Issues & Solutions
-
-### Google Sign-In on Web
-- **Issue**: "Future already completed" error
-- **Solution**: Singleton `GoogleSignIn` instance with `signOut()` before `signIn()`
-
-### Firestore Composite Index
-- **Issue**: Query requires index for `userId` + `timestamp`
-- **Solution**: Create index in Firebase Console or use provided link in error
-
-### iOS CocoaPods
-- **Issue**: Sandbox sync errors
-- **Solution**: `cd ios && pod install --repo-update`
-
-### Hot Reload Errors
-- **Issue**: `LateInitializationError` for AnimationController
-- **Solution**: Make controller nullable with safe initialization
-
-## Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
+---
 
 ## License
 
 MIT License - see LICENSE file for details.
+
+---
 
 ## Acknowledgments
 
@@ -530,3 +905,7 @@ MIT License - see LICENSE file for details.
 - Backend by [Firebase](https://firebase.google.com/)
 - Typography from [Google Fonts](https://fonts.google.com/)
 - Icons from [Material Design](https://material.io/icons/)
+
+---
+
+*Last updated: February 2026*

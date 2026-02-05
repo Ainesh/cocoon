@@ -168,7 +168,6 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   void _selectTimeSlot(TimeSlot slot) {
     _dismissKeyboard();
-    HapticFeedback.mediumImpact();
     setState(() => _selectedTimeSlot = slot);
   }
 
@@ -911,34 +910,57 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         final slotWidth = constraints.maxWidth / slots.length;
         final totalWidth = constraints.maxWidth;
         final padding = 4.0;
+        final baseWidth = slotWidth - (padding * 2);
         
-        // Position is either drag position or snapped to selected slot center
-        final targetX = _dragPosition ?? ((selectedIndex + 0.5) * slotWidth);
-        final colorProgress = (targetX / totalWidth).clamp(0.0, 1.0);
+        // Selected slot center position
+        final selectedCenter = (selectedIndex + 0.5) * slotWidth;
+        final isDragging = _dragPosition != null;
         
-        // Calculate highlight position (centered on targetX)
-        final highlightWidth = slotWidth - (padding * 2);
-        final highlightLeft = (targetX - highlightWidth / 2).clamp(padding, totalWidth - highlightWidth - padding);
+        // Calculate stretchy highlight bounds
+        double highlightLeft;
+        double highlightWidth;
+        double colorProgress;
+        
+        if (isDragging) {
+          final dragX = _dragPosition!;
+          // Stretch from selected slot toward drag position
+          if (dragX < selectedCenter) {
+            // Dragging left - stretch left edge
+            highlightLeft = dragX - baseWidth * 0.4;
+            highlightWidth = (selectedCenter + baseWidth * 0.4) - highlightLeft;
+          } else {
+            // Dragging right - stretch right edge  
+            highlightLeft = selectedCenter - baseWidth * 0.4;
+            highlightWidth = (dragX + baseWidth * 0.4) - highlightLeft;
+          }
+          // Clamp bounds
+          highlightLeft = highlightLeft.clamp(padding, totalWidth - baseWidth - padding);
+          highlightWidth = highlightWidth.clamp(baseWidth, totalWidth - padding * 2);
+          // Color based on drag position
+          colorProgress = (dragX / totalWidth).clamp(0.0, 1.0);
+        } else {
+          // Snapped to selected slot
+          highlightLeft = selectedIndex * slotWidth + padding;
+          highlightWidth = baseWidth;
+          colorProgress = selectedIndex / (slots.length - 1);
+        }
         
         return GestureDetector(
           onHorizontalDragStart: (details) {
-            setState(() {
-              _dragPosition = details.localPosition.dx.clamp(padding, totalWidth - padding);
-            });
+            setState(() => _dragPosition = details.localPosition.dx.clamp(0, totalWidth));
           },
           onHorizontalDragUpdate: (details) {
-            final pos = details.localPosition.dx.clamp(padding, totalWidth - padding);
+            final pos = details.localPosition.dx.clamp(0.0, totalWidth);
             setState(() => _dragPosition = pos);
             
-            // Snap selection at slot boundaries
-            final index = ((pos - padding) / slotWidth).floor().clamp(0, slots.length - 1);
+            // Snap selection at slot centers
+            final index = (pos / slotWidth).floor().clamp(0, slots.length - 1);
             if (_selectedTimeSlot != slots[index]) {
               HapticFeedback.selectionClick();
               _selectTimeSlot(slots[index]);
             }
           },
           onHorizontalDragEnd: (_) {
-            HapticFeedback.mediumImpact();
             setState(() => _dragPosition = null);
           },
           child: Container(
@@ -950,34 +972,27 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Smooth sliding highlight
+                // Stretchy highlight - smooth following and snap back
                 AnimatedPositioned(
-                  duration: _dragPosition != null 
-                      ? const Duration(milliseconds: 0) 
-                      : const Duration(milliseconds: 280),
-                  curve: Curves.easeOutCubic,
+                  duration: Duration(milliseconds: isDragging ? 60 : 280),
+                  curve: Curves.easeOut,
                   left: highlightLeft,
                   top: padding,
                   bottom: padding,
                   width: highlightWidth,
-                  child: TweenAnimationBuilder<Color?>(
-                    tween: ColorTween(
-                      begin: _getTimeSlotColorFromProgress(colorProgress),
-                      end: _getTimeSlotColorFromProgress(colorProgress),
-                    ),
-                    duration: const Duration(milliseconds: 150),
-                    builder: (context, color, _) => Container(
-                      decoration: BoxDecoration(
-                        color: color,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (color ?? _morningColor).withValues(alpha: 0.5),
-                            blurRadius: 16,
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      ),
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: isDragging ? 60 : 280),
+                    curve: Curves.easeOut,
+                    decoration: BoxDecoration(
+                      color: _getTimeSlotColorFromProgress(colorProgress),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _getTimeSlotColorFromProgress(colorProgress).withValues(alpha: 0.4),
+                          blurRadius: 12,
+                          spreadRadius: 0,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -997,16 +1012,12 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                         },
                         behavior: HitTestBehavior.opaque,
                         child: Center(
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 200),
-                            child: Icon(
-                              _getTimeSlotIcon(slot),
-                              key: ValueKey('$index-$isSelected'),
-                              size: 22,
-                              color: isSelected 
-                                  ? AppColors.pureBlack 
-                                  : _getTimeSlotColor(index).withValues(alpha: 0.5),
-                            ),
+                          child: Icon(
+                            _getTimeSlotIcon(slot),
+                            size: 22,
+                            color: isSelected 
+                                ? AppColors.pureBlack 
+                                : _getTimeSlotColor(index).withValues(alpha: 0.5),
                           ),
                         ),
                       ),

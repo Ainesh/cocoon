@@ -17,6 +17,7 @@ import '../../models/user_checkin.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
+import '../moment/moment_details_sheet.dart';
 import 'widgets/event_cards.dart';
 import 'widgets/health_card.dart';
 import 'widgets/health_details_sheet.dart';
@@ -171,6 +172,37 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
+  void _showMomentDetails(Moment moment) {
+    showMomentDetailsSheet(
+      context: context,
+      moment: moment,
+      onEdit: () {
+        // TODO: Navigate to edit screen when implemented
+        context.push('/moment/${widget.spaceId}');
+      },
+      onDelete: () async {
+        try {
+          await _firestoreService.deleteMoment(
+            spaceId: widget.spaceId,
+            momentId: moment.id,
+          );
+          if (mounted) {
+            HapticFeedback.mediumImpact();
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to delete moment: $e'),
+                backgroundColor: AppColors.error,
+              ),
+            );
+          }
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -212,9 +244,7 @@ class _DashboardTabState extends State<DashboardTab> {
                 Expanded(
                   child: ComingUpCard(
                     moments: _upcomingMoments,
-                    onTap: () {
-                      // Could navigate to moments list
-                    },
+                    onMomentTap: (moment) => _showMomentDetails(moment),
                   ),
                 ),
                 const SizedBox(height: 12),

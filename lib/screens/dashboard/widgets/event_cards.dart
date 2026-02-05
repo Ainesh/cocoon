@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../models/moment.dart';
@@ -13,41 +14,46 @@ class ComingUpCard extends StatelessWidget {
     super.key,
     required this.moments,
     this.onTap,
+    this.onMomentTap,
   });
 
   /// Upcoming moments.
   final List<Moment> moments;
   
-  /// Callback when card is tapped.
+  /// Callback when card header is tapped.
   final VoidCallback? onTap;
+  
+  /// Callback when a specific moment is tapped.
+  final void Function(Moment moment)? onMomentTap;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.darkCardLight,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppColors.warmMuted.withValues(alpha: 0.15),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accentRed.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.warmMuted.withValues(alpha: 0.15),
+          width: 1,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Text(
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentRed.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: Text(
               'Coming Up',
               style: GoogleFonts.outfit(
                 color: AppColors.warmLight,
@@ -56,34 +62,41 @@ class ComingUpCard extends StatelessWidget {
                 letterSpacing: -0.3,
               ),
             ),
-            const Spacer(),
+          ),
+          const Spacer(),
+          
+          // Content
+          if (moments.isNotEmpty) ...[
+            // First moment
+            _MomentPreview(
+              moment: moments.first,
+              onTap: onMomentTap != null ? () => onMomentTap!(moments.first) : null,
+            ),
             
-            // Content
-            if (moments.isNotEmpty) ...[
-              // First moment
-              _MomentPreview(moment: moments.first),
-              
-              // Second moment (if exists)
-              if (moments.length > 1) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Divider(
-                    color: AppColors.warmMuted.withValues(alpha: 0.2),
-                    height: 1,
-                  ),
-                ),
-                _MomentPreview(moment: moments[1], isSecondary: true),
-              ],
-            ] else
-              Text(
-                'No moments planned',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmDim,
-                  fontSize: 15,
+            // Second moment (if exists)
+            if (moments.length > 1) ...[
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Divider(
+                  color: AppColors.warmMuted.withValues(alpha: 0.2),
+                  height: 1,
                 ),
               ),
-          ],
-        ),
+              _MomentPreview(
+                moment: moments[1],
+                isSecondary: true,
+                onTap: onMomentTap != null ? () => onMomentTap!(moments[1]) : null,
+              ),
+            ],
+          ] else
+            Text(
+              'No moments planned',
+              style: GoogleFonts.inter(
+                color: AppColors.warmDim,
+                fontSize: 15,
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -94,10 +107,12 @@ class _MomentPreview extends StatelessWidget {
   const _MomentPreview({
     required this.moment,
     this.isSecondary = false,
+    this.onTap,
   });
 
   final Moment moment;
   final bool isSecondary;
+  final VoidCallback? onTap;
 
   String get _dateLabel {
     final relative = moment.relativeDate;
@@ -117,43 +132,58 @@ class _MomentPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        // Emoji
-        Text(
-          moment.type.emoji,
-          style: TextStyle(
-            fontSize: isSecondary ? 16 : 20,
+    return GestureDetector(
+      onTap: onTap != null ? () {
+        HapticFeedback.selectionClick();
+        onTap!();
+      } : null,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          // Emoji
+          Text(
+            moment.type.emoji,
+            style: TextStyle(
+              fontSize: isSecondary ? 16 : 20,
+            ),
           ),
-        ),
-        const SizedBox(width: 10),
-        
-        // Details
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                moment.name,
-                style: GoogleFonts.inter(
-                  color: isSecondary ? AppColors.warmMuted : AppColors.warmLight,
-                  fontSize: isSecondary ? 14 : 16,
-                  fontWeight: FontWeight.w500,
+          const SizedBox(width: 10),
+          
+          // Details
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  moment.name,
+                  style: GoogleFonts.inter(
+                    color: isSecondary ? AppColors.warmMuted : AppColors.warmLight,
+                    fontSize: isSecondary ? 14 : 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                _dateLabel,
-                style: GoogleFonts.inter(
-                  color: AppColors.warmDim,
-                  fontSize: isSecondary ? 11 : 12,
+                Text(
+                  _dateLabel,
+                  style: GoogleFonts.inter(
+                    color: AppColors.warmDim,
+                    fontSize: isSecondary ? 11 : 12,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ],
+          
+          // Chevron indicator
+          if (onTap != null)
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.warmMuted.withValues(alpha: 0.5),
+              size: isSecondary ? 18 : 20,
+            ),
+        ],
+      ),
     );
   }
 }
