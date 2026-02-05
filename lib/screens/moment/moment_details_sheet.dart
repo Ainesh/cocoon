@@ -281,7 +281,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
         ? moment.endDate!.difference(moment.startDate).inDays 
         : 0;
     final nightsText = nights == 1 ? '1 night' : '$nights nights';
-    final daysToGo = _getDaysToGo();
+    final daysToGoInfo = _getEscapeDaysToGoInfo();
     
     return Container(
       width: double.infinity,
@@ -294,73 +294,89 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
+          Text(
+            'DATES',
+            style: GoogleFonts.inter(
+              color: AppColors.warmMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Date range with days-to-go badge inline on right
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Dates text
               Text(
-                'DATES',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
-                  fontSize: 10,
+                '${_formatDateShort(moment.startDate)} – ${_formatDateShort(moment.endDate ?? moment.startDate)}',
+                style: GoogleFonts.outfit(
+                  color: AppColors.warmLight,
+                  fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5,
                 ),
               ),
               const Spacer(),
-              // Nights badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.accentRed.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  nightsText,
-                  style: GoogleFonts.inter(
-                    color: AppColors.accentRed,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+              // Two-line badge for days to go
+              if (daysToGoInfo != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentRed.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        daysToGoInfo.$1,
+                        style: GoogleFonts.inter(
+                          color: AppColors.accentRed,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (daysToGoInfo.$2.isNotEmpty)
+                        Text(
+                          daysToGoInfo.$2,
+                          style: GoogleFonts.inter(
+                            color: AppColors.accentRed,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Dates - same format as date card
+          // Nights text below dates
+          const SizedBox(height: 8),
           Text(
-            '${_formatDateShort(moment.startDate)} – ${_formatDateShort(moment.endDate ?? moment.startDate)}',
-            style: GoogleFonts.outfit(
-              color: AppColors.warmLight,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+            nightsText,
+            style: GoogleFonts.inter(
+              color: AppColors.accentRed,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          // Days to go
-          if (daysToGo != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              daysToGo,
-              style: GoogleFonts.inter(
-                color: AppColors.accentRed,
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
-
-  String? _getDaysToGo() {
+  
+  /// Returns (line1, line2) for escape card days to go badge
+  (String, String)? _getEscapeDaysToGoInfo() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final startDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
     final diff = startDate.difference(today).inDays;
     
-    if (diff < 0) return 'Already started';
-    if (diff == 0) return 'Starts today!';
-    if (diff == 1) return 'Starts tomorrow';
-    return '$diff days to go';
+    if (diff < 0) return ('Started', '');
+    if (diff == 0) return ('Today!', '');
+    if (diff == 1) return ('Tomorrow', '');
+    return ('$diff days', 'to go');
   }
 
   Widget _buildDateCard() {
@@ -386,20 +402,21 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
             ),
           ),
           const SizedBox(height: 12),
-          // Date with badge on right
+          // Date with badge inline on right
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Expanded(
-                child: Text(
-                  _formatDateFull(moment.startDate),
-                  style: GoogleFonts.outfit(
-                    color: AppColors.warmLight,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
+              // Date text
+              Text(
+                _formatDateFull(moment.startDate),
+                style: GoogleFonts.outfit(
+                  color: AppColors.warmLight,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              // Squarish badge with two lines
+              const Spacer(),
+              // Two-line badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
@@ -417,14 +434,15 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    Text(
-                      relativeDateInfo.$2,
-                      style: GoogleFonts.inter(
-                        color: AppColors.accentRed,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w500,
+                    if (relativeDateInfo.$2.isNotEmpty)
+                      Text(
+                        relativeDateInfo.$2,
+                        style: GoogleFonts.inter(
+                          color: AppColors.accentRed,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               ),
