@@ -83,18 +83,6 @@ class _MomentDetailsContent extends StatelessWidget {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
-                  
-                  // Flowing hint under name
-                  Text(
-                    _getTypeHint(),
-                    style: GoogleFonts.cormorantGaramond(
-                      color: AppColors.warmDim,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w500,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
                   const SizedBox(height: 32),
                   
                   // Info cards row
@@ -121,15 +109,15 @@ class _MomentDetailsContent extends StatelessWidget {
 
   Widget _buildTypeBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       decoration: BoxDecoration(
         color: AppColors.accentRed,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: AppColors.accentRed.withValues(alpha: 0.4),
             blurRadius: 16,
-            spreadRadius: 0,
+            spreadRadius: 2,
           ),
         ],
       ),
@@ -139,14 +127,14 @@ class _MomentDetailsContent extends StatelessWidget {
           Icon(
             _getTypeIcon(),
             color: AppColors.pureBlack,
-            size: 18,
+            size: 24,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Text(
             moment.type.label,
             style: GoogleFonts.outfit(
               color: AppColors.pureBlack,
-              fontSize: 14,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -160,14 +148,6 @@ class _MomentDetailsContent extends StatelessWidget {
       MomentType.celebrate => Icons.auto_awesome_rounded,
       MomentType.connect => Icons.power_rounded,
       MomentType.escape => Icons.flight_rounded,
-    };
-  }
-
-  String _getTypeHint() {
-    return switch (moment.type) {
-      MomentType.celebrate => 'a special day to remember',
-      MomentType.connect => 'time together',
-      MomentType.escape => 'an adventure awaits',
     };
   }
 
