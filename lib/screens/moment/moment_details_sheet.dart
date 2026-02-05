@@ -381,6 +381,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   Widget _buildDateCard() {
     final relativeDateInfo = _getRelativeDateInfo();
+    final dateParts = _getDateParts(moment.startDate); // (weekday+month, day)
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -402,22 +403,33 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
             ),
           ),
           const SizedBox(height: 12),
-          // Date with badge inline on right
+          // Date (2 lines) with badge on right
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Date text - wrap in Flexible to prevent overflow
-              Flexible(
-                child: Text(
-                  _formatDateFull(moment.startDate),
-                  style: GoogleFonts.outfit(
-                    color: AppColors.warmLight,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+              // Date in two lines
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dateParts.$1, // "Wed, Feb"
+                    style: GoogleFonts.outfit(
+                      color: AppColors.warmLight,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
+                  Text(
+                    dateParts.$2, // "18"
+                    style: GoogleFonts.outfit(
+                      color: AppColors.warmLight,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
+              const Spacer(),
               // Two-line badge
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -453,6 +465,13 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
         ],
       ),
     );
+  }
+  
+  /// Returns (weekday+month, day) for two-line date display
+  (String, String) _getDateParts(DateTime date) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return ('${days[date.weekday - 1]}, ${months[date.month - 1]}', '${date.day}');
   }
 
   Color _getTimeSlotColor(TimeSlot? slot) {
@@ -665,12 +684,6 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   String _formatDateShort(DateTime date) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     return '${months[date.month - 1]} ${date.day}';
-  }
-
-  String _formatDateFull(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}';
   }
 }
 
