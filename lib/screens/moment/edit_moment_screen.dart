@@ -333,8 +333,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
           surface: AppColors.darkCardLight,
           onSurface: AppColors.warmLight,
           primaryContainer: AppColors.accentRed.withValues(alpha: 0.2),
-        ),
-        dialogBackgroundColor: AppColors.darkCard,
+        ), dialogTheme: DialogThemeData(backgroundColor: AppColors.darkCard),
       ),
       child: child!,
     );

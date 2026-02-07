@@ -1,26 +1,31 @@
 # Cocoon 🦋
 
+[![Flutter](https://img.shields.io/badge/Flutter-3.10+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 A premium Flutter relationship wellness app for couples to nurture their connection through intentional check-ins, planned moments, and shared reflection. Built with Firebase for real-time sync across devices.
 
-**"Grow together, intentionally."**
+> **"Grow together, intentionally."**
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Features](#features)
-3. [Architecture](#architecture)
-4. [Design System](#design-system)
-5. [Coding Practices](#coding-practices)
-6. [Project Structure](#project-structure)
-7. [Data Models](#data-models)
-8. [Services](#services)
-9. [Getting Started](#getting-started)
-10. [Routes](#routes)
-11. [Dependencies](#dependencies)
-12. [Tech Debt & Future Optimizations](#tech-debt--future-optimizations)
-13. [Contributing & Maintenance](#contributing--maintenance)
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Design System](#design-system)
+- [Coding Standards](#coding-standards)
+- [Project Structure](#project-structure)
+- [Data Models](#data-models)
+- [Services](#services)
+- [Getting Started](#getting-started)
+- [Routes](#routes)
+- [Dependencies](#dependencies)
+- [Security](#security)
+- [Tech Debt & Roadmap](#tech-debt--roadmap)
+- [Contributing](#contributing)
 
 ---
 
@@ -39,30 +44,30 @@ Cocoon helps couples stay intentionally connected through:
 
 | Concept | Description |
 |---------|-------------|
-| **Space** | A private shared space for a couple (2 members max) |
+| **Space** | A private shared space for a couple (2 members max). Each space has a custom name (e.g., "pluto") |
 | **Check-in** | Daily reflection with 3 metrics + optional notes |
 | **Moment** | A planned event (Connect, Celebrate, or Escape) |
-| **Health Score** | 0-100 score derived from check-in averages |
-| **Pulse** | Single word describing relationship rhythm |
+| **Health Score** | 0-100 score derived from check-in averages over 30 days |
+| **Pulse** | Single word describing relationship rhythm based on trends |
 
 ### Tech Stack
 
 | Layer | Technology |
 |-------|------------|
-| **Framework** | Flutter 3.10+ |
+| **Framework** | Flutter 3.10+ (Dart ^3.10.7) |
 | **State** | StatefulWidget + setState (intentionally simple) |
 | **Backend** | Firebase (Auth + Firestore) |
 | **Navigation** | GoRouter with auth guards |
-| **Styling** | Centralized theme system |
+| **Styling** | Centralized theme system with Google Fonts |
 
 ---
 
 ## Features
 
 ### 🔐 Authentication
-- **Email/Password** - Traditional sign up and sign in
-- **Google Sign-In** - One-tap authentication
-- **Apple Sign-In** - Ready for integration (requires paid developer account)
+- **Email/Password** — Traditional sign up and sign in
+- **Google Sign-In** — One-tap authentication
+- **Apple Sign-In** — Ready for integration (requires paid developer account)
 
 ### 🏠 Couple Spaces
 - Create a private space for you and your partner
@@ -75,40 +80,45 @@ Cocoon helps couples stay intentionally connected through:
   - Normal distribution timing curve (suspenseful finish)
   - Haptic feedback for each dot
   - Tap for detailed breakdown sheet
-  - **Live updates** - refreshes when partner checks in
-- **Coming Up Card** - Next 2 moments at a glance (tappable)
-- **Plan a Moment** - Quick access to moment planning
-- **Check-in Button** - Quick access to daily check-in
+  - Live updates when partner checks in
+- **Coming Up Card** — Next 4 moments at a glance (tappable)
+- **Plan a Moment** — Quick access to moment planning
+- **Check-in Button** — Quick access to daily check-in
 - **Pull-to-refresh** with haptic feedback
 
 ### 💫 Plan a Moment
 Three types of moments with progressive reveal UI:
 
-| Type | Purpose | Duration | Fields |
-|------|---------|----------|--------|
-| **Connect** 🔌 | Quality time | Part of day | Activity, Date, Time slot |
-| **Celebrate** ✨ | Special occasions | Full day | Occasion, Date |
-| **Escape** ✈️ | Getaways | Multi-day | Destination, Date range |
+| Type | Icon | Purpose | Duration | Fields |
+|------|------|---------|----------|--------|
+| **Connect** | 🔗 | Quality time | Part of day | Activity, Date, Time slot |
+| **Celebrate** | ✨ | Special occasions | Full day | Occasion, Date |
+| **Escape** | ✈️ | Getaways | Multi-day | Destination, Date range |
 
-Features:
-- Health card-style type selection with glow effects
+**Features:**
+- Health card-style type selection
 - Preset suggestions with custom input option
 - Stretchy time slot slider with color gradient
 - Slide to save confirmation
 - Swipe right to dismiss
 
+### 📝 Moment Details
+- View full moment details in a bottom sheet
+- Long-press any card to edit that field
+- **Hold to Cancel** with animated countdown overlay
+- Dotted circle progress animation during deletion
+
 ### 💬 Check-ins
-- **Score Selectors** - Custom circular sliders (32 dots like health card)
+- **Score Selectors** — Custom circular sliders (32 dots like health card)
   - Blue-to-red gradient based on score
   - Glowing numbers and bars
   - Haptic feedback tied to dot filling
-- **Health Metrics** - Connection ❤️, Intimacy 🔥, Peace ☕ (1-10)
-- **Smart Defaults** - Sliders start from your last check-in
-- **Trend Charts** - Visualize your history with smooth curves
-- **Partner Activity** - Timeline of partner's recent check-ins
-- **Reflection** - Optional appreciation or thoughts
-- **Slide to Save** - Swipe-to-confirm submission
-- **Swipe to Dismiss** - Swipe right to go back
+- **Health Metrics** — Connection ❤️, Intimacy 🔥, Peace ☕ (1-10)
+- **Smart Defaults** — Sliders start from your last check-in
+- **Trend Charts** — Visualize your history with smooth curves
+- **Partner Activity** — Timeline of partner's recent check-ins
+- **Reflection** — Optional appreciation or thoughts
+- **Slide to Save** — Swipe-to-confirm submission
 
 ### 📈 Health Score Calculation
 
@@ -143,12 +153,13 @@ Scores calculated from **past 30 days** of check-ins from both partners.
 
 ### Design Philosophy
 
-1. **Simplicity First** - `setState` for local state, no complex state management
-2. **Real-time by Default** - Firestore streams for live updates
-3. **Modular Screens** - Large screens split into focused widgets
-4. **DRY Widgets** - Reusable components with barrel exports
-5. **Centralized Theming** - All colors, typography, spacing in one place
-6. **Progressive Disclosure** - UI reveals as user completes steps
+1. **Simplicity First** — `setState` for local state, no complex state management
+2. **Real-time by Default** — Firestore streams for live updates
+3. **Modular Screens** — Large screens split into focused widgets
+4. **DRY Widgets** — Reusable components with barrel exports
+5. **Centralized Theming** — All colors, typography, spacing in one place
+6. **Progressive Disclosure** — UI reveals as user completes steps
+7. **Haptic Feedback** — Tactile response for all meaningful interactions
 
 ### Layer Architecture
 
@@ -250,6 +261,7 @@ Text('Description', style: AppTypography.bodyMedium(color: AppColors.warmDim))
 | Card transitions | 200-300ms | easeOutCubic | State changes |
 | Slider snapping | 60ms (drag) / 280ms (release) | easeOut | Time slider |
 | Micro-interactions | 100-150ms | easeInOut | Hover, press |
+| Delete countdown | 3000ms | linear | Hold to cancel |
 
 ### Haptic Feedback
 
@@ -258,35 +270,40 @@ Text('Description', style: AppTypography.bodyMedium(color: AppColors.warmDim))
 | `lightImpact` | Dot fills, navigation, pills |
 | `mediumImpact` | Type selection, submission |
 | `selectionClick` | Slider crossing slots |
-| `heavyImpact` | Successful save |
+| `heavyImpact` | Successful save, final countdown tick |
 
 ### Custom Icons
 
 Located in `assets/icons/`:
-- `connect.svg` - Connect moment type icon
-- `flame.svg` - Intimacy indicator
-- `peace.svg` - Peace indicator
-- `google_logo.svg` - Google Sign-In
-- `apple_logo.svg` - Apple Sign-In
-- `cocoon_logo.svg` - App logo
+
+| Icon | File | Usage |
+|------|------|-------|
+| Connect | `connect.svg` | Connect moment type (two circles with U-bend) |
+| Flame | `flame.svg` | Intimacy indicator |
+| Peace | `peace.svg` | Peace indicator |
+| Google | `google_logo.svg` | Google Sign-In |
+| Apple | `apple_logo.svg` | Apple Sign-In |
+| Logo | `cocoon_logo.svg` | App branding |
 
 ---
 
-## Coding Practices
+## Coding Standards
 
 ### 1. File Organization
 
-**One widget per file** - Large widgets get their own file. Related widgets can share a file if tightly coupled.
+**One widget per file** — Large widgets get their own file. Related widgets can share a file if tightly coupled.
 
 ```dart
 // Good: Focused files
-lib/screens/moment/plan_moment_screen.dart  // Main screen
+lib/screens/moment/plan_moment_screen.dart   // Main screen
 lib/screens/moment/moment_details_sheet.dart // Details sheet
+lib/screens/moment/edit_moment_screen.dart   // Edit screen
 
 // Good: Barrel exports for clean imports
 lib/screens/moment/moment.dart
 export 'plan_moment_screen.dart';
 export 'moment_details_sheet.dart';
+export 'edit_moment_screen.dart';
 ```
 
 ### 2. Widget Structure
@@ -326,7 +343,7 @@ class _MyScreenState extends State<MyScreen> {
   @override
   void dispose() { ... }
   
-  // 7. Action methods (grouped with dividers)
+  // 7. Action methods
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
@@ -395,10 +412,6 @@ Widget _buildPill(String label, VoidCallback onTap) {
     ),
   );
 }
-
-// Usage
-_buildPill('Today', () => _selectDate(today))
-_buildPill('Tomorrow', () => _selectDate(tomorrow))
 ```
 
 ### 6. Theme Usage
@@ -406,12 +419,12 @@ _buildPill('Tomorrow', () => _selectDate(tomorrow))
 **Always use centralized theme constants:**
 
 ```dart
-// Good
+// ✅ Good
 Container(color: AppColors.darkCardLight)
 Text('Hello', style: AppTypography.bodyMedium())
 SizedBox(height: AppSpacing.md)
 
-// Bad - hardcoded values
+// ❌ Bad - hardcoded values
 Container(color: Color(0xFF1E1E1E))
 Text('Hello', style: TextStyle(fontSize: 14))
 SizedBox(height: 12)
@@ -482,6 +495,18 @@ import '../../theme/theme.dart';
 import '../../widgets/widgets.dart';
 ```
 
+### 10. Async Safety
+
+**Always check `mounted` after async operations:**
+
+```dart
+Future<void> _loadData() async {
+  final data = await _service.fetchData();
+  if (!mounted) return;  // Widget may have been disposed
+  setState(() => _data = data);
+}
+```
+
 ---
 
 ## Project Structure
@@ -513,7 +538,7 @@ lib/
 │   ├── main_shell.dart          # Bottom nav + settings
 │   ├── calendar_tab.dart        # Moments calendar view
 │   ├── checkins_tab.dart        # Check-ins timeline
-│   ├── agreements_tab.dart      # Coming soon
+│   ├── agreements_tab.dart      # Coming soon placeholder
 │   │
 │   ├── checkin/                 # Check-in screen module
 │   │   ├── checkin.dart         # Barrel export
@@ -531,13 +556,13 @@ lib/
 │   │       └── health_details_sheet.dart
 │   │
 │   └── moment/                  # Moment planning module
-│       ├── moment.dart          # Barrel export
-│       ├── plan_moment_screen.dart    # Create new moment
-│       ├── edit_moment_screen.dart    # Edit existing moment
-│       └── moment_details_sheet.dart  # View moment details
+│       ├── moment.dart               # Barrel export
+│       ├── plan_moment_screen.dart   # Create new moment
+│       ├── edit_moment_screen.dart   # Edit existing moment
+│       └── moment_details_sheet.dart # View moment details
 │
 ├── services/
-│   ├── auth_service.dart        # Firebase Auth + Google
+│   ├── auth_service.dart        # Firebase Auth + Google Sign-In
 │   └── firestore_service.dart   # All Firestore CRUD + streams
 │
 └── widgets/
@@ -548,7 +573,7 @@ lib/
     ├── avatar_selector.dart     # Avatar & color picker
     ├── moment_type_icon.dart    # getMomentTypeIconWidget helper
     ├── neumorphic_container.dart # PremiumCard, SectionHeader
-    ├── dotted_slider.dart       # ScoreSelector
+    ├── dotted_slider.dart       # ScoreSelector (32-dot circular slider)
     ├── slide_to_action.dart     # Swipe-to-confirm
     ├── animations/
     │   └── suspenseful_curve.dart
@@ -655,6 +680,7 @@ class FirestoreService {
   // Moments
   Stream<List<Moment>> watchUpcomingMoments(spaceId);
   Future<String> createMoment({spaceId, name, type, startDate, ...});
+  Future<void> updateMoment({spaceId, momentId, ...});
   Future<void> deleteMoment({spaceId, momentId});
   
   // Check-ins
@@ -672,6 +698,7 @@ class FirestoreService {
 ### Prerequisites
 
 - Flutter SDK ^3.10.7
+- Dart SDK ^3.10.7
 - Firebase project with:
   - Authentication (Email, Google enabled)
   - Firestore Database
@@ -733,17 +760,25 @@ class FirestoreService {
 ### Installation
 
 ```bash
+# Clone the repository
 git clone https://github.com/your-username/couple_space.git
 cd couple_space
 
+# Install dependencies
 flutter pub get
 
+# iOS specific (macOS only)
 cd ios && pod install && cd ..
 
+# Run the app
 flutter run -d chrome    # Web
-flutter run -d ios       # iOS
-flutter run -d android   # Android
+flutter run -d ios       # iOS Simulator
+flutter run -d android   # Android Emulator
 ```
+
+### Environment Configuration
+
+Firebase configuration is managed via `firebase_options.dart` (auto-generated by FlutterFire CLI). This file is gitignored for security — each developer needs to run `flutterfire configure` with their project.
 
 ---
 
@@ -764,22 +799,51 @@ flutter run -d android   # Android
 
 ## Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| `firebase_core` | Firebase initialization |
-| `firebase_auth` | Authentication |
-| `cloud_firestore` | Database |
-| `google_sign_in` | Google auth |
-| `go_router` | Declarative routing |
-| `shared_preferences` | Local storage |
-| `share_plus` | Share functionality |
-| `intl` | Date formatting |
-| `google_fonts` | Typography |
-| `flutter_svg` | SVG icons |
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `firebase_core` | ^4.4.0 | Firebase initialization |
+| `firebase_auth` | ^6.1.4 | Authentication |
+| `cloud_firestore` | ^6.1.2 | Database |
+| `google_sign_in` | ^6.2.2 | Google auth |
+| `go_router` | ^17.0.1 | Declarative routing |
+| `shared_preferences` | ^2.5.4 | Local storage |
+| `share_plus` | ^10.0.0 | Share functionality |
+| `intl` | ^0.20.2 | Date formatting |
+| `google_fonts` | ^8.0.0 | Typography |
+| `flutter_svg` | ^2.2.3 | SVG icons |
+| `fl_chart` | ^1.1.1 | Trend charts |
+| `flutter_animate` | ^4.5.2 | Animations |
+| `font_awesome_flutter` | ^10.12.0 | Additional icons |
+| `cupertino_icons` | ^1.0.8 | iOS-style icons |
 
 ---
 
-## Tech Debt & Future Optimizations
+## Security
+
+### Data Privacy
+- All couple data is stored in Firebase Firestore with strict security rules
+- Users can only access their own space's data
+- Partner data is only visible within a shared space
+
+### Authentication
+- Firebase Auth handles all credential management
+- No passwords stored locally
+- Google Sign-In uses OAuth 2.0
+
+### Firestore Rules
+- Read/write access restricted to authenticated space members
+- Users can only modify their own profile
+- Invite codes are validated server-side
+
+### Best Practices Followed
+- ✅ `mounted` checks after all async operations
+- ✅ Proper disposal of controllers and streams
+- ✅ No sensitive data in logs or error messages
+- ✅ Firebase config excluded from version control
+
+---
+
+## Tech Debt & Roadmap
 
 ### Current Tech Debt
 
@@ -787,34 +851,33 @@ flutter run -d android   # Android
 |-------|----------|----------|-------|
 | Unused `RepeatSchedule` | `Moment` model | Low | Field exists but UI removed |
 | `agreements_tab.dart` placeholder | Screens | Low | Shows "coming soon" |
-| No offline support | Services | Medium | App fails without network |
-| No image support | Moments | Low | Could add photos to moments |
+| No offline support | Services | Medium | App requires network |
 | Local color constants | Various files | Low | Some files still have local color constants |
+
+### Planned Features
+
+| Feature | Description | Complexity |
+|---------|-------------|------------|
+| **Push Notifications** | Remind to check in, moment alerts | Medium |
+| **Recurring Moments** | Weekly date nights, etc. | Medium |
+| **Shared Notes** | Both partners can edit | Low |
+| **Photo Memories** | Attach photos to moments | Medium |
+| **Export Data** | PDF reports of relationship health | High |
+| **Home Widgets** | iOS/Android home screen widgets | High |
+| **Offline Mode** | Local-first with sync | High |
 
 ### Performance Optimizations
 
 | Optimization | Impact | Effort |
 |--------------|--------|--------|
-| **Lazy load calendar months** | High | Medium |
-| **Cache check-in stats** | Medium | Low |
-| **Paginate check-in history** | Medium | Medium |
-| **Image caching** | Medium | Low |
-| **Firestore indexes** | High | Low |
-
-### Future Features
-
-| Feature | Description | Complexity |
-|---------|-------------|------------|
-| **Push notifications** | Remind to check in, moment alerts | Medium |
-| **Recurring moments** | Weekly date nights, etc. | Medium |
-| **Shared notes** | Both partners can edit | Low |
-| **Photo memories** | Attach photos to moments | Medium |
-| **Export data** | PDF reports of relationship health | High |
-| **Widgets** | iOS/Android home screen widgets | High |
+| Lazy load calendar months | High | Medium |
+| Cache check-in stats | Medium | Low |
+| Paginate check-in history | Medium | Medium |
+| Add Firestore indexes | High | Low |
 
 ---
 
-## Contributing & Maintenance
+## Contributing
 
 ### Code Review Checklist
 
@@ -825,22 +888,7 @@ flutter run -d android   # Android
 - [ ] Dismisses keyboard on action taps
 - [ ] Uses `mounted` check after async operations
 - [ ] Disposes controllers in `dispose()`
-
-### Updating This README
-
-**When to update:**
-- Adding new features
-- Changing data models
-- Adding new dependencies
-- Discovering new tech debt
-- Changing design patterns
-
-**How to update:**
-1. Update relevant sections (don't just append)
-2. Keep examples current with actual code
-3. Update the project structure if files changed
-4. Add new tech debt to the table
-5. Remove completed items from tech debt
+- [ ] No debug print statements
 
 ### Git Workflow
 
@@ -853,8 +901,6 @@ git commit -m "feat(moment): add moment details sheet"
 git commit -m "fix(dashboard): correct health score calculation"
 git commit -m "refactor(checkin): extract trend chart widget"
 git commit -m "docs(readme): update data models section"
-
-# Merge via PR
 ```
 
 ### Commit Message Types
@@ -872,22 +918,19 @@ git commit -m "docs(readme): update data models section"
 ### Testing Locally
 
 ```bash
-# Run all platforms
+# Run on specific platform
 flutter run -d chrome
 flutter run -d ios
 flutter run -d android
 
-# Hot reload
-Press 'r' in terminal
-
-# Hot restart (clears state)
-Press 'R' in terminal
+# Hot reload: Press 'r' in terminal
+# Hot restart (clears state): Press 'R' in terminal
 
 # Check for issues
 flutter analyze
 ```
 
-### Deploying
+### Building for Release
 
 ```bash
 # iOS
@@ -905,7 +948,7 @@ flutter build web --release
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License — see [LICENSE](LICENSE) file for details.
 
 ---
 
@@ -914,8 +957,8 @@ MIT License - see LICENSE file for details.
 - Built with [Flutter](https://flutter.dev/)
 - Backend by [Firebase](https://firebase.google.com/)
 - Typography from [Google Fonts](https://fonts.google.com/)
-- Icons from [Material Design](https://material.io/icons/)
+- Icons from [Material Design](https://material.io/icons/) & [Font Awesome](https://fontawesome.com/)
 
 ---
 
-*Last updated: February 5, 2026*
+*Last updated: February 7, 2026*
