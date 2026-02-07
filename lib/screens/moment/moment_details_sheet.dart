@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
+import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/moment_type_icon.dart';
 import '../../widgets/painters/circle_progress_painters.dart';
@@ -59,14 +60,31 @@ class _MomentDetailsContent extends StatefulWidget {
 }
 
 class _MomentDetailsContentState extends State<_MomentDetailsContent> {
+  final _firestoreService = FirestoreService();
+  
   bool _isHoldingDelete = false;
   int _activeDots = 24; // Total dots, counts down to 0
   Timer? _deleteTimer;
   OverlayEntry? _overlayEntry;
+  String? _plannedByName;
   
   static const _totalDots = 24;
   static const _totalDurationMs = 3000; // 3 seconds
   static const _msPerDot = _totalDurationMs ~/ _totalDots; // ~125ms per dot
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlannedByName();
+  }
+
+  Future<void> _loadPlannedByName() async {
+    if (widget.moment.createdBy.isEmpty) return;
+    final profile = await _firestoreService.getUserProfile(widget.moment.createdBy);
+    if (mounted && profile != null) {
+      setState(() => _plannedByName = profile['name'] as String?);
+    }
+  }
 
   @override
   void dispose() {
@@ -196,6 +214,18 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    if (_plannedByName != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Planned by $_plannedByName',
+                        style: GoogleFonts.inter(
+                          color: AppColors.warmMuted,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 32),
                     
                     // Info cards row (long-press to edit)
