@@ -411,7 +411,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   Widget _buildDateCard() {
     final relativeDateInfo = _getRelativeDateInfo();
-    final dateParts = _getDateParts(moment.startDate); // (weekday+month, day)
+    final dateParts = _getDateParts(moment.startDate); // ("Feb 12", "Thursday")
     
     return Container(
       padding: const EdgeInsets.all(16),
@@ -442,7 +442,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    dateParts.$1, // "Wed, Feb"
+                    dateParts.$1, // "Feb 12"
                     style: GoogleFonts.outfit(
                       color: AppColors.warmLight,
                       fontSize: 16,
@@ -450,11 +450,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                     ),
                   ),
                   Text(
-                    dateParts.$2, // "18"
-                    style: GoogleFonts.outfit(
-                      color: AppColors.warmLight,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                    dateParts.$2, // "Thursday"
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmMuted,
+                      fontSize: 13,
                     ),
                   ),
                 ],
@@ -498,10 +497,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   }
   
   /// Returns (weekday+month, day) for two-line date display
+  /// Returns (line1, line2) for date display: ("Feb 12", "Thursday")
   (String, String) _getDateParts(DateTime date) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return ('${days[date.weekday - 1]}, ${months[date.month - 1]}', '${date.day}');
+    const daysFull = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return ('${months[date.month - 1]} ${date.day}', daysFull[date.weekday - 1]);
   }
 
   Color _getTimeSlotColor(TimeSlot? slot) {
@@ -581,27 +581,29 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
             ],
           ),
           const SizedBox(height: 12),
-          // Time slot name with time range on right
+          // Time in two lines (matching date card structure)
           Row(
             children: [
-              // Time slot name on left
-              Expanded(
-                child: Text(
-                  hasTimeSlot ? moment.timeSlot!.label : 'Anytime',
-                  style: GoogleFonts.outfit(
-                    color: AppColors.warmLight,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+              // Time slot name + time range in column
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    hasTimeSlot ? moment.timeSlot!.label : 'Anytime',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.warmLight,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ),
-              // Time range on right
-              Text(
-                hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
-                style: GoogleFonts.inter(
-                  color: timeColor,
-                  fontSize: 13,
-                ),
+                  Text(
+                    hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
+                    style: GoogleFonts.inter(
+                      color: timeColor,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
