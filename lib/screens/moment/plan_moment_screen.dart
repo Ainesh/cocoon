@@ -853,7 +853,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     return ActiveCard(
       heading: 'Time',
       isActive: hasTime,
-      helperText: !hasTime ? 'What time of day?' : null,
+      helperText: !hasTime ? 'Slide to select time' : null,
       hideHelperWhenActive: true,
       shrinkWhenActive: true,
       child: Column(
@@ -988,7 +988,9 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                   children: slots.asMap().entries.map((entry) {
                     final index = entry.key;
                     final slot = entry.value;
-                    final isSelected = _selectedTimeSlot == slot;
+                    // Show first slot as selected when nothing is selected yet
+                    final isSelected = _selectedTimeSlot == slot || 
+                        (_selectedTimeSlot == null && index == 0);
                     
                     return Expanded(
                       child: GestureDetector(

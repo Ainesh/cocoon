@@ -1,0 +1,125 @@
+# AI Assistant Instructions
+
+## Workflow Rules
+
+1. **DO NOT commit automatically** — Only commit when explicitly asked
+2. **Hot restart for assets** — SVGs/images require `R` (not `r`) to refresh; remind user
+3. **Update README periodically** — After significant features, review and update README to keep it current
+4. **Read before editing** — Always read relevant files before proposing changes; don't speculate
+
+---
+
+## Code Quality
+
+### Async Safety
+Always check `mounted` after async operations before calling `setState`:
+```dart
+Future<void> _loadData() async {
+  final data = await _service.fetchData();
+  if (!mounted) return;
+  setState(() => _data = data);
+}
+```
+
+### Theme Usage
+Always use centralized theme — no hardcoded colors or sizes:
+```dart
+// ✅ Good
+Container(color: AppColors.darkCardLight)
+Text('Hello', style: AppTypography.bodyMedium())
+SizedBox(height: AppSpacing.md)
+
+// ❌ Bad
+Container(color: Color(0xFF1E1E1E))
+```
+
+### Keyboard Dismissal
+Dismiss keyboard before handling action taps:
+```dart
+void _onActionTap() {
+  FocusScope.of(context).unfocus();
+  HapticFeedback.mediumImpact();
+  // ... action logic
+}
+```
+
+### Error Handling
+Wrap async operations in try-catch with user feedback and `mounted` checks:
+```dart
+try {
+  await _service.doSomething();
+  if (mounted) context.pop();
+} catch (e) {
+  if (mounted) showSnackBar('Error: $e');
+}
+```
+
+---
+
+## Code Structure
+
+### Widget Organization
+```dart
+class _MyScreenState extends State<MyScreen> {
+  // 1. Services
+  // 2. State variables
+  // 3. Controllers
+  // 4. Computed properties (getters)
+  // 5. Lifecycle (initState, dispose)
+  // 6. Actions (with divider comment)
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+  // 7. Build methods (with divider comment)
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+}
+```
+
+### File Organization
+- One widget per file for large widgets
+- Barrel exports for clean imports
+- Screens: `lib/screens/[feature]/`
+- Widgets: `lib/widgets/`
+- Assets: `assets/icons/`
+
+### Naming Conventions
+| Type | Convention | Example |
+|------|------------|---------|
+| Files | `snake_case` | `moment_details_sheet.dart` |
+| Classes | `PascalCase` | `MomentDetailsSheet` |
+| Private | `_prefixed` | `_isSubmitting` |
+| Callbacks | `onVerb` | `onTap`, `onEdit` |
+| Builders | `_buildNoun` | `_buildDateCard()` |
+
+---
+
+## Import Order
+```dart
+// 1. Dart SDK
+import 'dart:async';
+
+// 2. Flutter
+import 'package:flutter/material.dart';
+
+// 3. External packages (alphabetical)
+import 'package:go_router/go_router.dart';
+
+// 4. Local imports (relative paths)
+import '../../models/moment.dart';
+```
+
+---
+
+## Disposal
+Always dispose controllers, focus nodes, and cancel timers:
+```dart
+@override
+void dispose() {
+  _controller.dispose();
+  _focusNode.dispose();
+  _timer?.cancel();
+  super.dispose();
+}
+```

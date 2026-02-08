@@ -81,8 +81,12 @@ Cocoon helps couples stay intentionally connected through:
   - Haptic feedback for each dot
   - Tap for detailed breakdown sheet
   - Live updates when partner checks in
-- **Coming Up Card** — Next 4 moments at a glance (tappable)
-- **Plan a Moment** — Quick access to moment planning
+- **Coming Up Card** — Upcoming moments with smart layout:
+  - Featured moment (next up) with full details
+  - Secondary moment in compact view
+  - "+ X moments this month" indicator when more scheduled
+  - Adaptive sizing: card shrinks when fewer moments planned
+- **Plan a Moment** — Adaptive button that expands when Coming Up is small
 - **Check-in Button** — Quick access to daily check-in
 - **Pull-to-refresh** with haptic feedback
 
@@ -278,7 +282,7 @@ Located in `assets/icons/`:
 
 | Icon | File | Usage |
 |------|------|-------|
-| Connect | `connect.svg` | Connect moment type (two circles with U-bend) |
+| Connect | `connect_icon.svg` | Connect moment type (interlocking circles) |
 | Flame | `flame.svg` | Intimacy indicator |
 | Peace | `peace.svg` | Peace indicator |
 | Google | `google_logo.svg` | Google Sign-In |
@@ -961,4 +965,4 @@ MIT License — see [LICENSE](LICENSE) file for details.
 
 ---
 
-*Last updated: February 7, 2026*
+*Last updated: February 8, 2026*

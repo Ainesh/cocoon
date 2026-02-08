@@ -312,6 +312,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
         : 0;
     final nightsText = nights == 1 ? '1 night' : '$nights nights';
     final daysToGoInfo = _getEscapeDaysToGoInfo();
+    final startDayName = _getDayName(moment.startDate);
     
     return Container(
       width: double.infinity,
@@ -336,16 +337,29 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           const SizedBox(height: 12),
           // Date range with days-to-go badge inline on right
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dates text
-              Text(
-                '${_formatDateShort(moment.startDate)} – ${_formatDateShort(moment.endDate ?? moment.startDate)}',
-                style: GoogleFonts.outfit(
-                  color: AppColors.warmLight,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+              // Dates + day name in column (matching date card structure)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_formatDateShort(moment.startDate)} – ${_formatDateShort(moment.endDate ?? moment.startDate)}',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.warmLight,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  // Day name + nights on same line
+                  Text(
+                    '$startDayName · $nightsText',
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
               const Spacer(),
               // Two-line badge for days to go
@@ -381,19 +395,14 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                 ),
             ],
           ),
-          // Nights text below dates
-          const SizedBox(height: 8),
-          Text(
-            nightsText,
-            style: GoogleFonts.inter(
-              color: AppColors.accentRed,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
         ],
       ),
     );
+  }
+  
+  String _getDayName(DateTime date) {
+    const daysFull = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return daysFull[date.weekday - 1];
   }
   
   /// Returns (line1, line2) for escape card days to go badge
@@ -433,63 +442,66 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
             ),
           ),
           const SizedBox(height: 12),
-          // Date (2 lines) with badge on right
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Date in two lines
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    dateParts.$1, // "Feb 12"
-                    style: GoogleFonts.outfit(
-                      color: AppColors.warmLight,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  Text(
-                    dateParts.$2, // "Thursday"
-                    style: GoogleFonts.inter(
-                      color: AppColors.warmMuted,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              const Spacer(),
-              // Two-line badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.accentRed.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+          // Date (2 lines) with badge on right - aligned heights
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Date in two lines
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      relativeDateInfo.$1,
-                      style: GoogleFonts.inter(
-                        color: AppColors.accentRed,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                      dateParts.$1, // "Feb 12"
+                      style: GoogleFonts.outfit(
+                        color: AppColors.warmLight,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    if (relativeDateInfo.$2.isNotEmpty)
-                      Text(
-                        relativeDateInfo.$2,
-                        style: GoogleFonts.inter(
-                          color: AppColors.accentRed,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
+                    Text(
+                      dateParts.$2, // "Thursday"
+                      style: GoogleFonts.inter(
+                        color: AppColors.warmMuted,
+                        fontSize: 13,
                       ),
+                    ),
                   ],
                 ),
-              ),
-            ],
+                const Spacer(),
+                // Two-line badge - stretches to match text height
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentRed.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        relativeDateInfo.$1,
+                        style: GoogleFonts.inter(
+                          color: AppColors.accentRed,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      if (relativeDateInfo.$2.isNotEmpty)
+                        Text(
+                          relativeDateInfo.$2,
+                          style: GoogleFonts.inter(
+                            color: AppColors.accentRed,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -537,7 +549,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   }
 
   Widget _buildTimeCard() {
-    // Time card for Connect moments - icon aligned with header, time below
+    // Time card for Connect moments - matching date card structure
     final timeColor = _getTimeSlotColor(moment.timeSlot);
     final hasTimeSlot = moment.timeSlot != null;
     
@@ -550,62 +562,60 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row with icon on right
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                'TIME',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1.5,
-                ),
-              ),
-              const Spacer(),
-              // Icon aligned with header
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: timeColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  _getTimeSlotIcon(moment.timeSlot),
-                  size: 18,
-                  color: timeColor,
-                ),
-              ),
-            ],
+          // Header
+          Text(
+            'TIME',
+            style: GoogleFonts.inter(
+              color: AppColors.warmMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
+            ),
           ),
           const SizedBox(height: 12),
-          // Time in two lines (matching date card structure)
-          Row(
-            children: [
-              // Time slot name + time range in column
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    hasTimeSlot ? moment.timeSlot!.label : 'Anytime',
-                    style: GoogleFonts.outfit(
-                      color: AppColors.warmLight,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+          // Time slot name on left, icon on right - aligned heights
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Time slot name + time range (matching date card)
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      hasTimeSlot ? moment.timeSlot!.label : 'Anytime',
+                      style: GoogleFonts.outfit(
+                        color: AppColors.warmLight,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  Text(
-                    hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
-                    style: GoogleFonts.inter(
-                      color: timeColor,
-                      fontSize: 13,
+                    Text(
+                      hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
+                      style: GoogleFonts.inter(
+                        color: timeColor,
+                        fontSize: 13,
+                      ),
                     ),
+                  ],
+                ),
+                const Spacer(),
+                // Icon on right - stretches to match text height
+                Container(
+                  width: 36,
+                  decoration: BoxDecoration(
+                    color: timeColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                ],
-              ),
-            ],
+                  child: Icon(
+                    _getTimeSlotIcon(moment.timeSlot),
+                    size: 20,
+                    color: timeColor,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

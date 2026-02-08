@@ -22,7 +22,7 @@ IconData getMomentTypeIcon(MomentType type) {
 
 /// Returns the appropriate icon widget for a moment type.
 ///
-/// Connect uses a custom SVG from `assets/icons/connect.svg`.
+/// Connect uses a custom SVG from `assets/icons/connect_icon.svg`.
 /// Celebrate and Escape use Material icons.
 ///
 /// Example:
@@ -38,7 +38,7 @@ Widget getMomentTypeIconWidget(
 
   if (type == MomentType.connect) {
     return SvgPicture.asset(
-      'assets/icons/connect.svg',
+      'assets/icons/connect_icon.svg',
       width: size,
       height: size,
       colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),

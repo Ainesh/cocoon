@@ -11,16 +11,16 @@ import '../../../widgets/action_button.dart';
 import '../../../widgets/moment_type_icon.dart';
 
 /// Card showing upcoming moments ("Coming Up").
+/// Shows max 2 events: first featured (large), second compact.
 class ComingUpCard extends StatelessWidget {
   const ComingUpCard({
     super.key,
     required this.moments,
     this.onTap,
     this.onMomentTap,
-    this.onMoreTap,
   });
 
-  /// Upcoming moments (shows up to 4).
+  /// Upcoming moments (shows up to 2).
   final List<Moment> moments;
   
   /// Callback when card header is tapped.
@@ -28,15 +28,11 @@ class ComingUpCard extends StatelessWidget {
   
   /// Callback when a specific moment is tapped.
   final void Function(Moment moment)? onMomentTap;
-  
-  /// Callback when "more" indicator is tapped.
-  final VoidCallback? onMoreTap;
 
   @override
   Widget build(BuildContext context) {
-    // Show up to 3 moments to prevent overflow
-    final displayMoments = moments.take(3).toList();
-    final hasMore = moments.length > 3;
+    final firstMoment = moments.isNotEmpty ? moments.first : null;
+    final secondMoment = moments.length > 1 ? moments[1] : null;
     
     return Container(
       width: double.infinity,
@@ -64,72 +60,76 @@ class ComingUpCard extends StatelessWidget {
             onTap: onTap,
             behavior: HitTestBehavior.opaque,
             child: Text(
-              'Coming Up',
+              'COMING UP',
               style: GoogleFonts.outfit(
-                color: AppColors.warmLight,
-                fontSize: 16,
+                color: AppColors.warmMuted,
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
+                letterSpacing: 1.5,
               ),
             ),
           ),
-          const Spacer(),
           
-          // Content
-          if (displayMoments.isNotEmpty) ...[
-            // Show up to 4 moments with dividers
-            for (int i = 0; i < displayMoments.length; i++) ...[
-              if (i > 0)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Divider(
-                    color: AppColors.warmMuted.withValues(alpha: 0.15),
-                    height: 1,
-                  ),
-                ),
-              _MomentPreview(
-                moment: displayMoments[i],
-                isSecondary: i > 0,
-                onTap: onMomentTap != null ? () => onMomentTap!(displayMoments[i]) : null,
-              ),
-            ],
+          const SizedBox(height: 14),
+          
+          // Content - fixed sizes, extra space goes to bottom
+          if (firstMoment != null) ...[
+            // Featured moment (first/next up) - fixed size
+            _FeaturedMomentPreview(
+              moment: firstMoment,
+              onTap: onMomentTap != null ? () => onMomentTap!(firstMoment) : null,
+            ),
             
-            // "More" indicator if there are more moments
-            if (hasMore) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: GestureDetector(
-                  onTap: onMoreTap,
-                  behavior: HitTestBehavior.opaque,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '+${moments.length - 3} more',
-                        style: GoogleFonts.inter(
-                          color: AppColors.accentRed,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.accentRed,
-                        size: 16,
-                      ),
-                    ],
+            // Second moment (compact)
+            if (secondMoment != null) ...[
+              const SizedBox(height: 20),
+              Divider(
+                color: AppColors.warmMuted.withValues(alpha: 0.15),
+                height: 1,
+              ),
+              const SizedBox(height: 12),
+              _CompactMomentPreview(
+                moment: secondMoment,
+                onTap: onMomentTap != null ? () => onMomentTap!(secondMoment) : null,
+              ),
+              // Show additional events count - pushed to bottom
+              if (moments.length > 2) ...[
+                const Spacer(),
+                Divider(
+                  color: AppColors.warmMuted.withValues(alpha: 0.15),
+                  height: 1,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  '+ ${moments.length - 2} moments this month',
+                  style: GoogleFonts.inter(
+                    color: AppColors.accentRed,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
+              ],
             ],
           ] else
-            Center(
-              child: Text(
-                'No moments planned',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmDim,
-                  fontSize: 14,
+            Expanded(
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Nothing',
+                      style: GoogleFonts.inter(
+                        color: AppColors.warmDim,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.heart_broken_rounded,
+                      color: AppColors.warmDim,
+                      size: 18,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -139,39 +139,124 @@ class ComingUpCard extends StatelessWidget {
   }
 }
 
-/// Preview of a moment within the Coming Up card.
-class _MomentPreview extends StatelessWidget {
-  const _MomentPreview({
+/// Featured moment preview - larger with more details.
+/// Layout: Name (full width) on top, then icon + date info below.
+class _FeaturedMomentPreview extends StatelessWidget {
+  const _FeaturedMomentPreview({
     required this.moment,
-    this.isSecondary = false,
     this.onTap,
   });
 
   final Moment moment;
-  final bool isSecondary;
   final VoidCallback? onTap;
 
-  String get _dateLabel {
-    final relative = moment.relativeDate;
+  static const _dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+  /// Returns date info, potentially on two lines for escape moments
+  List<String> get _dateInfoLines {
+    final date = moment.startDate;
+    final dayName = _dayNames[date.weekday - 1];
     
-    // Add time slot for connect moments
-    if (moment.type == MomentType.connect && moment.timeSlot != null) {
-      return '$relative, ${moment.timeSlot!.label.toLowerCase()}';
+    // For escape moments, just show date range (no day name)
+    if (moment.type == MomentType.escape) {
+      return [moment.dateDisplay]; // ["Feb 7 - Feb 9"]
     }
     
-    // Add duration for escape moments
-    if (moment.type == MomentType.escape && moment.nights > 0) {
-      return '$relative (${moment.nights} nights)';
-    }
-    
-    return relative;
+    // Single line for other moments with day name
+    return ['${moment.dateDisplay}, $dayName'];
   }
 
   @override
   Widget build(BuildContext context) {
-    final iconSize = isSecondary ? 14.0 : 16.0;
-    final containerSize = isSecondary ? 24.0 : 28.0;
-    
+    return GestureDetector(
+      onTap: onTap != null ? () {
+        HapticFeedback.selectionClick();
+        onTap!();
+      } : null,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Name - full width at top
+          Text(
+            moment.name,
+            style: GoogleFonts.outfit(
+              color: AppColors.warmLight,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Icon + details row
+          Row(
+            children: [
+              // Icon container - larger for better visual balance
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: AppColors.accentRed.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: getMomentTypeIconWidget(
+                    moment.type,
+                    size: 22,
+                    color: AppColors.accentRed,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              
+              // Date info - wrapped to take available space
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      moment.relativeDate,
+                      style: GoogleFonts.inter(
+                        color: AppColors.accentRed,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    // Date info (may be multiple lines for escape moments)
+                    ..._dateInfoLines.map((line) => Text(
+                      line,
+                      style: GoogleFonts.inter(
+                        color: AppColors.warmDim,
+                        fontSize: 12,
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Compact moment preview - minimal details.
+class _CompactMomentPreview extends StatelessWidget {
+  const _CompactMomentPreview({
+    required this.moment,
+    this.onTap,
+  });
+
+  final Moment moment;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap != null ? () {
         HapticFeedback.selectionClick();
@@ -179,11 +264,12 @@ class _MomentPreview extends StatelessWidget {
       } : null,
       behavior: HitTestBehavior.opaque,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Flat icon in container
+          // Small icon container
           Container(
-            width: containerSize,
-            height: containerSize,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               color: AppColors.accentRed.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
@@ -191,46 +277,39 @@ class _MomentPreview extends StatelessWidget {
             child: Center(
               child: getMomentTypeIconWidget(
                 moment.type,
-                size: iconSize,
+                size: 14,
                 color: AppColors.accentRed,
               ),
             ),
           ),
           const SizedBox(width: 10),
           
-          // Details
+          // Name and date
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   moment.name,
                   style: GoogleFonts.inter(
-                    color: isSecondary ? AppColors.warmMuted : AppColors.warmLight,
-                    fontSize: isSecondary ? 13 : 14,
+                    color: AppColors.warmLight,
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  _dateLabel,
+                  moment.relativeDate,
                   style: GoogleFonts.inter(
                     color: AppColors.warmDim,
-                    fontSize: isSecondary ? 10 : 11,
+                    fontSize: 10,
                   ),
                 ),
               ],
             ),
           ),
-          
-          // Chevron indicator
-          if (onTap != null)
-            Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.warmMuted.withValues(alpha: 0.5),
-              size: isSecondary ? 16 : 18,
-            ),
         ],
       ),
     );
@@ -238,18 +317,26 @@ class _MomentPreview extends StatelessWidget {
 }
 
 /// Plan a Moment button card.
+/// Can expand to fill available space when [expanded] is true.
 class PlanMomentCard extends StatelessWidget {
   const PlanMomentCard({
     super.key,
     required this.onTap,
+    this.expanded = false,
   });
 
   final VoidCallback onTap;
+  
+  /// Whether the button should expand to fill available height.
+  final bool expanded;
 
   @override
   Widget build(BuildContext context) {
     return ActionButton(
       label: 'Plan a moment',
+      icon: Icons.add_circle_rounded,
+      layout: expanded ? ActionButtonLayout.vertical : ActionButtonLayout.horizontal,
+      expanded: expanded,
       onTap: onTap,
     );
   }

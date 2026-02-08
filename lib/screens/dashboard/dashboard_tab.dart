@@ -10,14 +10,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
 import '../../models/user_checkin.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
-import '../../widgets/moment_type_icon.dart';
 import '../moment/moment_details_sheet.dart';
 import 'widgets/event_cards.dart';
 import 'widgets/health_card.dart';
@@ -234,8 +232,6 @@ class _DashboardTabState extends State<DashboardTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildMainGrid(),
-            const SizedBox(height: 20),
-            _buildUpcomingMoments(),
             const SizedBox(height: 100),
           ],
         ),
@@ -244,6 +240,11 @@ class _DashboardTabState extends State<DashboardTab> {
   }
 
   Widget _buildMainGrid() {
+    // Layout: ComingUp card takes natural size, PlanMoment fills remaining space
+    // When 3+ moments: ComingUp expands (has "+ X moments" text), PlanMoment is fixed
+    final momentCount = _upcomingMoments.length;
+    final bool hasManyMoments = momentCount >= 3;
+    
     return SizedBox(
       height: 320,
       child: Row(
@@ -254,22 +255,32 @@ class _DashboardTabState extends State<DashboardTab> {
             flex: 1,
             child: Column(
               children: [
-                // Coming Up card (shows up to 4 moments)
-                Expanded(
-                  child: ComingUpCard(
+                // Coming Up card - takes natural size when < 2 moments, expands when 2+
+                if (hasManyMoments)
+                  Expanded(
+                    child: ComingUpCard(
+                      moments: _upcomingMoments,
+                      onMomentTap: (moment) => _showMomentDetails(moment),
+                    ),
+                  )
+                else
+                  ComingUpCard(
                     moments: _upcomingMoments,
                     onMomentTap: (moment) => _showMomentDetails(moment),
-                    onMoreTap: () {
-                      // Navigate to calendar tab (index 1)
-                      // This will be handled by parent shell
-                    },
                   ),
-                ),
                 const SizedBox(height: 12),
-                // Plan a Moment button
-                PlanMomentCard(
-                  onTap: () => context.push('/moment/${widget.spaceId}'),
-                ),
+                // Plan a Moment button - expands to fill remaining space when < 2 moments
+                if (!hasManyMoments)
+                  Expanded(
+                    child: PlanMomentCard(
+                      onTap: () => context.push('/moment/${widget.spaceId}'),
+                      expanded: true,
+                    ),
+                  )
+                else
+                  PlanMomentCard(
+                    onTap: () => context.push('/moment/${widget.spaceId}'),
+                  ),
               ],
             ),
           ),
@@ -298,168 +309,4 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
-  Widget _buildUpcomingMoments() {
-    // Filter to moments beyond what's shown in Coming Up card (after 3rd one)
-    final additionalMoments = _upcomingMoments.length > 3 
-        ? _upcomingMoments.skip(3).take(5).toList() 
-        : <Moment>[];
-    
-    if (additionalMoments.isEmpty) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 12),
-          child: GestureDetector(
-            onTap: () {
-              // Could navigate to calendar or moments list
-              HapticFeedback.selectionClick();
-            },
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              children: [
-                Text(
-                  'MORE MOMENTS',
-                  style: GoogleFonts.inter(
-                    color: AppColors.warmMuted,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(
-                  Icons.chevron_right_rounded,
-                  color: AppColors.warmMuted,
-                  size: 16,
-                ),
-              ],
-            ),
-          ),
-        ),
-        ...additionalMoments.map((moment) => _MomentListItem(
-          moment: moment,
-          onTap: () => _showMomentDetails(moment),
-        )),
-      ],
-    );
-  }
-}
-
-/// List item for additional upcoming moments.
-class _MomentListItem extends StatelessWidget {
-  const _MomentListItem({
-    required this.moment,
-    this.onTap,
-  });
-
-  final Moment moment;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap != null ? () {
-        HapticFeedback.selectionClick();
-        onTap!();
-      } : null,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.darkCard,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Row(
-          children: [
-            // Flat icon container
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppColors.accentRed.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(
-                child: getMomentTypeIconWidget(
-                  moment.type,
-                  size: 20,
-                  color: AppColors.accentRed,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            
-            // Details
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    moment.name,
-                    style: GoogleFonts.inter(
-                      color: AppColors.warmLight,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _getSubtitle(),
-                    style: GoogleFonts.inter(
-                      color: AppColors.warmMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            
-            // Date badge
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: moment.isToday || moment.relativeDate == 'Tomorrow'
-                    ? AppColors.accentRed.withValues(alpha: 0.15)
-                    : AppColors.darkCardLight,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                moment.relativeDate,
-                style: GoogleFonts.inter(
-                  color: moment.isToday || moment.relativeDate == 'Tomorrow'
-                      ? AppColors.accentRed
-                      : AppColors.warmDim,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            
-            // Chevron if tappable
-            if (onTap != null) ...[
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.warmMuted.withValues(alpha: 0.5),
-                size: 18,
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _getSubtitle() {
-    if (moment.type == MomentType.connect && moment.timeSlot != null) {
-      return moment.timeSlot!.label;
-    }
-    if (moment.type == MomentType.escape && moment.nights > 0) {
-      return '${moment.nights} nights';
-    }
-    return moment.type.label;
-  }
 }

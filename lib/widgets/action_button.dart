@@ -9,6 +9,15 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/app_spacing.dart';
+
+/// Button layout direction.
+enum ActionButtonLayout {
+  /// Icon on the right, horizontal layout (default).
+  horizontal,
+  /// Icon on top, vertical layout for expanded buttons.
+  vertical,
+}
 
 /// A styled action button with tap animation.
 ///
@@ -34,6 +43,8 @@ class ActionButton extends StatefulWidget {
     this.showIcon = true,
     this.color,
     this.activeColor,
+    this.layout = ActionButtonLayout.horizontal,
+    this.expanded = false,
   });
 
   /// Button label text.
@@ -53,6 +64,12 @@ class ActionButton extends StatefulWidget {
 
   /// Custom background color when active (default: accentRed).
   final Color? activeColor;
+
+  /// Layout direction (default: horizontal).
+  final ActionButtonLayout layout;
+
+  /// Whether button should expand to fill available space (default: false).
+  final bool expanded;
 
   @override
   State<ActionButton> createState() => _ActionButtonState();
@@ -84,42 +101,78 @@ class _ActionButtonState extends State<ActionButton> {
     final bgColor = _isPressed ? activeColor : AppColors.darkCardLight;
     final fgColor = _isPressed ? AppColors.pureBlack : color;
 
+    final content = widget.layout == ActionButtonLayout.vertical
+        ? _buildVerticalContent(fgColor)
+        : _buildHorizontalContent(fgColor);
+
     return GestureDetector(
       onTapDown: _onTapDown,
       onTapUp: _onTapUp,
       onTapCancel: _onTapCancel,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
+        duration: AppSpacing.durationFast,
         transform: Matrix4.identity()..scale(_isPressed ? 0.98 : 1.0),
         transformAlignment: Alignment.center,
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        padding: EdgeInsets.symmetric(
+          vertical: widget.layout == ActionButtonLayout.vertical ? 16 : 12,
+          horizontal: 16,
+        ),
         decoration: BoxDecoration(
           color: bgColor,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Flexible(
-              child: Text(
-                widget.label,
-                style: GoogleFonts.outfit(
-                  color: fgColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-            if (widget.showIcon)
-              Icon(
-                widget.icon,
-                color: fgColor,
-                size: 20,
-              ),
-          ],
-        ),
+        child: content,
       ),
+    );
+  }
+
+  Widget _buildHorizontalContent(Color fgColor) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Flexible(
+          child: Text(
+            widget.label,
+            style: GoogleFonts.outfit(
+              color: fgColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+        if (widget.showIcon)
+          Icon(
+            widget.icon,
+            color: fgColor,
+            size: AppSpacing.iconMedium,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildVerticalContent(Color fgColor) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        if (widget.showIcon) ...[
+          Icon(
+            widget.icon,
+            color: fgColor,
+            size: AppSpacing.iconMedium,
+          ),
+          const SizedBox(height: 8),
+        ],
+        Text(
+          widget.label,
+          style: GoogleFonts.outfit(
+            color: fgColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

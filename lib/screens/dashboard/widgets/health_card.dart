@@ -162,12 +162,12 @@ class HealthCardState extends State<HealthCard> with SingleTickerProviderStateMi
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Relationship Health',
+              'HEALTH',
               style: GoogleFonts.outfit(
                 color: AppColors.pureBlack.withValues(alpha: 0.9),
-                fontSize: 14,
+                fontSize: 10,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -0.3,
+                letterSpacing: 1.5,
               ),
             ),
             const Spacer(),
