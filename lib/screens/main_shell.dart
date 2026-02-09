@@ -4,12 +4,14 @@
 /// with a premium neumorphic bottom navigation bar using IndexedStack for state preservation.
 library;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../services/notification_service.dart';
 import 'agreements_tab.dart';
 import 'calendar_tab.dart';
 import 'checkins_tab.dart';
@@ -54,6 +56,29 @@ class _MainShellState extends State<MainShell> {
       AgreementsTab(spaceId: widget.spaceId),
     ];
     _loadSpaceName();
+    _registerFcmToken();
+  }
+
+  /// Register FCM token for push notifications.
+  Future<void> _registerFcmToken() async {
+    try {
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) return;
+
+      final notificationService = NotificationService.instance;
+      final token = notificationService.fcmToken;
+      
+      if (token != null) {
+        await _firestoreService.storeFcmToken(
+          userId: userId,
+          token: token,
+          deviceInfo: notificationService.getDeviceInfo(),
+        );
+        debugPrint('FCM token registered for user: $userId');
+      }
+    } catch (e) {
+      debugPrint('Error registering FCM token: $e');
+    }
   }
   
   Future<void> _loadSpaceName() async {

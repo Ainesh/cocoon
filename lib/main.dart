@@ -20,17 +20,19 @@
 library;
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'firebase_options.dart';
 import 'router/app_router.dart';
+import 'services/notification_service.dart';
 import 'theme/app_colors.dart';
 
 /// Application entry point.
 ///
-/// Initializes Firebase, locks orientation to portrait, and launches the app.
+/// Initializes Firebase, notifications, locks orientation to portrait, and launches the app.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
@@ -40,8 +42,30 @@ void main() async {
     DeviceOrientation.portraitDown,
   ]);
   
+  // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  
+  // Initialize notifications (non-blocking)
+  _initializeNotifications();
+  
   runApp(const CocoonApp());
+}
+
+/// Initialize push notifications.
+/// 
+/// This is done asynchronously to not block app startup.
+/// Token registration with Firestore happens after user login.
+Future<void> _initializeNotifications() async {
+  try {
+    final token = await NotificationService.instance.initialize();
+    if (token != null) {
+      debugPrint('Notifications initialized with token: ${token.substring(0, 20)}...');
+    } else {
+      debugPrint('Notifications not available (permission denied or error)');
+    }
+  } catch (e) {
+    debugPrint('Error initializing notifications: $e');
+  }
 }
 
 /// Root widget of the Cocoon application.
