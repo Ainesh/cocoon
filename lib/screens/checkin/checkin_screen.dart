@@ -43,7 +43,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
   // Form state - will be initialized from last check-in
   double _connection = 5;
   double _intimacy = 5;
-  double _peace = 5; // Higher = more peaceful (converted to stress when submitting)
+  double _peace = 5;
   final _notesController = TextEditingController();
   final _notesFocusNode = FocusNode();
   bool _isNotesFocused = false;
@@ -126,7 +126,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
             final lastCheckIn = _myCheckIns.first;
             _connection = lastCheckIn.connection.toDouble();
             _intimacy = lastCheckIn.intimacy.toDouble();
-            _peace = (10 - lastCheckIn.stress).toDouble(); // Convert stress to peace
+            _peace = lastCheckIn.peace.toDouble();
             
             // Store initial values to detect modifications
             _initialConnection = _connection;
@@ -175,16 +175,27 @@ class _CheckInScreenState extends State<CheckInScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      // Convert peace to stress (inverse relationship)
-      final stress = (11 - _peace).round().clamp(1, 10);
-      
-      await _firestoreService.submitCheckIn(
+      final checkInId = await _firestoreService.submitCheckIn(
         spaceId: widget.spaceId,
         userId: userId,
         connection: _connection.round(),
         intimacy: _intimacy.round(),
-        stress: stress,
+        peace: _peace.round(),
         notes: _notesController.text.trim(),
+      );
+
+      // Log activity
+      final profile = await _firestoreService.getUserProfile(userId);
+      final userName = profile?['name'] as String? ?? 'Someone';
+      
+      await _firestoreService.logCheckInActivity(
+        spaceId: widget.spaceId,
+        userId: userId,
+        userName: userName,
+        checkInId: checkInId,
+        connection: _connection.round(),
+        intimacy: _intimacy.round(),
+        peace: _peace.round(),
       );
 
       if (mounted) {

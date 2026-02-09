@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
+import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -47,6 +48,7 @@ class EditMomentScreen extends StatefulWidget {
 
 class _EditMomentScreenState extends State<EditMomentScreen> {
   // Services
+  final _authService = AuthService();
   final _firestoreService = FirestoreService();
 
   // Form state - initialized from existing moment
@@ -125,6 +127,21 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     if (_selectedTimeSlot != moment.timeSlot) return true;
     if (_notesController.text.trim() != (moment.notes ?? '')) return true;
     return false;
+  }
+  
+  /// Returns a list of field names that were changed.
+  List<String> get _changedFields {
+    final changes = <String>[];
+    if (_startDate != moment.startDate || _endDate != moment.endDate) {
+      changes.add('date');
+    }
+    if (_selectedTimeSlot != moment.timeSlot) {
+      changes.add('time');
+    }
+    if (_notesController.text.trim() != (moment.notes ?? '')) {
+      changes.add('notes');
+    }
+    return changes;
   }
 
   bool get _canSubmit {
@@ -359,6 +376,23 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
         timeSlot: _selectedTimeSlot,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
       );
+      
+      // Log activity
+      final userId = _authService.currentUser?.uid;
+      if (userId != null) {
+        final profile = await _firestoreService.getUserProfile(userId);
+        final userName = profile?['name'] as String? ?? 'Someone';
+        
+        await _firestoreService.logMomentEditedActivity(
+          spaceId: widget.spaceId,
+          userId: userId,
+          userName: userName,
+          momentId: moment.id,
+          momentName: moment.name,
+          momentType: moment.type.value,
+          changedFields: _changedFields,
+        );
+      }
       
       // Create updated moment to return
       final updatedMoment = Moment(

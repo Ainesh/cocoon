@@ -298,7 +298,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
     try {
       final notes = _notesController.text.trim();
-      await _firestoreService.createMoment(
+      final momentId = await _firestoreService.createMoment(
         spaceId: widget.spaceId,
         name: _momentName,
         type: _selectedType!,
@@ -308,6 +308,21 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         repeatSchedule: _repeatSchedule,
         notes: notes.isNotEmpty ? notes : null,
         createdBy: userId,
+      );
+
+      // Log activity
+      final profile = await _firestoreService.getUserProfile(userId);
+      final userName = profile?['name'] as String? ?? 'Someone';
+      
+      await _firestoreService.logMomentPlannedActivity(
+        spaceId: widget.spaceId,
+        userId: userId,
+        userName: userName,
+        momentId: momentId,
+        momentName: _momentName,
+        momentType: _selectedType!.value,
+        startDate: _startDate!,
+        endDate: _selectedType == MomentType.escape ? _endDate : null,
       );
 
       HapticFeedback.heavyImpact();

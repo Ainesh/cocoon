@@ -18,7 +18,7 @@ void showHealthDetailsSheet({
   // Scores are 1-10, convert to 0-100 scale
   final connectionPct = checkInStats.avgConnection * 10;
   final intimacyPct = checkInStats.avgIntimacy * 10;
-  final peacePct = (10 - checkInStats.avgStress) * 10;
+  final peacePct = checkInStats.avgPeace * 10;
   
   final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
   final remark = _getHealthRemark(overallHealth);
@@ -53,7 +53,7 @@ String _getMonthSummary(CheckInStats stats, List<Map<String, dynamic>>? dailySco
   if (stats.checkInCount < 2) return 'Starting';
   
   // Calculate overall trend from the three dimensions
-  final overallTrend = (stats.connectionTrend + stats.intimacyTrend - stats.stressTrend) / 3;
+  final overallTrend = (stats.connectionTrend + stats.intimacyTrend + stats.peaceTrend) / 3;
   
   // Calculate variance from daily scores if available
   double variance = 0;
@@ -71,7 +71,7 @@ String _getMonthSummary(CheckInStats stats, List<Map<String, dynamic>>? dailySco
   // Calculate average health
   final avgHealth = ((stats.avgConnection * 10) + 
                      (stats.avgIntimacy * 10) + 
-                     ((10 - stats.avgStress) * 10)) / 3;
+                     (stats.avgPeace * 10)) / 3;
   
   // Determine summary based on trend, variance, and health
   if (variance > 400) {
@@ -491,7 +491,7 @@ class _HealthDetailsContent extends StatelessWidget {
             'Peace',
             'assets/icons/peace.svg',
             peacePct,
-            -checkInStats.stressTrend,
+            checkInStats.peaceTrend,
           ),
         ),
       ],

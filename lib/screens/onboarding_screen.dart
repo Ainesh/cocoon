@@ -96,12 +96,22 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (userId == null) throw Exception('User not logged in');
 
       final avatarKey = _selectedAvatar!.getAvatarKey(_selectedColor);
+      final spaceName = _spaceNameController.text.trim();
+      final userName = _partnerNameController.text.trim();
 
       final result = await _firestoreService.createSpace(
         userId: userId,
-        spaceName: _spaceNameController.text.trim(),
-        userName: _partnerNameController.text.trim(),
+        spaceName: spaceName,
+        userName: userName,
         avatarKey: avatarKey,
+      );
+
+      // Log space created activity
+      await _firestoreService.logSpaceCreatedActivity(
+        spaceId: result.spaceId,
+        userId: userId,
+        userName: userName,
+        spaceName: spaceName,
       );
 
       setState(() {

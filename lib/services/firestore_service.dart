@@ -45,6 +45,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/activity.dart';
 import '../models/moment.dart';
 import '../models/user_checkin.dart';
 
@@ -687,7 +688,7 @@ class FirestoreService {
     required String userId,
     required int connection,
     required int intimacy,
-    required int stress,
+    required int peace,
     String notes = '',
   }) async {
     final now = DateTime.now();
@@ -706,7 +707,7 @@ class FirestoreService {
       timestamp: now,
       connection: connection,
       intimacy: intimacy,
-      stress: stress,
+      peace: peace,
       notes: notes,
     );
 
@@ -803,7 +804,7 @@ class FirestoreService {
           for (final c in dayCheckIns) {
             final connectionPct = c.connection * 10;
             final intimacyPct = c.intimacy * 10;
-            final peacePct = (10 - c.stress) * 10;
+            final peacePct = c.peace * 10;
             totalScore += (connectionPct + intimacyPct + peacePct) / 3;
           }
           score = totalScore / dayCheckIns.length;
@@ -935,5 +936,251 @@ class FirestoreService {
       _inviteCodeLength,
       (_) => _inviteCodeChars[random.nextInt(_inviteCodeChars.length)],
     ).join();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Activity Tracking
+  // ---------------------------------------------------------------------------
+
+  /// Logs an activity to the space's activity trail.
+  ///
+  /// Activities are stored in the `activities` subcollection of the space.
+  /// Returns the created activity ID.
+  Future<String> logActivity({
+    required String spaceId,
+    required ActivityType type,
+    required String actorId,
+    required String actorName,
+    EntityType? entityType,
+    String? entityId,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final activityRef = _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('activities')
+          .doc();
+
+      final activity = Activity(
+        id: activityRef.id,
+        type: type,
+        actorId: actorId,
+        actorName: actorName,
+        timestamp: DateTime.now(),
+        entityType: entityType,
+        entityId: entityId,
+        metadata: metadata,
+      );
+
+      await activityRef.set(activity.toFirestore());
+      debugPrint('Logged activity: ${activity.type.value} by $actorName');
+      
+      return activityRef.id;
+    } catch (e) {
+      debugPrint('Error logging activity: $e');
+      rethrow;
+    }
+  }
+
+  /// Gets recent activities for a space.
+  ///
+  /// Returns a list of activities sorted by timestamp (newest first).
+  Future<List<Activity>> getRecentActivities(
+    String spaceId, {
+    int limit = 20,
+  }) async {
+    try {
+      final snapshot = await _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('activities')
+          .orderBy('timestamp', descending: true)
+          .limit(limit)
+          .get();
+
+      return snapshot.docs.map((doc) => Activity.fromFirestore(doc)).toList();
+    } catch (e) {
+      debugPrint('Error getting activities: $e');
+      return [];
+    }
+  }
+
+  /// Watches real-time activity updates for a space.
+  ///
+  /// Returns a stream of activity lists, updated whenever new activities are added.
+  Stream<List<Activity>> watchActivities(
+    String spaceId, {
+    int limit = 20,
+  }) {
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('activities')
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snapshot) =>
+            snapshot.docs.map((doc) => Activity.fromFirestore(doc)).toList());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Activity Logging Helpers
+  // ---------------------------------------------------------------------------
+
+  /// Logs a check-in activity.
+  Future<void> logCheckInActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+    required String checkInId,
+    required int connection,
+    required int intimacy,
+    required int peace,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.checkin,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.checkin,
+      entityId: checkInId,
+      metadata: {
+        'connection': connection,
+        'intimacy': intimacy,
+        'peace': peace,
+      },
+    );
+  }
+
+  /// Logs a moment planned activity.
+  Future<void> logMomentPlannedActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+    required String momentId,
+    required String momentName,
+    required String momentType,
+    required DateTime startDate,
+    DateTime? endDate,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.momentPlanned,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.moment,
+      entityId: momentId,
+      metadata: {
+        'momentName': momentName,
+        'momentType': momentType,
+        'startDate': startDate.toIso8601String(),
+        if (endDate != null) 'endDate': endDate.toIso8601String(),
+      },
+    );
+  }
+
+  /// Logs a moment edited activity.
+  /// [changedFields] is a list of what was modified (e.g., ['date', 'time', 'notes'])
+  Future<void> logMomentEditedActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+    required String momentId,
+    required String momentName,
+    required String momentType,
+    required List<String> changedFields,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.momentEdited,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.moment,
+      entityId: momentId,
+      metadata: {
+        'momentName': momentName,
+        'momentType': momentType,
+        'changedFields': changedFields,
+      },
+    );
+  }
+
+  /// Logs a moment deleted/cancelled activity.
+  Future<void> logMomentDeletedActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+    required String momentName,
+    required String momentType,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.momentDeleted,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.moment,
+      // No entityId since it's deleted
+      metadata: {
+        'momentName': momentName,
+        'momentType': momentType,
+      },
+    );
+  }
+
+  /// Logs a space created activity.
+  Future<void> logSpaceCreatedActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+    required String spaceName,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.spaceCreated,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.space,
+      entityId: spaceId,
+      metadata: {'spaceName': spaceName},
+    );
+  }
+
+  /// Logs a space joined activity.
+  Future<void> logSpaceJoinedActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.spaceJoined,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.space,
+      entityId: spaceId,
+    );
+  }
+
+  /// Logs a space renamed activity.
+  Future<void> logSpaceRenamedActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+    required String oldName,
+    required String newName,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.spaceRenamed,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.space,
+      entityId: spaceId,
+      metadata: {
+        'oldName': oldName,
+        'newName': newName,
+      },
+    );
   }
 }

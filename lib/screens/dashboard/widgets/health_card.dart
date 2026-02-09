@@ -52,7 +52,7 @@ class HealthCardState extends State<HealthCard> with SingleTickerProviderStateMi
     // Calculate the target values immediately so we show correct score
     final connectionPct = widget.checkInStats.avgConnection * 10;
     final intimacyPct = widget.checkInStats.avgIntimacy * 10;
-    final peacePct = (10 - widget.checkInStats.avgStress) * 10;
+    final peacePct = widget.checkInStats.avgPeace * 10;
     final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
     _targetProgress = overallHealth / 100;
   }
@@ -110,7 +110,7 @@ class HealthCardState extends State<HealthCard> with SingleTickerProviderStateMi
     
     final connectionPct = widget.checkInStats.avgConnection * 10;
     final intimacyPct = widget.checkInStats.avgIntimacy * 10;
-    final peacePct = (10 - widget.checkInStats.avgStress) * 10;
+    final peacePct = widget.checkInStats.avgPeace * 10;
     final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
     final progress = overallHealth / 100;
     
@@ -209,7 +209,7 @@ class HealthCardState extends State<HealthCard> with SingleTickerProviderStateMi
               children: [
                 _buildSmallIndicator(Icons.favorite_rounded, widget.checkInStats.avgConnection / 10),
                 _buildSmallIndicatorSvg('assets/icons/flame.svg', widget.checkInStats.avgIntimacy / 10),
-                _buildSmallIndicatorSvg('assets/icons/peace.svg', (10 - widget.checkInStats.avgStress) / 10),
+                _buildSmallIndicatorSvg('assets/icons/peace.svg', widget.checkInStats.avgPeace / 10),
               ],
             ),
           ],

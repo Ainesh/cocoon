@@ -16,7 +16,9 @@ import '../../models/user_checkin.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
+import '../../models/activity.dart';
 import '../moment/moment_details_sheet.dart';
+import 'widgets/activity_trail.dart';
 import 'widgets/event_cards.dart';
 import 'widgets/health_card.dart';
 import 'widgets/health_details_sheet.dart';
@@ -198,6 +200,22 @@ class _DashboardTabState extends State<DashboardTab> {
             spaceId: widget.spaceId,
             momentId: moment.id,
           );
+          
+          // Log activity
+          final userId = _authService.currentUser?.uid;
+          if (userId != null) {
+            final profile = await _firestoreService.getUserProfile(userId);
+            final userName = profile?['name'] as String? ?? 'Someone';
+            
+            await _firestoreService.logMomentDeletedActivity(
+              spaceId: widget.spaceId,
+              userId: userId,
+              userName: userName,
+              momentName: moment.name,
+              momentType: moment.type.value,
+            );
+          }
+          
           if (mounted) {
             HapticFeedback.mediumImpact();
           }
@@ -232,7 +250,9 @@ class _DashboardTabState extends State<DashboardTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildMainGrid(),
-            const SizedBox(height: 100),
+            const SizedBox(height: 24),
+            _buildActivityTrail(),
+            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -309,4 +329,35 @@ class _DashboardTabState extends State<DashboardTab> {
     );
   }
 
+  Widget _buildActivityTrail() {
+    return ActivityTrail(
+      spaceId: widget.spaceId,
+      initialLimit: 6,
+      onActivityTap: (activity) => _handleActivityTap(activity),
+    );
+  }
+
+  void _handleActivityTap(Activity activity) {
+    // Navigate to entity based on activity type
+    if (!activity.isNavigable) return;
+
+    switch (activity.entityType) {
+      case EntityType.moment:
+        // Find the moment and show details
+        final moment = _upcomingMoments.where((m) => m.id == activity.entityId).firstOrNull;
+        if (moment != null) {
+          _showMomentDetails(moment);
+        }
+        break;
+      case EntityType.checkin:
+        // Navigate to check-ins tab or show check-in details
+        // For now, just navigate to check-in screen
+        context.push('/checkin/${widget.spaceId}');
+        break;
+      case EntityType.space:
+      case null:
+        // No specific navigation for space activities
+        break;
+    }
+  }
 }

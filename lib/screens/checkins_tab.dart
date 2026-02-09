@@ -375,7 +375,7 @@ class _CheckInItemCardState extends State<_CheckInItemCard> {
                   const SizedBox(width: 8),
                   _buildScoreBadge('❤️', 'Intimacy', widget.checkIn.intimacy),
                   const SizedBox(width: 8),
-                  _buildScoreBadge('😰', 'Stress', widget.checkIn.stress),
+                  _buildScoreBadge('☮️', 'Peace', widget.checkIn.peace),
                 ],
               ),
 

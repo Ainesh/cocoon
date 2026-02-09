@@ -79,10 +79,11 @@ class _JoinScreenState extends State<JoinScreen> {
       if (userId == null) throw Exception('Not authenticated');
 
       final avatarKey = _selectedAvatar!.getAvatarKey(_selectedColor);
+      final userName = _nameController.text.trim();
       final result = await _firestoreService.joinSpace(
         inviteCode: widget.inviteCode,
         userId: userId,
-        userName: _nameController.text.trim(),
+        userName: userName,
         avatarKey: avatarKey,
       );
 
@@ -91,6 +92,16 @@ class _JoinScreenState extends State<JoinScreen> {
       if (result == JoinResult.success) {
         final profile = await _firestoreService.getUserProfile(userId);
         final spaceId = profile?['spaceId'] as String?;
+        
+        // Log space joined activity
+        if (spaceId != null) {
+          await _firestoreService.logSpaceJoinedActivity(
+            spaceId: spaceId,
+            userId: userId,
+            userName: userName,
+          );
+        }
+        
         if (mounted && spaceId != null) {
           context.go('/dashboard/$spaceId');
         }

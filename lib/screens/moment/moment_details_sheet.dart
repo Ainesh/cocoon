@@ -665,12 +665,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
             ),
             const SizedBox(height: 12),
             Text(
-              hasNotes ? moment.notes! : 'Nothing added here',
-              style: GoogleFonts.inter(
-                color: hasNotes ? AppColors.warmDim : AppColors.warmMuted,
-                fontSize: 14,
-                height: 1.5,
-                fontStyle: hasNotes ? FontStyle.normal : FontStyle.italic,
+              hasNotes ? moment.notes! : 'Space for your thoughts',
+              style: AppTypography.bodyMedium(
+                color: hasNotes ? AppColors.subtleText : AppColors.warmMuted,
               ),
             ),
           ],

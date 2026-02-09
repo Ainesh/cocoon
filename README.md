@@ -38,6 +38,7 @@ Cocoon helps couples stay intentionally connected through:
 - **Daily Check-ins**: Rate connection, intimacy, and peace on a 1-10 scale
 - **Relationship Health Score**: Aggregated score from both partners' check-ins over 30 days
 - **Planned Moments**: Schedule dates (Connect), celebrations (Celebrate), and getaways (Escape)
+- **Activity Trail**: Track all couple activities with detailed history and pagination
 - **Real-time Sync**: Both partners see updates instantly across all devices
 
 ### Core Concepts
@@ -49,6 +50,7 @@ Cocoon helps couples stay intentionally connected through:
 | **Moment** | A planned event (Connect, Celebrate, or Escape) |
 | **Health Score** | 0-100 score derived from check-in averages over 30 days |
 | **Pulse** | Single word describing relationship rhythm based on trends |
+| **Activity** | A tracked event (check-in, moment CRUD, space events) |
 
 ### Tech Stack
 
@@ -117,12 +119,33 @@ Three types of moments with progressive reveal UI:
   - Blue-to-red gradient based on score
   - Glowing numbers and bars
   - Haptic feedback tied to dot filling
-- **Health Metrics** — Connection ❤️, Intimacy 🔥, Peace ☕ (1-10)
+- **Health Metrics** — Connection ❤️, Intimacy 🔥, Peace ☮️ (1-10)
 - **Smart Defaults** — Sliders start from your last check-in
 - **Trend Charts** — Visualize your history with smooth curves
 - **Partner Activity** — Timeline of partner's recent check-ins
 - **Reflection** — Optional appreciation or thoughts
 - **Slide to Save** — Swipe-to-confirm submission
+
+### 📋 Activity Trail
+A comprehensive activity tracking system that logs all couple interactions:
+
+| Activity Type | Description | Metadata |
+|--------------|-------------|----------|
+| **Check-in** | Daily check-in submitted | Connection, intimacy, peace scores |
+| **Moment Planned** | New moment created | Moment name, type, dates |
+| **Moment Edited** | Existing moment updated | Changed fields (dates, time, notes) |
+| **Moment Deleted** | Moment cancelled | Moment name, type |
+| **Space Joined** | Partner joined the space | Actor name |
+| **Space Created** | Space was created | Creator name |
+
+**Features:**
+- Paginated display (6 initial, load 4 more)
+- Color-coded icons by action type (red=create, blue=delete, purple=edit)
+- Relative timestamps ("2h ago", "Yesterday")
+- Detailed check-in scores with emoji indicators
+- "Modified X" details for edited moments
+
+---
 
 ### 📈 Health Score Calculation
 
@@ -527,6 +550,7 @@ lib/
 │   └── app_typography.dart      # Text styles (Outfit, Inter, Cormorant)
 │
 ├── models/
+│   ├── activity.dart            # Activity model for activity trail
 │   ├── avatar_data.dart         # Avatar and color data
 │   ├── moment.dart              # Moment model (Connect, Celebrate, Escape)
 │   └── user_checkin.dart        # Check-in model & CheckInStats
@@ -555,6 +579,7 @@ lib/
 │   │   ├── dashboard.dart       # Barrel export
 │   │   ├── dashboard_tab.dart   # Main orchestrator
 │   │   └── widgets/
+│   │       ├── activity_trail.dart     # Activity history with pagination
 │   │       ├── event_cards.dart        # ComingUpCard, PlanMomentCard
 │   │       ├── health_card.dart        # Animated health score
 │   │       └── health_details_sheet.dart
@@ -626,22 +651,56 @@ class UserCheckIn {
   final DateTime timestamp;
   final int connection;           // 1-10
   final int intimacy;             // 1-10
-  final int stress;               // 1-10 (higher = more stressed)
+  final int peace;                // 1-10 (higher = more peaceful)
   final String? notes;
 }
 
 class CheckInStats {
   final double avgConnection;
   final double avgIntimacy;
-  final double avgStress;
+  final double avgPeace;
   final int checkInCount;
   final int userCheckInCount;
   final int partnerCheckInCount;
   final double connectionTrend;   // -1 to 1
   final double intimacyTrend;
-  final double stressTrend;
+  final double peaceTrend;
   
   factory CheckInStats.fromCheckIns(List<UserCheckIn>, {required String currentUserId});
+}
+```
+
+### Activity
+
+```dart
+enum ActivityType {
+  checkin,
+  momentPlanned,
+  momentEdited,
+  momentDeleted,
+  momentCompleted,
+  spaceCreated,
+  spaceJoined,
+  spaceRenamed,
+  inviteSent,
+  inviteAccepted,
+}
+
+class Activity {
+  final String id;
+  final ActivityType type;
+  final String actorId;
+  final String actorName;
+  final DateTime timestamp;
+  final EntityType? entityType;   // checkin, moment, space
+  final String? entityId;         // For deep linking
+  final Map<String, dynamic>? metadata;
+  
+  // Computed
+  String get description;
+  String get relativeTime;        // "2h ago", "Yesterday"
+  bool get isNavigable;
+  List<String> get changedFields; // For momentEdited
 }
 ```
 
@@ -689,9 +748,17 @@ class FirestoreService {
   
   // Check-ins
   Stream<List<UserCheckIn>> watchRecentCheckIns(spaceId, {daysBack});
-  Future<void> submitCheckIn({spaceId, userId, connection, intimacy, stress, notes});
+  Future<void> submitCheckIn({spaceId, userId, connection, intimacy, peace, notes});
   Future<int> getCheckInStreak(spaceId, userId);
   Future<List<Map<String, dynamic>>> getDailyScores(spaceId, {daysBack});
+  
+  // Activities
+  Future<void> logActivity({spaceId, type, actorId, actorName, entityType, entityId, metadata});
+  Future<void> logCheckInActivity({spaceId, actorId, actorName, checkinId, connection, intimacy, peace});
+  Future<void> logMomentPlannedActivity({spaceId, actorId, actorName, momentId, momentName, momentType, startDate, endDate});
+  Future<void> logMomentEditedActivity({spaceId, actorId, actorName, momentId, momentName, momentType, changedFields});
+  Future<void> logMomentDeletedActivity({spaceId, actorId, actorName, momentId, momentName, momentType});
+  Stream<List<Activity>> watchActivities(spaceId, {int limit});
 }
 ```
 
@@ -743,11 +810,16 @@ class FirestoreService {
              request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
          }
 
-         match /checkins/{checkinId} {
-           allow read, write: if request.auth != null &&
-             request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-         }
-       }
+        match /checkins/{checkinId} {
+          allow read, write: if request.auth != null &&
+            request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+        }
+        
+        match /activities/{activityId} {
+          allow read, write: if request.auth != null &&
+            request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+        }
+      }
 
        match /users/{userId} {
          allow read: if request.auth != null && (
@@ -862,6 +934,7 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 
 | Feature | Description | Complexity |
 |---------|-------------|------------|
+| **Check-in Details Sheet** | View individual check-in details from activity trail | Low |
 | **Push Notifications** | Remind to check in, moment alerts | Medium |
 | **Recurring Moments** | Weekly date nights, etc. | Medium |
 | **Shared Notes** | Both partners can edit | Low |
@@ -965,4 +1038,4 @@ MIT License — see [LICENSE](LICENSE) file for details.
 
 ---
 
-*Last updated: February 8, 2026*
+*Last updated: February 9, 2026*

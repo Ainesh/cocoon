@@ -1,7 +1,7 @@
 /// Check-in model for Couple Space app.
 ///
 /// Represents a user's relationship check-in with scores for
-/// connection, intimacy, and stress levels.
+/// connection, intimacy, and peace levels.
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -14,7 +14,7 @@ class UserCheckIn {
     required this.timestamp,
     required this.connection,
     required this.intimacy,
-    required this.stress,
+    required this.peace,
     this.notes = '',
   });
 
@@ -33,8 +33,8 @@ class UserCheckIn {
   /// Intimacy score (1-10).
   final int intimacy;
 
-  /// Stress level (1-10, higher = more stressed).
-  final int stress;
+  /// Peace level (1-10, higher = more peaceful).
+  final int peace;
 
   /// Optional notes or appreciation.
   final String notes;
@@ -47,6 +47,17 @@ class UserCheckIn {
 
   /// Creates a UserCheckIn from JSON data.
   factory UserCheckIn.fromJson(String id, Map<String, dynamic> json) {
+    // Support both 'peace' (new) and 'stress' (legacy, inverted)
+    int peaceValue;
+    if (json.containsKey('peace')) {
+      peaceValue = json['peace'] as int? ?? 5;
+    } else if (json.containsKey('stress')) {
+      // Legacy: convert stress to peace (inverted)
+      peaceValue = 10 - (json['stress'] as int? ?? 5);
+    } else {
+      peaceValue = 5;
+    }
+    
     return UserCheckIn(
       id: id,
       userId: json['userId'] as String? ?? '',
@@ -55,7 +66,7 @@ class UserCheckIn {
           : DateTime.now(),
       connection: json['connection'] as int? ?? 5,
       intimacy: json['intimacy'] as int? ?? 5,
-      stress: json['stress'] as int? ?? 5,
+      peace: peaceValue,
       notes: json['notes'] as String? ?? '',
     );
   }
@@ -67,7 +78,7 @@ class UserCheckIn {
       'timestamp': Timestamp.fromDate(timestamp),
       'connection': connection,
       'intimacy': intimacy,
-      'stress': stress,
+      'peace': peace,
       'notes': notes,
     };
   }
@@ -100,7 +111,7 @@ class UserCheckIn {
     DateTime? timestamp,
     int? connection,
     int? intimacy,
-    int? stress,
+    int? peace,
     String? notes,
   }) {
     return UserCheckIn(
@@ -109,7 +120,7 @@ class UserCheckIn {
       timestamp: timestamp ?? this.timestamp,
       connection: connection ?? this.connection,
       intimacy: intimacy ?? this.intimacy,
-      stress: stress ?? this.stress,
+      peace: peace ?? this.peace,
       notes: notes ?? this.notes,
     );
   }
@@ -120,13 +131,13 @@ class CheckInStats {
   const CheckInStats({
     required this.avgConnection,
     required this.avgIntimacy,
-    required this.avgStress,
+    required this.avgPeace,
     required this.checkInCount,
     this.userCheckInCount = 0,
     this.partnerCheckInCount = 0,
     this.connectionTrend = 0,
     this.intimacyTrend = 0,
-    this.stressTrend = 0,
+    this.peaceTrend = 0,
   });
 
   /// Average connection score.
@@ -135,8 +146,8 @@ class CheckInStats {
   /// Average intimacy score.
   final double avgIntimacy;
 
-  /// Average stress level.
-  final double avgStress;
+  /// Average peace level.
+  final double avgPeace;
 
   /// Number of check-ins included in stats.
   final int checkInCount;
@@ -153,14 +164,14 @@ class CheckInStats {
   /// Intimacy trend (-1 to 1, positive = improving).
   final double intimacyTrend;
   
-  /// Stress trend (-1 to 1, positive = increasing stress).
-  final double stressTrend;
+  /// Peace trend (-1 to 1, positive = more peaceful).
+  final double peaceTrend;
 
   /// Empty stats for when there's no data.
   static const empty = CheckInStats(
     avgConnection: 0,
     avgIntimacy: 0,
-    avgStress: 0,
+    avgPeace: 0,
     checkInCount: 0,
   );
 
@@ -171,7 +182,7 @@ class CheckInStats {
 
     final connection = checkIns.map((c) => c.connection).reduce((a, b) => a + b);
     final intimacy = checkIns.map((c) => c.intimacy).reduce((a, b) => a + b);
-    final stress = checkIns.map((c) => c.stress).reduce((a, b) => a + b);
+    final peace = checkIns.map((c) => c.peace).reduce((a, b) => a + b);
     final count = checkIns.length;
     
     // Count user vs partner check-ins
@@ -185,7 +196,7 @@ class CheckInStats {
     // Calculate trend (compare first half vs second half)
     double connectionTrend = 0;
     double intimacyTrend = 0;
-    double stressTrend = 0;
+    double peaceTrend = 0;
 
     if (count >= 4) {
       final mid = count ~/ 2;
@@ -200,21 +211,21 @@ class CheckInStats {
       final newerIntAvg = newer.map((c) => c.intimacy).reduce((a, b) => a + b) / newer.length;
       intimacyTrend = (newerIntAvg - olderIntAvg) / 10;
       
-      final olderStressAvg = older.map((c) => c.stress).reduce((a, b) => a + b) / older.length;
-      final newerStressAvg = newer.map((c) => c.stress).reduce((a, b) => a + b) / newer.length;
-      stressTrend = (newerStressAvg - olderStressAvg) / 10;
+      final olderPeaceAvg = older.map((c) => c.peace).reduce((a, b) => a + b) / older.length;
+      final newerPeaceAvg = newer.map((c) => c.peace).reduce((a, b) => a + b) / newer.length;
+      peaceTrend = (newerPeaceAvg - olderPeaceAvg) / 10;
     }
 
     return CheckInStats(
       avgConnection: connection / count,
       avgIntimacy: intimacy / count,
-      avgStress: stress / count,
+      avgPeace: peace / count,
       checkInCount: count,
       userCheckInCount: userCount,
       partnerCheckInCount: partnerCount,
       connectionTrend: connectionTrend.clamp(-1, 1),
       intimacyTrend: intimacyTrend.clamp(-1, 1),
-      stressTrend: stressTrend.clamp(-1, 1),
+      peaceTrend: peaceTrend.clamp(-1, 1),
     );
   }
 }

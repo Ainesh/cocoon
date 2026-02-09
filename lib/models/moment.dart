@@ -301,18 +301,43 @@ class Moment {
     return '${timeSlot!.emoji} ${timeSlot!.label}';
   }
 
-  /// Returns relative time description (Tomorrow, In 3 days, etc.)
+  /// Returns relative time description (Tomorrow, In 3 days, Next week, etc.)
   String get relativeDate {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final momentDate = DateTime(startDate.year, startDate.month, startDate.day);
     final diff = momentDate.difference(today).inDays;
 
+    // Past dates
+    if (diff < 0) {
+      if (diff == -1) return 'Yesterday';
+      if (diff > -7) return '${-diff} days ago';
+      return _formatDate(startDate);
+    }
+
+    // Today/Tomorrow
     if (diff == 0) return 'Today';
     if (diff == 1) return 'Tomorrow';
+
+    // This week (2-6 days)
     if (diff < 7) return 'In $diff days';
-    if (diff < 14) return 'Next week';
-    return _formatDate(startDate);
+
+    // Weeks (7-29 days)
+    if (diff < 30) {
+      final weeks = (diff / 7).floor();
+      if (weeks == 1) return 'Next week';
+      return 'In $weeks weeks';
+    }
+
+    // Months (30+ days)
+    final months = (diff / 30).floor();
+    if (months == 1) return 'Next month';
+    if (months < 12) return 'In $months months';
+
+    // Years
+    final years = (diff / 365).floor();
+    if (years == 1) return 'Next year';
+    return 'In $years years';
   }
 
   String _formatDate(DateTime date) {

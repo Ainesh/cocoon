@@ -124,7 +124,7 @@ class _TimelineItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final connectionPct = checkIn.connection * 10;
     final intimacyPct = checkIn.intimacy * 10;
-    final peacePct = (10 - checkIn.stress) * 10;
+    final peacePct = checkIn.peace * 10;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
