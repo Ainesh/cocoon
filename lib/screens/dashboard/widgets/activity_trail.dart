@@ -55,7 +55,7 @@ class ActivityTrail extends StatefulWidget {
 class _ActivityTrailState extends State<ActivityTrail> {
   final _firestoreService = FirestoreService();
   final _currentUserId = AuthService().currentUser?.uid;
-
+  
   StreamSubscription<List<Activity>>? _subscription;
   List<Activity> _activities = [];
   bool _isLoading = true;
@@ -181,33 +181,33 @@ class _ActivityTrailState extends State<ActivityTrail> {
         if (_hasMore) ...[
           const SizedBox(height: 10),
           GestureDetector(
-            onTap: _isLoadingMore ? null : _loadMore,
-            behavior: HitTestBehavior.opaque,
+      onTap: _isLoadingMore ? null : _loadMore,
+      behavior: HitTestBehavior.opaque,
             child: _isLoadingMore
                 ? Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+              SizedBox(
                         width: 12,
                         height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.warmMuted,
-                        ),
-                      ),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.warmMuted,
+                ),
+              ),
                     ],
                   )
                 : Text(
                     '+ more activity',
-                    style: GoogleFonts.inter(
-                      color: AppColors.warmMuted,
+                style: GoogleFonts.inter(
+                  color: AppColors.warmMuted,
                       fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-          ),
-        ],
-      ],
+                  fontWeight: FontWeight.w500,
+                ),
+                ),
+              ),
+            ],
+          ],
     );
   }
 
@@ -364,7 +364,7 @@ class _ActivityItem extends StatelessWidget {
     if (activity.type == ActivityType.checkin) {
       return _buildCheckinMosaicIcon();
     }
-
+    
     // For moment activities, always use the moment type icon
     if (activity.type.isMomentActivity) {
       final momentTypeStr = activity.metadata?['momentType'] as String?;
@@ -619,10 +619,10 @@ class _ActivityItem extends StatelessWidget {
         // "You checked in"
         Text(
           '$_displayName checked in',
-          style: GoogleFonts.inter(
-            color: AppColors.warmDim,
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
+                style: GoogleFonts.inter(
+                  color: AppColors.warmDim,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
           ),
         ),
         const SizedBox(height: 4),
@@ -653,7 +653,7 @@ class _ActivityItem extends StatelessWidget {
 
   Widget _buildSvgScore(String svgPath, int score) {
     return SvgPicture.asset(
-      svgPath,
+          svgPath,
       width: 16,
       height: 16,
       colorFilter: ColorFilter.mode(_scoreColor(score), BlendMode.srcIn),

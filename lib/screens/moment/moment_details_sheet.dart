@@ -177,7 +177,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           maxHeight: MediaQuery.of(context).size.height * 0.75,
         ),
         decoration: const BoxDecoration(
-          color: AppColors.darkCardLight,
+          color: AppColors.pureBlack,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(

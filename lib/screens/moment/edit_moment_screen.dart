@@ -244,7 +244,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.darkCard,
+        backgroundColor: AppColors.darkCardLight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Discard changes?',

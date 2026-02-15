@@ -112,7 +112,7 @@ class HealthCardState extends State<HealthCard>
   /// Set [forceReanimate] to true to replay the animation (e.g., on refresh).
   void animateHealthScore({bool forceReanimate = false}) {
     if (_hasAnimated && !forceReanimate) return;
-
+    
     // Fresh seed → fresh Voronoi pattern
     _seed = DateTime.now().millisecondsSinceEpoch;
     _hasAnimated = true;
@@ -120,10 +120,10 @@ class HealthCardState extends State<HealthCard>
     if (forceReanimate) {
       _controller.reset();
     }
-
+    
     // Immediate rebuild to show dark state before tiles start appearing
     setState(() {});
-
+    
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         HapticFeedback.mediumImpact();
@@ -139,7 +139,7 @@ class HealthCardState extends State<HealthCard>
   @override
   Widget build(BuildContext context) {
     final animProgress = _controller.value;
-
+    
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
@@ -162,8 +162,8 @@ class HealthCardState extends State<HealthCard>
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-          child: Stack(
-            children: [
+                child: Stack(
+                  children: [
               // Layer 1: Voronoi mosaic (full-bleed)
               Positioned.fill(
                 child: CustomPaint(
@@ -172,8 +172,8 @@ class HealthCardState extends State<HealthCard>
                     targetScore: _targetProgress,
                     seed: _seed,
                   ),
-                ),
-              ),
+                      ),
+                    ),
 
               // Layer 2: Label
               Padding(
@@ -189,13 +189,13 @@ class HealthCardState extends State<HealthCard>
                       Shadow(
                         color: Colors.black.withValues(alpha: 0.6),
                         blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
+            ),
+          ],
+        ),
+      ),
               ),
-            ],
-          ),
+        ],
+      ),
         ),
       ),
     );

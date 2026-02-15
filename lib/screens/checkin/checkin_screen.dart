@@ -65,7 +65,7 @@ class _CheckInScreenState extends State<CheckInScreen>
   StreamSubscription<List<UserCheckIn>>? _checkInsSubscription;
   List<UserCheckIn> _recentCheckIns = [];
   String? _currentUserId;
-
+  
   // Fixed seed for the Voronoi mosaic — set once, stable across rebuilds
   late final int _mosaicSeed = DateTime.now().millisecondsSinceEpoch;
 
@@ -84,12 +84,12 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
 
     _subscribeToCheckIns();
-
+    
     // Listen for notes focus changes
     _notesFocusNode.addListener(() {
       setState(() => _isNotesFocused = _notesFocusNode.hasFocus);
     });
-
+    
     // Listen for notes text changes to update active state
     _notesController.addListener(() {
       setState(() {});
@@ -290,7 +290,7 @@ class _CheckInScreenState extends State<CheckInScreen>
         final connFill = barEase < 1.0 ? _barFill(_connection, barEase) : null;
         final intFill = barEase < 1.0 ? _barFill(_intimacy, barEase) : null;
         final peaceFill = barEase < 1.0 ? _barFill(_peace, barEase) : null;
-
+    
         return Container(
           decoration: BoxDecoration(
             color: AppColors.darkCardLight,
@@ -299,8 +299,8 @@ class _CheckInScreenState extends State<CheckInScreen>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
                 // ---- Top: Voronoi mosaic with grouped colours + header ----
                 Stack(
                   children: [
@@ -360,43 +360,43 @@ class _CheckInScreenState extends State<CheckInScreen>
                     height: 330,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+            children: [
                         Expanded(
                           child: VerticalBarSlider(
-                            value: _connection,
-                            onChanged: (v) => setState(() => _connection = v),
+                value: _connection,
+                onChanged: (v) => setState(() => _connection = v),
                             icon: Icons.favorite_rounded,
-                            label: 'Connection',
+                label: 'Connection',
                             displayProgress: connFill,
                           ),
-                        ),
+              ),
                         const SizedBox(width: 24),
                         Expanded(
                           child: VerticalBarSlider(
-                            value: _intimacy,
-                            onChanged: (v) => setState(() => _intimacy = v),
+                value: _intimacy,
+                onChanged: (v) => setState(() => _intimacy = v),
                             iconAsset: 'assets/icons/flame.svg',
-                            label: 'Intimacy',
+                label: 'Intimacy',
                             displayProgress: intFill,
                           ),
-                        ),
+              ),
                         const SizedBox(width: 24),
                         Expanded(
                           child: VerticalBarSlider(
-                            value: _peace,
-                            onChanged: (v) => setState(() => _peace = v),
+                value: _peace,
+                onChanged: (v) => setState(() => _peace = v),
                             iconAsset: 'assets/icons/peace.svg',
-                            label: 'Peace',
+                label: 'Peace',
                             displayProgress: peaceFill,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
         );
       },
     );

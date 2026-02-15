@@ -129,7 +129,7 @@ class _HealthDetailsContent extends StatelessWidget {
       child: Container(
         height: MediaQuery.of(context).size.height * 0.8,
         decoration: BoxDecoration(
-          color: AppColors.darkCardLight,
+          color: AppColors.pureBlack,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
@@ -183,7 +183,7 @@ class _HealthDetailsContent extends StatelessWidget {
                   const SizedBox(height: 16),
                   // Helper text
                   Text(
-                    'The health card is a uniquely generated artifact using the data below.',
+                    'The health card is a uniquely generated artifact using this data.',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
                       color: AppColors.warmMuted.withValues(alpha: 0.7),
@@ -192,23 +192,20 @@ class _HealthDetailsContent extends StatelessWidget {
                   ),
                   const SizedBox(height: 24),
                   
-                  // Two columns: Left insights, Right attributes
+                  // Insights + Pulse Score side by side
                   IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Left: Insights (tappable for help)
                         Expanded(child: _buildInsightsCard(context)),
                         const SizedBox(width: 12),
-                        // Right: Attribute breakdown
                         Expanded(child: _buildAttributesColumn()),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 12),
                   
-                  const SizedBox(height: 24),
-                  
-                  // Monthly trend chart
+                  // Trend chart card
                   _buildMonthlyTrendChart(),
                 ],
               ),
@@ -297,7 +294,7 @@ class _HealthDetailsContent extends StatelessWidget {
             _buildInsightRow('Your check-ins', checkInStats.userCheckInCount.toString(), ''),
             const SizedBox(height: 12),
             _buildInsightRow('Partner check-ins', checkInStats.partnerCheckInCount.toString(), ''),
-            const Spacer(),
+            const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -330,7 +327,7 @@ class _HealthDetailsContent extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: AppColors.darkCard,
+        backgroundColor: AppColors.darkCardLight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -454,8 +451,8 @@ class _HealthDetailsContent extends StatelessWidget {
               value,
               style: GoogleFonts.outfit(
                 color: AppColors.warmLight,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
               ),
             ),
             if (suffix.isNotEmpty) ...[
@@ -539,7 +536,7 @@ class _HealthDetailsContent extends StatelessWidget {
     final color = _scoreColor(value);
     final trendPositive = trend > 0;
     final trendColor =
-        trendPositive ? AppColors.success : AppColors.trendNegative;
+        trendPositive ? AppColors.nightColor : AppColors.morningColor;
 
     return Row(
       children: [
@@ -684,9 +681,8 @@ class _HealthDetailsContent extends StatelessWidget {
               Text(
                 'Now',
                 style: GoogleFonts.inter(
-                  color: AppColors.warmLight,
+                  color: AppColors.warmMuted,
                   fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
