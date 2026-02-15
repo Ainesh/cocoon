@@ -10,6 +10,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/user_checkin.dart';
 import '../../services/auth_service.dart';
@@ -17,10 +18,9 @@ import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/active_card.dart';
-import '../../widgets/dotted_slider.dart' show ScoreSelector;
+import '../../widgets/dotted_slider.dart' show VerticalBarSlider;
+import '../../widgets/painters/voronoi_mosaic_painter.dart';
 import '../../widgets/slide_to_action.dart';
-import 'widgets/partner_checkins.dart';
-import 'widgets/your_trend.dart';
 
 /// Check-in screen for submitting relationship scores.
 class CheckInScreen extends StatefulWidget {
@@ -35,10 +35,16 @@ class CheckInScreen extends StatefulWidget {
   State<CheckInScreen> createState() => _CheckInScreenState();
 }
 
-class _CheckInScreenState extends State<CheckInScreen> {
+class _CheckInScreenState extends State<CheckInScreen>
+    with TickerProviderStateMixin {
   // Services
   final _authService = AuthService();
   final _firestoreService = FirestoreService();
+
+  // Tile entrance — slow staggered appearance like health card
+  late AnimationController _tileController;
+  // Bar entrance — quick settle from max
+  late AnimationController _barController;
 
   // Form state - will be initialized from last check-in
   double _connection = 5;
@@ -49,56 +55,59 @@ class _CheckInScreenState extends State<CheckInScreen> {
   bool _isNotesFocused = false;
   bool _hasLoadedDefaults = false;
   
-  // Track initial values to detect modifications
-  double _initialConnection = 5;
-  double _initialIntimacy = 5;
-  double _initialPeace = 5;
   
-  // Active state tracking
-  bool get _isPulseModified => 
-      _connection != _initialConnection ||
-      _intimacy != _initialIntimacy ||
-      _peace != _initialPeace;
-  
-  bool get _isReflectionActive => 
-      _isNotesFocused || _notesController.text.isNotEmpty;
-  
-  /// Whether any changes have been made (pulse or reflection)
-  /// Used to enable/disable the save slider
-  bool get _hasChanges => _isPulseModified || _notesController.text.isNotEmpty;
+
 
   // Loading state
   bool _isSubmitting = false;
-  bool _isLoadingHistory = true;
 
   // History data
   StreamSubscription<List<UserCheckIn>>? _checkInsSubscription;
   List<UserCheckIn> _recentCheckIns = [];
   String? _currentUserId;
-  
-  // Partner info
-  String? _partnerName;
+
+  // Fixed seed for the Voronoi mosaic — set once, stable across rebuilds
+  late final int _mosaicSeed = DateTime.now().millisecondsSinceEpoch;
 
   @override
   void initState() {
     super.initState();
     _currentUserId = _authService.currentUser?.uid;
+
+    _tileController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    );
+    _barController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+
     _subscribeToCheckIns();
-    _loadPartnerInfo();
-    
+
     // Listen for notes focus changes
     _notesFocusNode.addListener(() {
       setState(() => _isNotesFocused = _notesFocusNode.hasFocus);
     });
-    
+
     // Listen for notes text changes to update active state
     _notesController.addListener(() {
-      setState(() {}); // Trigger rebuild for _isReflectionActive
+      setState(() {});
+    });
+
+    // Kick off entrance animations after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _tileController.forward();
+        _barController.forward();
+      }
     });
   }
 
   @override
   void dispose() {
+    _tileController.dispose();
+    _barController.dispose();
     _checkInsSubscription?.cancel();
     _notesController.dispose();
     _notesFocusNode.dispose();
@@ -111,15 +120,12 @@ class _CheckInScreenState extends State<CheckInScreen> {
 
   void _subscribeToCheckIns() {
     _checkInsSubscription?.cancel();
-    setState(() => _isLoadingHistory = true);
-
     _checkInsSubscription = _firestoreService
         .watchRecentCheckIns(widget.spaceId, daysBack: 30)
         .listen(
       (checkIns) {
         setState(() {
           _recentCheckIns = checkIns;
-          _isLoadingHistory = false;
           
           // Set defaults from last check-in (only once)
           if (!_hasLoadedDefaults && _myCheckIns.isNotEmpty) {
@@ -128,40 +134,15 @@ class _CheckInScreenState extends State<CheckInScreen> {
             _intimacy = lastCheckIn.intimacy.toDouble();
             _peace = lastCheckIn.peace.toDouble();
             
-            // Store initial values to detect modifications
-            _initialConnection = _connection;
-            _initialIntimacy = _intimacy;
-            _initialPeace = _peace;
-            
             _hasLoadedDefaults = true;
           }
         });
       },
       onError: (error) {
         debugPrint('Error loading check-ins: $error');
-        setState(() => _isLoadingHistory = false);
+        setState(() {});
       },
     );
-  }
-
-  Future<void> _loadPartnerInfo() async {
-    try {
-      final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);
-      if (space != null) {
-        final members = space['members'] as List? ?? [];
-        for (final member in members) {
-          final userId = member['userId'] as String?;
-          if (userId != null && userId != _currentUserId) {
-            setState(() {
-              _partnerName = member['name'] as String? ?? 'Partner';
-            });
-            break;
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Error loading partner info: $e');
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -224,9 +205,6 @@ class _CheckInScreenState extends State<CheckInScreen> {
   List<UserCheckIn> get _myCheckIns =>
       _recentCheckIns.where((c) => c.userId == _currentUserId).toList();
 
-  List<UserCheckIn> get _partnerCheckIns =>
-      _recentCheckIns.where((c) => c.userId != _currentUserId).take(5).toList();
-
   // ---------------------------------------------------------------------------
   // UI Build Methods
   // ---------------------------------------------------------------------------
@@ -258,6 +236,18 @@ class _CheckInScreenState extends State<CheckInScreen> {
             onPressed: () => context.pop(),
           ),
         ),
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: SlideToAction(
+              label: 'Slide to save',
+              loadingLabel: 'Saving...',
+              onConfirm: _submitCheckIn,
+              isLoading: _isSubmitting,
+              enabled: true,
+            ),
+          ),
+        ),
         body: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
@@ -265,14 +255,6 @@ class _CheckInScreenState extends State<CheckInScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildCheckInForm(),
-              const SizedBox(height: 16),
-              YourTrendChart(checkIns: _myCheckIns),
-              const SizedBox(height: 16),
-              PartnerCheckIns(
-                checkIns: _partnerCheckIns,
-                partnerName: _partnerName,
-                isLoading: _isLoadingHistory,
-              ),
               const SizedBox(height: 24),
             ],
           ),
@@ -281,48 +263,151 @@ class _CheckInScreenState extends State<CheckInScreen> {
     );
   }
 
+  /// Bar fill during entrance: lerp from 1.0 (full) down to actual progress.
+  double _barFill(double value, double ease) {
+    final target = (value - 1) / 9;
+    return 1.0 + (target - 1.0) * ease; // 1.0 → target
+  }
+
+  /// Compute a colour from a 1–10 value on the blue→red spectrum.
+  Color _scoreColor(double value) =>
+      Color.lerp(AppColors.morningColor, AppColors.nightColor,
+          (value - 1) / 9) ??
+      AppColors.nightColor;
+
+  Widget _buildPulseCard() {
+    // Listen to both controllers — tiles (slow) and bars (fast)
+    return AnimatedBuilder(
+      animation: Listenable.merge([_tileController, _barController]),
+      builder: (context, _) {
+        final tileAnim = _tileController.value;
+        final connColor = _scoreColor(_connection);
+        final intColor = _scoreColor(_intimacy);
+        final peaceColor = _scoreColor(_peace);
+
+        // Bars: quick settle from max to actual value
+        final barEase = Curves.easeOutCubic.transform(_barController.value);
+        final connFill = barEase < 1.0 ? _barFill(_connection, barEase) : null;
+        final intFill = barEase < 1.0 ? _barFill(_intimacy, barEase) : null;
+        final peaceFill = barEase < 1.0 ? _barFill(_peace, barEase) : null;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: AppColors.darkCardLight,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ---- Top: Voronoi mosaic with grouped colours + header ----
+                Stack(
+                  children: [
+                    RepaintBoundary(
+                      child: SizedBox(
+                        height: 180,
+                        width: double.infinity,
+                        child: CustomPaint(
+                          painter: VoronoiGroupedPainter(
+                            groupColors: [connColor, intColor, peaceColor],
+                            seed: _mosaicSeed,
+                            animationProgress: tileAnim,
+                            tileCount: 60,
+                            backgroundColor: AppColors.darkCardLight,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Header label
+                    Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Text(
+                        'PULSE CHECK',
+                        style: GoogleFonts.inter(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              blurRadius: 4,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // Helper text
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                  child: Text(
+                    'Slide the bars to express. Starting from your last check-in.',
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmMuted.withValues(alpha: 0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+
+                // ---- Bottom: 3 vertical bar sliders ----
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: SizedBox(
+                    height: 330,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(
+                          child: VerticalBarSlider(
+                            value: _connection,
+                            onChanged: (v) => setState(() => _connection = v),
+                            icon: Icons.favorite_rounded,
+                            label: 'Connection',
+                            displayProgress: connFill,
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: VerticalBarSlider(
+                            value: _intimacy,
+                            onChanged: (v) => setState(() => _intimacy = v),
+                            iconAsset: 'assets/icons/flame.svg',
+                            label: 'Intimacy',
+                            displayProgress: intFill,
+                          ),
+                        ),
+                        const SizedBox(width: 24),
+                        Expanded(
+                          child: VerticalBarSlider(
+                            value: _peace,
+                            onChanged: (v) => setState(() => _peace = v),
+                            iconAsset: 'assets/icons/peace.svg',
+                            label: 'Peace',
+                            displayProgress: peaceFill,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildCheckInForm() {
-    final hasLastCheckIn = _hasLoadedDefaults && _myCheckIns.isNotEmpty;
-    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Three score selectors in a single card
-        ActiveCard(
-          heading: 'Pulse Check',
-          isActive: _isPulseModified,
-          helperText: hasLastCheckIn 
-              ? 'Starting from your last check-in'
-              : 'Rate each area from 1-10',
-          hideHelperWhenActive: true,
-          child: Column(
-            children: [
-              ScoreSelector(
-                value: _connection,
-                onChanged: (v) => setState(() => _connection = v),
-                label: 'Connection',
-                icon: Icons.favorite_rounded,
-                embedded: true,
-              ),
-              Divider(color: AppColors.cardVariant, height: 24),
-              ScoreSelector(
-                value: _intimacy,
-                onChanged: (v) => setState(() => _intimacy = v),
-                label: 'Intimacy',
-                iconAsset: 'assets/icons/flame.svg',
-                embedded: true,
-              ),
-              Divider(color: AppColors.cardVariant, height: 24),
-              ScoreSelector(
-                value: _peace,
-                onChanged: (v) => setState(() => _peace = v),
-                label: 'Peace',
-                iconAsset: 'assets/icons/peace.svg',
-                embedded: true,
-              ),
-            ],
-          ),
-        ),
+        // Mosaic + 3 vertical bar sliders
+        _buildPulseCard(),
         const SizedBox(height: 16),
 
         // Notes field - tapping anywhere focuses the text field
@@ -331,10 +416,9 @@ class _CheckInScreenState extends State<CheckInScreen> {
           behavior: HitTestBehavior.opaque,
           child: ActiveCard(
             heading: 'Reflection',
-            isActive: _isReflectionActive,
+            isActive: true,
             helperText: 'Got something on your mind? Use this space to share your thoughts.',
-            hideHelperWhenActive: true,
-            shrinkWhenActive: true, // Card shrinks when helper disappears
+            hideHelperWhenActive: false,
             showBorder: _isNotesFocused,
             child: TextField(
               controller: _notesController,
@@ -354,16 +438,7 @@ class _CheckInScreenState extends State<CheckInScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
-
-        // Submit button - slide to confirm (enabled only when changes made)
-        SlideToAction(
-          label: 'Slide to save',
-          loadingLabel: 'Saving...',
-          onConfirm: _submitCheckIn,
-          isLoading: _isSubmitting,
-          enabled: _hasChanges,
-        ),
+        const SizedBox(height: 100),
       ],
     );
   }

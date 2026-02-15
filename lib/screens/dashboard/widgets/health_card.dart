@@ -1,20 +1,22 @@
-/// Health score card with animated progress.
+/// Health score card with animated Voronoi mosaic background.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../models/user_checkin.dart';
 import '../../../theme/theme.dart';
-import '../../../widgets/animations/suspenseful_curve.dart';
-import '../../../widgets/painters/circle_progress_painters.dart';
+import '../../../widgets/painters/voronoi_mosaic_painter.dart';
 
 /// Callback type for showing health details.
 typedef ShowHealthDetailsCallback = void Function();
 
-/// Animated health score card with dotted progress.
+/// Animated health score card with Voronoi mosaic background.
+///
+/// Tiles appear one-by-one with a zoom-in → glow → zoom-out → settle
+/// animation. Tile colours represent the health score on a
+/// blue (low) → red (high) spectrum.
 class HealthCard extends StatefulWidget {
   const HealthCard({
     super.key,
@@ -29,52 +31,43 @@ class HealthCard extends StatefulWidget {
   State<HealthCard> createState() => HealthCardState();
 }
 
-class HealthCardState extends State<HealthCard> with SingleTickerProviderStateMixin {
-  // Animation constants
-  static const int _totalDots = 32;
-  static const _suspenseCurve = SuspensefulCurve(steepness: 3.5);
+class HealthCardState extends State<HealthCard>
+    with SingleTickerProviderStateMixin {
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
 
-  // Health score animation
-  late AnimationController _healthAnimController;
-  late Animation<double> _healthAnimation;
+  late AnimationController _controller;
+
+  /// Health score 0–1 used for colour computation (NOT animation progress).
   double _targetProgress = 0;
-  int _lastHapticDot = -1;
+
+  /// Seed for the Voronoi random pattern — changes on each animation start.
+  int _seed = DateTime.now().millisecondsSinceEpoch;
+
   bool _hasAnimated = false;
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
 
   @override
   void initState() {
     super.initState();
-    _initAnimations();
-    _calculateInitialValues();
-  }
-
-  void _calculateInitialValues() {
-    // Calculate the target values immediately so we show correct score
-    final connectionPct = widget.checkInStats.avgConnection * 10;
-    final intimacyPct = widget.checkInStats.avgIntimacy * 10;
-    final peacePct = widget.checkInStats.avgPeace * 10;
-    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
-    _targetProgress = overallHealth / 100;
-  }
-
-  void _initAnimations() {
-    _healthAnimController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2200),
+      duration: const Duration(milliseconds: 3800),
     );
-    _healthAnimation = Tween<double>(begin: 0, end: 0).animate(
-      CurvedAnimation(parent: _healthAnimController, curve: _suspenseCurve),
-    );
-    _healthAnimController.addListener(_onHealthAnimationUpdate);
+    _controller.addListener(_onTick);
+    _controller.addStatusListener(_onStatus);
+    _calculateInitialValues();
   }
 
   @override
   void didUpdateWidget(HealthCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Recalculate if stats changed
     if (oldWidget.checkInStats != widget.checkInStats) {
       _calculateInitialValues();
-      // If we haven't animated yet and have real data, trigger animation
       if (!_hasAnimated && widget.checkInStats.checkInCount > 0) {
         animateHealthScore();
       }
@@ -83,186 +76,127 @@ class HealthCardState extends State<HealthCard> with SingleTickerProviderStateMi
 
   @override
   void dispose() {
-    _healthAnimController.removeListener(_onHealthAnimationUpdate);
-    _healthAnimController.dispose();
+    _controller.removeListener(_onTick);
+    _controller.removeStatusListener(_onStatus);
+    _controller.dispose();
     super.dispose();
   }
 
-  void _onHealthAnimationUpdate() {
-    final currentDot = (_healthAnimation.value * _totalDots).floor();
-    
-    if (currentDot > _lastHapticDot && currentDot <= (_targetProgress * _totalDots).ceil()) {
-      _lastHapticDot = currentDot;
-      HapticFeedback.lightImpact();
-    }
-    setState(() {});
-  }
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
 
-  /// Start the health score animation from the current stats.
-  /// Set [forceReanimate] to true to replay the animation (e.g., on refresh).
-  void animateHealthScore({bool forceReanimate = false}) {
-    if (_hasAnimated && !forceReanimate) return; // Only animate once unless forced
-    
-    // Reset animation state if re-animating
-    if (forceReanimate) {
-      _healthAnimController.reset();
-    }
-    
+  void _calculateInitialValues() {
     final connectionPct = widget.checkInStats.avgConnection * 10;
     final intimacyPct = widget.checkInStats.avgIntimacy * 10;
     final peacePct = widget.checkInStats.avgPeace * 10;
     final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
-    final progress = overallHealth / 100;
-    
-    _targetProgress = progress;
-    _lastHapticDot = -1;
+    _targetProgress = overallHealth / 100;
+  }
+
+  void _onTick() {
+    if (mounted) setState(() {});
+  }
+
+  void _onStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed) {
+      HapticFeedback.lightImpact();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  /// Start the health score animation from the current stats.
+  /// Set [forceReanimate] to true to replay the animation (e.g., on refresh).
+  void animateHealthScore({bool forceReanimate = false}) {
+    if (_hasAnimated && !forceReanimate) return;
+
+    // Fresh seed → fresh Voronoi pattern
+    _seed = DateTime.now().millisecondsSinceEpoch;
     _hasAnimated = true;
-    
-    _healthAnimation = Tween<double>(
-      begin: 0,
-      end: progress,
-    ).animate(
-      CurvedAnimation(parent: _healthAnimController, curve: _suspenseCurve),
-    );
-    
+
+    if (forceReanimate) {
+      _controller.reset();
+    }
+
+    // Immediate rebuild to show dark state before tiles start appearing
+    setState(() {});
+
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _healthAnimController.forward(from: 0);
+      if (mounted) {
+        HapticFeedback.mediumImpact();
+        _controller.forward(from: 0);
+      }
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
-    // Use animated progress if animating, otherwise show static target
-    final displayProgress = _hasAnimated ? _healthAnimation.value : _targetProgress;
-    
+    final animProgress = _controller.value;
+
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              AppColors.accentRed,
-              AppColors.accentRed.withValues(alpha: 0.85),
-            ],
-          ),
+          color: AppColors.darkCardLight,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: AppColors.accentRed.withValues(alpha: 0.35),
+              color: Color.lerp(
+                const Color(0xFF60A5FA),
+                AppColors.accentRed,
+                _targetProgress,
+              )!
+                  .withValues(alpha: 0.25),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
           ],
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'HEALTH',
-              style: GoogleFonts.outfit(
-                color: AppColors.pureBlack.withValues(alpha: 0.9),
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-              ),
-            ),
-            const Spacer(),
-            // Score with circular progress
-            Center(
-              child: SizedBox(
-                width: 120,
-                height: 120,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    CustomPaint(
-                      size: const Size(120, 120),
-                      painter: DottedCircleProgressPainter(
-                        progress: displayProgress,
-                        activeColor: AppColors.pureBlack,
-                        inactiveColor: AppColors.pureBlack.withValues(alpha: 0.2),
-                        dotCount: _totalDots,
-                        dotRadius: 3.2,
-                      ),
-                    ),
-                    Text(
-                      (displayProgress * 100).round().toString(),
-                      style: GoogleFonts.outfit(
-                        color: AppColors.pureBlack,
-                        fontSize: 52,
-                        fontWeight: FontWeight.w700,
-                        height: 1,
-                      ),
-                    ),
-                  ],
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            children: [
+              // Layer 1: Voronoi mosaic (full-bleed)
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: VoronoiMosaicPainter(
+                    animationProgress: animProgress,
+                    targetScore: _targetProgress,
+                    seed: _seed,
+                  ),
                 ),
               ),
-            ),
-            const Spacer(),
-            // Individual metrics row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _buildSmallIndicator(Icons.favorite_rounded, widget.checkInStats.avgConnection / 10),
-                _buildSmallIndicatorSvg('assets/icons/flame.svg', widget.checkInStats.avgIntimacy / 10),
-                _buildSmallIndicatorSvg('assets/icons/peace.svg', widget.checkInStats.avgPeace / 10),
-              ],
-            ),
-          ],
+
+              // Layer 2: Label
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  'HEALTH',
+                  style: GoogleFonts.inter(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.5,
+                    shadows: [
+                      Shadow(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSmallIndicator(IconData icon, double progress) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: const Size(44, 44),
-            painter: ContinuousCircleProgressPainter(
-              progress: progress,
-              activeColor: AppColors.pureBlack,
-              inactiveColor: AppColors.pureBlack.withValues(alpha: 0.2),
-              strokeWidth: 3,
-            ),
-          ),
-          Icon(icon, color: AppColors.pureBlack, size: 18),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSmallIndicatorSvg(String svgPath, double progress) {
-    return SizedBox(
-      width: 44,
-      height: 44,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: const Size(44, 44),
-            painter: ContinuousCircleProgressPainter(
-              progress: progress,
-              activeColor: AppColors.pureBlack,
-              inactiveColor: AppColors.pureBlack.withValues(alpha: 0.2),
-              strokeWidth: 3,
-            ),
-          ),
-          SvgPicture.asset(
-            svgPath,
-            width: 18,
-            height: 18,
-            colorFilter: ColorFilter.mode(AppColors.pureBlack, BlendMode.srcIn),
-          ),
-        ],
       ),
     );
   }
