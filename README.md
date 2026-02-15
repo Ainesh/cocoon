@@ -77,16 +77,18 @@ Cocoon helps couples stay intentionally connected through:
 - Space name customization from settings
 
 ### 📊 Dashboard
-- **Relationship Health Card**
-  - Animated circular progress with 32 dots
-  - Normal distribution timing curve (suspenseful finish)
-  - Haptic feedback for each dot
+- **Relationship Health Card** — Voronoi Mosaic
+  - Animated Voronoi mosaic fills a rounded rectangle with organic tiles
+  - Tiles appear one-by-one with zoom-in → glow → zoom-out → settle animation
+  - Tile colours represent health score on a blue (low) → red (high) spectrum
+  - Geometry cached (O(n² × rays)) — never recomputed in paint()
+  - Phantom border seeds create organic rounded edges at card boundary
   - Tap for detailed breakdown sheet
   - Live updates when partner checks in
 - **Coming Up Card** — Upcoming moments with smart layout:
   - Featured moment (next up) with full details
   - Secondary moment in compact view
-  - "+ X moments this month" indicator when more scheduled
+  - "+ X moments this month" indicator (muted) when more scheduled
   - Adaptive sizing: card shrinks when fewer moments planned
 - **Plan a Moment** — Adaptive button that expands when Coming Up is small
 - **Check-in Button** — Quick access to daily check-in
@@ -115,16 +117,16 @@ Three types of moments with progressive reveal UI:
 - Dotted circle progress animation during deletion
 
 ### 💬 Check-ins
-- **Score Selectors** — Custom circular sliders (32 dots like health card)
-  - Blue-to-red gradient based on score
-  - Glowing numbers and bars
-  - Haptic feedback tied to dot filling
-- **Health Metrics** — Connection ❤️, Intimacy 🔥, Peace ☮️ (1-10)
+- **Pulse Check Card** — Voronoi mosaic + 3 vertical bar sliders
+  - Top: Grouped Voronoi mosaic — tiles randomly assigned to 3 pulse attributes
+  - Each group's tiles coloured by that slider's value (blue→red)
+  - Staggered tile entrance animation (2s) + quick bar settle from max (600ms)
+  - Bottom: 3 vertical bar sliders (Connection ❤️, Intimacy 🔥, Peace ☮️)
+  - Drag vertically to set 1-10 score with haptic feedback
+  - "PULSE CHECK" header + helper text
 - **Smart Defaults** — Sliders start from your last check-in
-- **Trend Charts** — Visualize your history with smooth curves
-- **Partner Activity** — Timeline of partner's recent check-ins
-- **Reflection** — Optional appreciation or thoughts
-- **Slide to Save** — Swipe-to-confirm submission
+- **Reflection** — Optional appreciation or thoughts (always-red label)
+- **Slide to Save** — Sticky bottom swipe-to-confirm, always enabled
 
 ### 🔔 Push Notifications
 Real-time notifications triggered by partner activities:
@@ -165,10 +167,13 @@ A comprehensive activity tracking system that logs all couple interactions:
 | **Space Created** | Space was created | Creator name |
 
 **Features:**
-- Paginated display (6 initial, load 4 more)
-- Color-coded icons by action type (red=create, blue=delete, purple=edit)
+- Paginated display (6 initial, load 4 more) with "+ more activity" text
+- "You" for current user, partner's name for their activities
+- Event/moment names highlighted in bold, actor names in dim style
+- Check-in icon: organic mosaic tile SVG on tinted background
+- Score-coloured pulse attribute icons (blue→red) for check-in activities
+- Color-coded moment icons by action type (red=create, blue=delete, purple=edit)
 - Relative timestamps ("2h ago", "Yesterday")
-- Detailed check-in scores with emoji indicators
 - "Modified X" details for edited moments
 
 ---
@@ -635,12 +640,13 @@ lib/
     ├── avatar_selector.dart     # Avatar & color picker
     ├── moment_type_icon.dart    # getMomentTypeIconWidget helper
     ├── neumorphic_container.dart # PremiumCard, SectionHeader
-    ├── dotted_slider.dart       # ScoreSelector (32-dot circular slider)
+    ├── dotted_slider.dart       # ScoreSelector, VerticalBarSlider
     ├── slide_to_action.dart     # Swipe-to-confirm
     ├── animations/
     │   └── suspenseful_curve.dart
     └── painters/
-        ├── circle_progress_painters.dart
+        ├── circle_progress_painters.dart  # Dotted + continuous arc painters
+        ├── voronoi_mosaic_painter.dart    # Voronoi engine + 3 mosaic painters
         └── trend_chart_painter.dart
 ```
 

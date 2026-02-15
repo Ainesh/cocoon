@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../models/activity.dart';
 import '../../../models/moment.dart';
+import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../theme/theme.dart';
 import '../../../widgets/moment_type_icon.dart';
@@ -53,6 +54,7 @@ class ActivityTrail extends StatefulWidget {
 
 class _ActivityTrailState extends State<ActivityTrail> {
   final _firestoreService = FirestoreService();
+  final _currentUserId = AuthService().currentUser?.uid;
   
   StreamSubscription<List<Activity>>? _subscription;
   List<Activity> _activities = [];
@@ -136,10 +138,10 @@ class _ActivityTrailState extends State<ActivityTrail> {
           // Header
           Text(
             'ACTIVITY',
-            style: GoogleFonts.outfit(
+            style: GoogleFonts.inter(
               color: AppColors.warmMuted,
               fontSize: 10,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               letterSpacing: 1.5,
             ),
           ),
@@ -170,70 +172,42 @@ class _ActivityTrailState extends State<ActivityTrail> {
           return _ActivityItem(
             activity: activity,
             isLast: isLast,
+            currentUserId: _currentUserId,
             onTap: () => _handleTap(activity),
           );
         })),
         
-        // Load more button
+        // Load more text
         if (_hasMore) ...[
-          const SizedBox(height: 8),
-          _buildLoadMoreButton(),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildLoadMoreButton() {
-    return GestureDetector(
+          const SizedBox(height: 10),
+          GestureDetector(
       onTap: _isLoadingMore ? null : _loadMore,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.cardVariant.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
+            child: _isLoadingMore
+                ? Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            if (_isLoadingMore) ...[
               SizedBox(
-                width: 14,
-                height: 14,
+                        width: 12,
+                        height: 12,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   color: AppColors.warmMuted,
                 ),
               ),
-              const SizedBox(width: 8),
-              Text(
-                'Loading...',
+                    ],
+                  )
+                : Text(
+                    '+ more activity',
                 style: GoogleFonts.inter(
                   color: AppColors.warmMuted,
-                  fontSize: 12,
+                      fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
-              ),
-            ] else ...[
-              Icon(
-                Icons.history_rounded,
-                color: AppColors.warmMuted,
-                size: 14,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'View older',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
           ],
-        ),
-      ),
     );
   }
 
@@ -317,12 +291,20 @@ class _ActivityItem extends StatelessWidget {
   const _ActivityItem({
     required this.activity,
     required this.isLast,
+    this.currentUserId,
     this.onTap,
   });
 
   final Activity activity;
   final bool isLast;
+  final String? currentUserId;
   final VoidCallback? onTap;
+
+  /// "You" for the current user, otherwise the actor's name.
+  String get _displayName =>
+      (currentUserId != null && activity.actorId == currentUserId)
+          ? 'You'
+          : activity.actorName;
 
   // Slider-based colors for moment activities
   // Red (warm/high) for creation, Blue (cool/low) for deletion, Middle for edit
@@ -377,6 +359,11 @@ class _ActivityItem extends StatelessWidget {
 
   Widget _buildIcon() {
     final color = _getActivityColor();
+
+    // For check-in activities, show a tiny Voronoi mosaic
+    if (activity.type == ActivityType.checkin) {
+      return _buildCheckinMosaicIcon();
+    }
     
     // For moment activities, always use the moment type icon
     if (activity.type.isMomentActivity) {
@@ -421,6 +408,27 @@ class _ActivityItem extends StatelessWidget {
     );
   }
 
+  /// Check-in icon — mosaic tile SVG on a tinted rounded square,
+  /// matching the style of other activity icons.
+  Widget _buildCheckinMosaicIcon() {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: _createColor.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Center(
+        child: SvgPicture.asset(
+          'assets/icons/mosaic_tile.svg',
+          width: 14,
+          height: 14,
+          colorFilter: ColorFilter.mode(_createColor, BlendMode.srcIn),
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
     // Check if this is a check-in with scores (multiline display)
     final isCheckinWithScores = activity.type == ActivityType.checkin &&
@@ -446,16 +454,15 @@ class _ActivityItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Actor name and action - use Text.rich for web compatibility
         Text.rich(
           TextSpan(
             children: [
               TextSpan(
-                text: activity.actorName,
+                text: _displayName,
                 style: GoogleFonts.inter(
-                  color: AppColors.warmLight,
+                  color: AppColors.warmDim,
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
               TextSpan(
@@ -485,11 +492,9 @@ class _ActivityItem extends StatelessWidget {
     if (startDateStr != null) {
       final startDate = DateTime.parse(startDateStr);
       if (endDateStr != null) {
-        // Escape type - show date range
         final endDate = DateTime.parse(endDateStr);
         dateText = '${_formatShortDate(startDate)} - ${_formatShortDate(endDate)}';
       } else {
-        // Single date
         dateText = _formatShortDate(startDate);
       }
     }
@@ -498,24 +503,23 @@ class _ActivityItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Name and action
         Text.rich(
           TextSpan(
             children: [
               TextSpan(
-                text: activity.actorName,
-                style: GoogleFonts.inter(
-                  color: AppColors.warmLight,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextSpan(
-                text: ' planned "$momentName"',
+                text: '$_displayName planned ',
                 style: GoogleFonts.inter(
                   color: AppColors.warmDim,
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
+                ),
+              ),
+              TextSpan(
+                text: momentName,
+                style: GoogleFonts.inter(
+                  color: AppColors.warmLight,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -548,7 +552,6 @@ class _ActivityItem extends StatelessWidget {
     final momentName = activity.metadata?['momentName'] as String? ?? '';
     final changedFields = activity.changedFields;
     
-    // Format changed fields nicely with "Modified" prefix
     final formattedFields = changedFields.map((field) {
       switch (field) {
         case 'date':
@@ -567,24 +570,23 @@ class _ActivityItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Name and action
         Text.rich(
           TextSpan(
             children: [
               TextSpan(
-                text: activity.actorName,
-                style: GoogleFonts.inter(
-                  color: AppColors.warmLight,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextSpan(
-                text: ' updated "$momentName"',
+                text: '$_displayName updated ',
                 style: GoogleFonts.inter(
                   color: AppColors.warmDim,
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
+                ),
+              ),
+              TextSpan(
+                text: momentName,
+                style: GoogleFonts.inter(
+                  color: AppColors.warmLight,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -593,7 +595,6 @@ class _ActivityItem extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 2),
-        // Changed fields
         Text(
           changesText,
           style: GoogleFonts.inter(
@@ -615,83 +616,47 @@ class _ActivityItem extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Name and "checked in"
-        Text.rich(
-          TextSpan(
-            children: [
-              TextSpan(
-                text: activity.actorName,
-                style: GoogleFonts.inter(
-                  color: AppColors.warmLight,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              TextSpan(
-                text: ' checked in',
+        // "You checked in"
+        Text(
+          '$_displayName checked in',
                 style: GoogleFonts.inter(
                   color: AppColors.warmDim,
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
-                ),
-              ),
-            ],
           ),
         ),
         const SizedBox(height: 4),
         
-        // Score badges row - using same icons as check-in screen
+        // Score icons coloured by value (blue→red spectrum)
         Row(
           children: [
-            _buildIconScore(Icons.favorite_rounded, connection * 10),
-            const SizedBox(width: 12),
-            _buildSvgScore('assets/icons/flame.svg', intimacy * 10),
-            const SizedBox(width: 12),
-            _buildSvgScore('assets/icons/peace.svg', peace * 10),
+            _buildIconScore(Icons.favorite_rounded, connection),
+            const SizedBox(width: 10),
+            _buildSvgScore('assets/icons/flame.svg', intimacy),
+            const SizedBox(width: 10),
+            _buildSvgScore('assets/icons/peace.svg', peace),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildIconScore(IconData icon, int value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: AppColors.warmDim, size: 14),
-        const SizedBox(width: 3),
-        Text(
-          '$value',
-          style: GoogleFonts.inter(
-            color: AppColors.warmDim,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
+  /// Score colour on the blue (low) → red (high) spectrum.
+  Color _scoreColor(int score) =>
+      Color.lerp(AppColors.morningColor, AppColors.nightColor,
+          ((score - 1) / 9).clamp(0.0, 1.0)) ??
+      AppColors.nightColor;
+
+  Widget _buildIconScore(IconData icon, int score) {
+    return Icon(icon, color: _scoreColor(score), size: 16);
   }
 
-  Widget _buildSvgScore(String svgPath, int value) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SvgPicture.asset(
+  Widget _buildSvgScore(String svgPath, int score) {
+    return SvgPicture.asset(
           svgPath,
-          width: 14,
-          height: 14,
-          colorFilter: const ColorFilter.mode(AppColors.warmDim, BlendMode.srcIn),
-        ),
-        const SizedBox(width: 3),
-        Text(
-          '$value',
-          style: GoogleFonts.inter(
-            color: AppColors.warmDim,
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+      width: 16,
+      height: 16,
+      colorFilter: ColorFilter.mode(_scoreColor(score), BlendMode.srcIn),
     );
   }
 
@@ -744,3 +709,4 @@ class _ActivityItem extends StatelessWidget {
     }
   }
 }
+

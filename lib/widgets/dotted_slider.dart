@@ -1,8 +1,8 @@
-/// Score selector with horizontal slider and dotted circle display.
+/// Score selector with horizontal slider.
 ///
-/// Layout in a card:
-/// [Icon + Label]              [Dotted Circle]
-/// [====== THICK Slider ======]    [Score]
+/// Layout:
+/// [Icon + Label]
+/// [====== THICK Slider ======]
 library;
 
 import 'package:flutter/material.dart';
@@ -11,13 +11,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../theme/app_colors.dart';
-import 'painters/circle_progress_painters.dart';
 
-/// A score selector with:
-/// - Card background (like health details sheet)
-/// - Stat name aligned with top of circle
-/// - Thick horizontal slider with background track
-/// - Dotted circle on the right (haptics tied to dot filling)
+/// A score selector with icon, label, and thick horizontal slider.
 class ScoreSelector extends StatefulWidget {
   const ScoreSelector({
     super.key,
@@ -38,7 +33,8 @@ class ScoreSelector extends StatefulWidget {
   final String? iconAsset;
   final double min;
   final double max;
-  /// If true, renders without card wrapper (for embedding in a parent card)
+
+  /// If true, renders without card wrapper (for embedding in a parent card).
   final bool embedded;
 
   @override
@@ -46,59 +42,71 @@ class ScoreSelector extends StatefulWidget {
 }
 
 class _ScoreSelectorState extends State<ScoreSelector> {
-  // Circle size matching health card exactly
-  static const double circleSize = 100.0;
-  
-  // Bar height - balanced with circle
-  static const double barHeight = 44.0;
-  
-  // 32 dots like health card - haptics tied to this
-  static const int dotCount = 32;
-  
-  int _lastDotCount = 0;
+  // ---------------------------------------------------------------------------
+  // Constants
+  // ---------------------------------------------------------------------------
 
-  double get _progress => (widget.value - widget.min) / (widget.max - widget.min);
+  static const double _barHeight = 44.0;
+  
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+
+  int _lastRoundedValue = 0;
+
+  // ---------------------------------------------------------------------------
+  // Computed
+  // ---------------------------------------------------------------------------
+
+  double get _progress =>
+      (widget.value - widget.min) / (widget.max - widget.min);
   
   /// Interpolate between blue (low) and red (high) based on progress.
-  Color get _valueColor => Color.lerp(AppColors.morningColor, AppColors.nightColor, _progress) ?? AppColors.nightColor;
+  Color get _valueColor =>
+      Color.lerp(AppColors.morningColor, AppColors.nightColor, _progress) ??
+      AppColors.nightColor;
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
 
   @override
   void initState() {
     super.initState();
-    _lastDotCount = (dotCount * _progress).round();
+    _lastRoundedValue = widget.value.round();
   }
 
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
   void _handleValueChange(double newValue) {
-    final clampedValue = newValue.clamp(widget.min, widget.max);
-    final newProgress = (clampedValue - widget.min) / (widget.max - widget.min);
-    final newDotCount = (dotCount * newProgress).round();
+    final clamped = newValue.clamp(widget.min, widget.max);
+    final rounded = clamped.round();
     
-    // Haptic feedback tied to dot filling (like health card)
-    if (newDotCount != _lastDotCount) {
+    if (rounded != _lastRoundedValue) {
       HapticFeedback.selectionClick();
-      _lastDotCount = newDotCount;
+      _lastRoundedValue = rounded;
     }
     
-    widget.onChanged(clampedValue);
+    widget.onChanged(clamped);
   }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
     final color = _valueColor;
     
-    final content = Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Left side: Label + slider vertically stacked
-        Expanded(
-          child: Column(
+    final content = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
               // Icon + Label row
               Row(
                 children: [
-                  // Icon container (matching health details sheet)
                   Container(
                     width: 36,
                     height: 36,
@@ -114,7 +122,8 @@ class _ScoreSelectorState extends State<ScoreSelector> {
                                   widget.iconAsset!,
                                   width: 18,
                                   height: 18,
-                                  colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                            colorFilter:
+                                ColorFilter.mode(color, BlendMode.srcIn),
                                 )
                               : null,
                     ),
@@ -130,53 +139,17 @@ class _ScoreSelectorState extends State<ScoreSelector> {
                 ],
               ),
               const SizedBox(height: 14),
-              // Horizontal Slider with visible background track
               _HorizontalSlider(
                 value: widget.value,
                 onChanged: _handleValueChange,
                 min: widget.min,
                 max: widget.max,
                 color: color,
-                height: barHeight,
-              ),
-            ],
-          ),
-        ),
-        
-        const SizedBox(width: 20),
-        
-        // Right: Dotted Circle with Score
-        SizedBox(
-          width: circleSize,
-          height: circleSize,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              CustomPaint(
-                size: const Size(circleSize, circleSize),
-                painter: DottedCircleProgressPainter(
-                  progress: _progress,
-                  activeColor: color,
-                  inactiveColor: AppColors.cardVariant,
-                  dotCount: dotCount,
-                  dotRadius: 2.8,
-                ),
-              ),
-              Text(
-                widget.value.round().toString(),
-                style: GoogleFonts.outfit(
-                  fontSize: circleSize * 0.42,
-                  fontWeight: FontWeight.w700,
-                  color: color,
-                ),
-              ),
-            ],
-          ),
+          height: _barHeight,
         ),
       ],
     );
     
-    // If embedded, return just the content with padding
     if (widget.embedded) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -184,7 +157,6 @@ class _ScoreSelectorState extends State<ScoreSelector> {
       );
     }
     
-    // Otherwise, wrap in card
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -193,6 +165,182 @@ class _ScoreSelectorState extends State<ScoreSelector> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: content,
+    );
+  }
+}
+
+/// Vertical bar slider with bar, icon + label below.
+///
+/// Drag vertically to change the value. The bar fills from bottom to top.
+/// When [displayProgress] is provided it overrides the computed fill level,
+/// allowing an external animation (e.g. fill-from-max entrance).
+class VerticalBarSlider extends StatefulWidget {
+  const VerticalBarSlider({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.label,
+    this.icon,
+    this.iconAsset,
+    this.min = 1.0,
+    this.max = 10.0,
+    this.displayProgress,
+  });
+
+  final double value;
+  final ValueChanged<double> onChanged;
+  final String? label;
+  final IconData? icon;
+  final String? iconAsset;
+  final double min;
+  final double max;
+
+  /// When non-null, used as the bar fill level (0–1) instead of computing
+  /// from [value]. Enables external entrance animations.
+  final double? displayProgress;
+
+  @override
+  State<VerticalBarSlider> createState() => _VerticalBarSliderState();
+}
+
+class _VerticalBarSliderState extends State<VerticalBarSlider> {
+  int _lastRoundedValue = 0;
+
+  double get _progress =>
+      (widget.value - widget.min) / (widget.max - widget.min);
+
+  Color get _valueColor =>
+      Color.lerp(AppColors.morningColor, AppColors.nightColor, _progress) ??
+      AppColors.nightColor;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastRoundedValue = widget.value.round();
+  }
+
+  void _handleDrag(Offset localPosition, double trackHeight) {
+    final progress = (1.0 - localPosition.dy / trackHeight).clamp(0.0, 1.0);
+    final newValue = (widget.min + progress * (widget.max - widget.min))
+        .clamp(widget.min, widget.max);
+    final rounded = newValue.round();
+
+    if (rounded != _lastRoundedValue) {
+      HapticFeedback.selectionClick();
+      _lastRoundedValue = rounded;
+    }
+
+    widget.onChanged(newValue);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fillProgress = widget.displayProgress ?? _progress;
+    final color = _valueColor;
+    const borderRadius = 14.0;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Vertical bar
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final trackHeight = constraints.maxHeight;
+
+              return GestureDetector(
+                onVerticalDragStart: (d) {
+                  HapticFeedback.lightImpact();
+                  _handleDrag(d.localPosition, trackHeight);
+                },
+                onVerticalDragUpdate: (d) =>
+                    _handleDrag(d.localPosition, trackHeight),
+                onVerticalDragEnd: (_) => HapticFeedback.mediumImpact(),
+                onTapDown: (d) {
+                  HapticFeedback.lightImpact();
+                  _handleDrag(d.localPosition, trackHeight);
+                },
+                child: SizedBox(
+                  width: double.infinity,
+                  height: trackHeight,
+                  child: Stack(
+                    alignment: Alignment.bottomCenter,
+                    children: [
+                      // Background track
+                      Container(
+                        width: double.infinity,
+                        height: trackHeight,
+                        decoration: BoxDecoration(
+                          color: AppColors.cardVariant.withValues(alpha: 0.5),
+                          borderRadius: BorderRadius.circular(borderRadius),
+                        ),
+                      ),
+                      // Filled bar (bottom-up)
+                      AnimatedContainer(
+                        duration: Duration(
+                          milliseconds:
+                              widget.displayProgress != null ? 0 : 50,
+                        ),
+                        width: double.infinity,
+                        height: (trackHeight * fillProgress)
+                            .clamp(trackHeight * 0.05, trackHeight),
+                        decoration: BoxDecoration(
+                          color: color,
+                          borderRadius: BorderRadius.circular(borderRadius),
+                          boxShadow: [
+                            BoxShadow(
+                              color: color.withValues(alpha: 0.4),
+                              blurRadius: 10,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Icon below bar
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: widget.icon != null
+                ? Icon(widget.icon, color: color, size: 18)
+                : widget.iconAsset != null
+                    ? SvgPicture.asset(
+                        widget.iconAsset!,
+                        width: 18,
+                        height: 18,
+                        colorFilter:
+                            ColorFilter.mode(color, BlendMode.srcIn),
+                      )
+                    : null,
+          ),
+        ),
+
+        // Label below icon
+        if (widget.label != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            widget.label!,
+            style: GoogleFonts.inter(
+              fontSize: 10,
+              color: AppColors.warmMuted,
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }
@@ -217,8 +365,7 @@ class _HorizontalSlider extends StatelessWidget {
 
   void _handleDrag(Offset localPosition, double trackWidth) {
     final progress = (localPosition.dx / trackWidth).clamp(0.0, 1.0);
-    final newValue = min + progress * (max - min);
-    onChanged(newValue);
+    onChanged(min + progress * (max - min));
   }
 
   @override
@@ -248,19 +395,20 @@ class _HorizontalSlider extends StatelessWidget {
             height: height,
             child: Stack(
               children: [
-                // BACKGROUND: Subtle empty bar showing full range
+                // Background track
                 Container(
                   width: trackWidth,
                   height: height,
                   decoration: BoxDecoration(
-                    color: AppColors.cardVariant.withValues(alpha: 0.5), // Subtle against card
+                    color: AppColors.cardVariant.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(borderRadius),
                   ),
                 ),
-                // FOREGROUND: Colored fill with glow (minimum width so it's always visible)
+                // Filled track
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 50),
-                  width: (trackWidth * progress).clamp(trackWidth * 0.05, trackWidth), // Min width = 5% of track
+                  width: (trackWidth * progress)
+                      .clamp(trackWidth * 0.05, trackWidth),
                   height: height,
                   decoration: BoxDecoration(
                     color: color,

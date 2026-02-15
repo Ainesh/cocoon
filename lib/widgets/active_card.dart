@@ -23,6 +23,7 @@ class ActiveCard extends StatelessWidget {
     this.hideHelperWhenActive = true,
     this.shrinkWhenActive = false,
     this.showBorder = false,
+    this.transparent = false,
   });
 
   /// The heading text (displayed in UPPERCASE with letter spacing)
@@ -46,6 +47,9 @@ class ActiveCard extends StatelessWidget {
   /// If true, shows a red border (can be controlled separately from isActive)
   final bool showBorder;
 
+  /// If true, uses a transparent background (for use over custom backgrounds).
+  final bool transparent;
+
   @override
   Widget build(BuildContext context) {
     final hideHelper = hideHelperWhenActive && isActive;
@@ -56,7 +60,7 @@ class ActiveCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
+        color: transparent ? Colors.transparent : AppColors.darkCardLight,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: showBorder

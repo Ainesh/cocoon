@@ -129,7 +129,7 @@ class _HealthDetailsContent extends StatelessWidget {
       child: Container(
         height: MediaQuery.of(context).size.height * 0.8,
         decoration: BoxDecoration(
-          color: AppColors.darkCard,
+          color: AppColors.pureBlack,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: Column(
@@ -180,25 +180,32 @@ class _HealthDetailsContent extends StatelessWidget {
                       fontStyle: FontStyle.italic,
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 16),
+                  // Helper text
+                  Text(
+                    'The health card is a uniquely generated artifact using this data.',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmMuted.withValues(alpha: 0.7),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                   
-                  // Two columns: Left insights, Right attributes
+                  // Insights + Pulse Score side by side
                   IntrinsicHeight(
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Left: Insights (tappable for help)
                         Expanded(child: _buildInsightsCard(context)),
                         const SizedBox(width: 12),
-                        // Right: Attribute breakdown
                         Expanded(child: _buildAttributesColumn()),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 12),
                   
-                  const SizedBox(height: 24),
-                  
-                  // Monthly trend chart
+                  // Trend chart card
                   _buildMonthlyTrendChart(),
                 ],
               ),
@@ -287,7 +294,7 @@ class _HealthDetailsContent extends StatelessWidget {
             _buildInsightRow('Your check-ins', checkInStats.userCheckInCount.toString(), ''),
             const SizedBox(height: 12),
             _buildInsightRow('Partner check-ins', checkInStats.partnerCheckInCount.toString(), ''),
-            const Spacer(),
+            const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
@@ -320,7 +327,7 @@ class _HealthDetailsContent extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => Dialog(
-        backgroundColor: AppColors.darkCard,
+        backgroundColor: AppColors.darkCardLight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -444,8 +451,8 @@ class _HealthDetailsContent extends StatelessWidget {
               value,
               style: GoogleFonts.outfit(
                 color: AppColors.warmLight,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
               ),
             ),
             if (suffix.isNotEmpty) ...[
@@ -464,170 +471,125 @@ class _HealthDetailsContent extends StatelessWidget {
     );
   }
 
+  /// Score colour on the blue (low) → red (high) spectrum.
+  Color _scoreColor(double pct) =>
+      Color.lerp(AppColors.morningColor, AppColors.nightColor,
+          (pct / 100).clamp(0.0, 1.0)) ??
+      AppColors.nightColor;
+
   Widget _buildAttributesColumn() {
-    return Column(
-      children: [
-        Expanded(
-          child: _buildCompactMetric(
-            'Connection',
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'PULSE SCORE',
+            style: GoogleFonts.inter(
+              color: AppColors.warmMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _buildPulseRow(
             Icons.favorite_rounded,
             null,
+            'Connection',
             connectionPct,
             checkInStats.connectionTrend,
           ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _buildCompactMetricSvg(
-            'Intimacy',
+          const SizedBox(height: 12),
+          _buildPulseRow(
+            null,
             'assets/icons/flame.svg',
+            'Intimacy',
             intimacyPct,
             checkInStats.intimacyTrend,
           ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(
-          child: _buildCompactMetricSvg(
-            'Peace',
+          const SizedBox(height: 12),
+          _buildPulseRow(
+            null,
             'assets/icons/peace.svg',
+            'Peace',
             peacePct,
             checkInStats.peaceTrend,
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPulseRow(
+    IconData? icon,
+    String? svgPath,
+    String label,
+    double value,
+    double trend,
+  ) {
+    final color = _scoreColor(value);
+    final trendPositive = trend > 0;
+    final trendColor =
+        trendPositive ? AppColors.nightColor : AppColors.morningColor;
+
+    return Row(
+      children: [
+        // Icon coloured by score
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Center(
+            child: icon != null
+                ? Icon(icon, color: color, size: 16)
+                : SvgPicture.asset(
+                    svgPath!,
+                    width: 16,
+                    height: 16,
+                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                  ),
+          ),
         ),
+        const SizedBox(width: 10),
+        // Label
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.inter(
+              color: AppColors.warmDim,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        // Score (smaller) + trend arrow
+        Text(
+          value.round().toString(),
+          style: GoogleFonts.outfit(
+            color: AppColors.warmLight,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        if (trend != 0) ...[
+          const SizedBox(width: 4),
+          Icon(
+            trendPositive
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded,
+            color: trendColor,
+            size: 12,
+          ),
+        ],
       ],
-    );
-  }
-
-  Widget _buildCompactMetric(String label, IconData? icon, String? svgPath, double value, double trend) {
-    final trendPositive = trend > 0;
-    final trendColor = trendPositive ? AppColors.success : AppColors.trendNegative;
-    
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.accentRed.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: icon != null 
-                ? Icon(icon, color: AppColors.accentRed, size: 18)
-                : null,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    color: AppColors.warmMuted,
-                    fontSize: 11,
-                  ),
-                ),
-                Row(
-                  children: [
-                    Text(
-                      value.round().toString(),
-                      style: GoogleFonts.outfit(
-                        color: AppColors.warmLight,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (trend != 0) ...[
-                      const SizedBox(width: 6),
-                      Icon(
-                        trendPositive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                        color: trendColor,
-                        size: 12,
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCompactMetricSvg(String label, String svgPath, double value, double trend) {
-    final trendPositive = trend > 0;
-    final trendColor = trendPositive ? AppColors.success : AppColors.trendNegative;
-    
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.accentRed.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: SvgPicture.asset(
-                svgPath,
-                width: 18,
-                height: 18,
-                colorFilter: ColorFilter.mode(AppColors.accentRed, BlendMode.srcIn),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: GoogleFonts.inter(
-                    color: AppColors.warmMuted,
-                    fontSize: 11,
-                  ),
-                ),
-                Row(
-                  children: [
-                    Text(
-                      value.round().toString(),
-                      style: GoogleFonts.outfit(
-                        color: AppColors.warmLight,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    if (trend != 0) ...[
-                      const SizedBox(width: 6),
-                      Icon(
-                        trendPositive ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded,
-                        color: trendColor,
-                        size: 12,
-                      ),
-                    ],
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -671,7 +633,7 @@ class _HealthDetailsContent extends StatelessWidget {
         children: [
           // Heading inside card
           Text(
-            'MONTHLY TREND',
+            'TREND',
             style: GoogleFonts.inter(
               color: AppColors.warmMuted,
               fontSize: 10,
@@ -710,32 +672,17 @@ class _HealthDetailsContent extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Long back',
+                'Some time back',
                 style: GoogleFonts.inter(
                   color: AppColors.warmMuted,
                   fontSize: 10,
                 ),
               ),
               Text(
-                'Week before',
+                'Now',
                 style: GoogleFonts.inter(
                   color: AppColors.warmMuted,
                   fontSize: 10,
-                ),
-              ),
-              Text(
-                'Last week',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
-                  fontSize: 10,
-                ),
-              ),
-              Text(
-                'This week',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmLight,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

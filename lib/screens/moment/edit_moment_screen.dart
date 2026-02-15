@@ -244,7 +244,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.darkCard,
+        backgroundColor: AppColors.darkCardLight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Discard changes?',
@@ -931,7 +931,7 @@ class _DeleteCountdownOverlay extends StatelessWidget {
           margin: const EdgeInsets.all(40),
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
           decoration: BoxDecoration(
-            color: AppColors.darkCard,
+            color: AppColors.darkCardLight,
             borderRadius: BorderRadius.circular(24),
           ),
           child: Column(
