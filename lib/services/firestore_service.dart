@@ -1037,6 +1037,7 @@ class FirestoreService {
     required int connection,
     required int intimacy,
     required int peace,
+    String? notes,
   }) async {
     await logActivity(
       spaceId: spaceId,
@@ -1049,6 +1050,7 @@ class FirestoreService {
         'connection': connection,
         'intimacy': intimacy,
         'peace': peace,
+        if (notes != null && notes.isNotEmpty) 'notes': notes,
       },
     );
   }

@@ -177,6 +177,7 @@ class _CheckInScreenState extends State<CheckInScreen>
         connection: _connection.round(),
         intimacy: _intimacy.round(),
         peace: _peace.round(),
+        notes: _notesController.text.trim(),
       );
 
       if (mounted) {
@@ -238,7 +239,7 @@ class _CheckInScreenState extends State<CheckInScreen>
         ),
         bottomNavigationBar: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
             child: SlideToAction(
               label: 'Slide to save',
               loadingLabel: 'Saving...',
@@ -249,8 +250,9 @@ class _CheckInScreenState extends State<CheckInScreen>
           ),
         ),
         body: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -315,6 +317,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                             animationProgress: tileAnim,
                             tileCount: 60,
                             backgroundColor: AppColors.darkCardLight,
+                            staggerSpread: 0.4,
                           ),
                         ),
                       ),
@@ -324,7 +327,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                       padding: const EdgeInsets.all(14),
                       child: Text(
                         'PULSE CHECK',
-                        style: GoogleFonts.inter(
+                        style: GoogleFonts.outfit(
                           color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
@@ -357,7 +360,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                   child: SizedBox(
-                    height: 330,
+                    height: 265,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -408,7 +411,7 @@ class _CheckInScreenState extends State<CheckInScreen>
       children: [
         // Mosaic + 3 vertical bar sliders
         _buildPulseCard(),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
         // Notes field - tapping anywhere focuses the text field
         GestureDetector(
@@ -438,7 +441,6 @@ class _CheckInScreenState extends State<CheckInScreen>
             ),
           ),
         ),
-        const SizedBox(height: 100),
       ],
     );
   }

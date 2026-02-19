@@ -236,7 +236,7 @@ class _HealthDetailsContent extends StatelessWidget {
               children: [
                 Text(
                   'INSIGHTS',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.outfit(
                     color: AppColors.warmMuted,
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
@@ -490,7 +490,7 @@ class _HealthDetailsContent extends StatelessWidget {
         children: [
           Text(
             'PULSE SCORE',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.outfit(
               color: AppColors.warmMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -534,61 +534,45 @@ class _HealthDetailsContent extends StatelessWidget {
     double trend,
   ) {
     final color = _scoreColor(value);
-    final trendPositive = trend > 0;
-    final trendColor =
-        trendPositive ? AppColors.nightColor : AppColors.morningColor;
 
     return Row(
       children: [
-        // Icon coloured by score
         Container(
-          width: 32,
-          height: 32,
+          width: 28,
+          height: 28,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
             child: icon != null
-                ? Icon(icon, color: color, size: 16)
+                ? Icon(icon, color: color, size: 14)
                 : SvgPicture.asset(
                     svgPath!,
-                    width: 16,
-                    height: 16,
+                    width: 14,
+                    height: 14,
                     colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
                   ),
           ),
         ),
-        const SizedBox(width: 10),
-        // Label
+        const SizedBox(width: 8),
         Expanded(
           child: Text(
             label,
             style: GoogleFonts.inter(
               color: AppColors.warmDim,
-              fontSize: 13,
+              fontSize: 11,
             ),
           ),
         ),
-        // Score (smaller) + trend arrow
         Text(
           value.round().toString(),
           style: GoogleFonts.outfit(
             color: AppColors.warmLight,
-            fontSize: 15,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
         ),
-        if (trend != 0) ...[
-          const SizedBox(width: 4),
-          Icon(
-            trendPositive
-                ? Icons.arrow_upward_rounded
-                : Icons.arrow_downward_rounded,
-            color: trendColor,
-            size: 12,
-          ),
-        ],
       ],
     );
   }
@@ -634,7 +618,7 @@ class _HealthDetailsContent extends StatelessWidget {
           // Heading inside card
           Text(
             'TREND',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.outfit(
               color: AppColors.warmMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,

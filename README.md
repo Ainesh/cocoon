@@ -568,14 +568,12 @@ lib/
 │   ├── login_screen.dart        # Welcome with auth options
 │   ├── onboarding_screen.dart   # Space creation wizard
 │   ├── join_screen.dart         # Join space with invite
-│   ├── main_shell.dart          # Bottom nav + settings
-│   ├── calendar_tab.dart        # Moments calendar view
-│   ├── checkins_tab.dart        # Check-ins timeline
-│   ├── agreements_tab.dart      # Coming soon placeholder
+│   ├── main_shell.dart          # Stretchy tab nav + settings + coming soon
 │   │
-│   ├── checkin/                 # Check-in screen module
+│   ├── checkin/                 # Check-in module
 │   │   ├── checkin.dart         # Barrel export
-│   │   ├── checkin_screen.dart  # Main check-in form
+│   │   ├── checkin_screen.dart  # Pulse check form
+│   │   ├── checkin_details_sheet.dart  # View-only check-in sheet
 │   │   └── widgets/
 │   │       ├── partner_checkins.dart
 │   │       └── your_trend.dart
@@ -586,7 +584,7 @@ lib/
 │   │   └── widgets/
 │   │       ├── activity_trail.dart     # Activity history with pagination
 │   │       ├── event_cards.dart        # ComingUpCard, PlanMomentCard
-│   │       ├── health_card.dart        # Animated health score
+│   │       ├── health_card.dart        # Animated Voronoi health score
 │   │       └── health_details_sheet.dart
 │   │
 │   └── moment/                  # Moment planning module
@@ -599,14 +597,18 @@ lib/
 │   ├── auth_service.dart        # Firebase Auth + Google Sign-In
 │   └── firestore_service.dart   # All Firestore CRUD + streams
 │
-└── widgets/
+├── utils/
+│   └── date_utils.dart          # AppDateFormat — shared date formatting
+│
+└── widgets/                     # Reusable component library
     ├── widgets.dart             # Barrel export
     ├── action_button.dart       # ActionButton, HoldToActionButton
-    ├── active_card.dart         # Card with active state
+    ├── active_card.dart         # Card with active/highlighted state
     ├── animated_tap_button.dart # Button with tap animation
     ├── avatar_selector.dart     # Avatar & color picker
+    ├── inline_calendar.dart     # InlineDateCalendar, InlineRangeCalendar
     ├── moment_type_icon.dart    # getMomentTypeIconWidget helper
-    ├── neumorphic_container.dart # PremiumCard, SectionHeader
+    ├── neumorphic_container.dart # PremiumCard, SectionHeader, EmptyState
     ├── dotted_slider.dart       # ScoreSelector, VerticalBarSlider
     ├── slide_to_action.dart     # Swipe-to-confirm
     ├── animations/

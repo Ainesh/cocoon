@@ -6,8 +6,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 
 import '../../models/moment.dart';
+import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/moment_type_icon.dart';
@@ -61,13 +63,24 @@ class _MomentDetailsContent extends StatefulWidget {
 
 class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   final _firestoreService = FirestoreService();
+  final _authService = AuthService();
   
   bool _isHoldingDelete = false;
   int _activeDots = 24; // Total dots, counts down to 0
   Timer? _deleteTimer;
   OverlayEntry? _overlayEntry;
   String? _plannedByName;
-  
+
+  String get _plannedBySubtitle {
+    final name = _plannedByName ?? '';
+    final createdAt = widget.moment.createdAt;
+    if (createdAt != null) {
+      final dateStr = DateFormat('EEEE, MMM d').format(createdAt);
+      return 'Planned by $name on $dateStr';
+    }
+    return 'Planned by $name';
+  }
+
   static const _totalDots = 24;
   static const _totalDurationMs = 3000; // 3 seconds
   static const _msPerDot = _totalDurationMs ~/ _totalDots; // ~125ms per dot
@@ -80,6 +93,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   Future<void> _loadPlannedByName() async {
     if (widget.moment.createdBy.isEmpty) return;
+    final currentUserId = _authService.currentUser?.uid;
+    if (widget.moment.createdBy == currentUserId) {
+      if (mounted) setState(() => _plannedByName = 'You');
+      return;
+    }
     final profile = await _firestoreService.getUserProfile(widget.moment.createdBy);
     if (mounted && profile != null) {
       setState(() => _plannedByName = profile['name'] as String?);
@@ -88,7 +106,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   @override
   void dispose() {
-    _cancelDelete();
+    _deleteTimer?.cancel();
+    _deleteTimer = null;
+    // Remove overlay safely — may already be gone if widget disposed
+    _overlayEntry?.remove();
+    _overlayEntry = null;
     super.dispose();
   }
 
@@ -102,18 +124,23 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     
     // Timer fires for each dot
     _deleteTimer = Timer.periodic(Duration(milliseconds: _msPerDot), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       if (_activeDots > 1) {
         setState(() => _activeDots--);
         // Recreate overlay with new dot count
         _hideDeleteOverlay();
         _showDeleteOverlay();
-        HapticFeedback.selectionClick(); // Light haptic for each dot
+        HapticFeedback.selectionClick();
       } else {
         // Delete!
         timer.cancel();
         _hideDeleteOverlay();
         HapticFeedback.heavyImpact();
-        Navigator.of(context).pop();
+        // Pop first, then call onDelete — avoids context issues
+        if (mounted) Navigator.of(context).pop();
         widget.onDelete?.call();
       }
     });
@@ -132,6 +159,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   }
 
   void _showDeleteOverlay() {
+    if (!mounted) return;
     _overlayEntry = OverlayEntry(
       builder: (context) => _DeleteCountdownOverlay(
         activeDots: _activeDots,
@@ -215,9 +243,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                       textAlign: TextAlign.center,
                     ),
                     if (_plannedByName != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       Text(
-                        'Planned by $_plannedByName',
+                        _plannedBySubtitle,
                         style: GoogleFonts.inter(
                           color: AppColors.warmMuted,
                           fontSize: 13,
@@ -226,16 +254,16 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                         textAlign: TextAlign.center,
                       ),
                     ],
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
                     
                     // Info cards row (long-press to edit)
                     _buildInfoRow(),
                     
                     // Notes section (always show, long-press to edit)
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 12),
                     _buildNotesSection(),
                     
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
                     
                     // Action buttons
                     _buildActions(context),
@@ -327,7 +355,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           // Header
           Text(
             'DATES',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.outfit(
               color: AppColors.warmMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -434,7 +462,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           // Header
           Text(
             'DATE',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.outfit(
               color: AppColors.warmMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -565,7 +593,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           // Header
           Text(
             'TIME',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.outfit(
               color: AppColors.warmMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,
@@ -656,7 +684,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           children: [
             Text(
               'NOTES',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.outfit(
                 color: AppColors.warmMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
@@ -665,7 +693,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
             ),
             const SizedBox(height: 12),
             Text(
-              hasNotes ? moment.notes! : 'Space for your thoughts',
+              hasNotes ? moment.notes! : 'No notes yet. Hold to add.',
               style: AppTypography.bodyMedium(
                 color: hasNotes ? AppColors.subtleText : AppColors.warmMuted,
               ),

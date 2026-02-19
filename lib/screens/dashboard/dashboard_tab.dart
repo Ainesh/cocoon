@@ -17,6 +17,7 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
 import '../../models/activity.dart';
+import '../checkin/checkin_details_sheet.dart';
 import '../moment/moment_details_sheet.dart';
 import 'widgets/activity_trail.dart';
 import 'widgets/event_cards.dart';
@@ -244,15 +245,14 @@ class _DashboardTabState extends State<DashboardTab> {
       backgroundColor: AppColors.darkCard,
       onRefresh: _handleRefresh,
       child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(parent: ClampingScrollPhysics()),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildMainGrid(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
             _buildActivityTrail(),
-            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -350,14 +350,30 @@ class _DashboardTabState extends State<DashboardTab> {
         }
         break;
       case EntityType.checkin:
-        // Navigate to check-ins tab or show check-in details
-        // For now, just navigate to check-in screen
-        context.push('/checkin/${widget.spaceId}');
+        _showCheckinDetails(activity);
         break;
       case EntityType.space:
       case null:
         // No specific navigation for space activities
         break;
     }
+  }
+
+  void _showCheckinDetails(Activity activity) {
+    final currentUserId = _authService.currentUser?.uid;
+    final displayName =
+        (currentUserId != null && activity.actorId == currentUserId)
+            ? 'You'
+            : activity.actorName;
+
+    showCheckinDetailsSheet(
+      context: context,
+      actorName: displayName,
+      timestamp: activity.timestamp,
+      connection: activity.metadata?['connection'] as int? ?? 5,
+      intimacy: activity.metadata?['intimacy'] as int? ?? 5,
+      peace: activity.metadata?['peace'] as int? ?? 5,
+      notes: activity.metadata?['notes'] as String?,
+    );
   }
 }

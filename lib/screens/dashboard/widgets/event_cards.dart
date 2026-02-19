@@ -61,7 +61,7 @@ class ComingUpCard extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: Text(
               'COMING UP',
-              style: GoogleFonts.inter(
+              style: GoogleFonts.outfit(
                 color: AppColors.warmMuted,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,

@@ -47,6 +47,9 @@ class HealthCardState extends State<HealthCard>
 
   bool _hasAnimated = false;
 
+  /// Tracks how many haptic ticks have fired during tile appearance.
+  int _lastHapticTick = -1;
+
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
@@ -95,6 +98,17 @@ class HealthCardState extends State<HealthCard>
   }
 
   void _onTick() {
+    // Haptic feedback while tiles are appearing (0→0.75 of timeline).
+    // Fire ~12 evenly spaced ticks during the tile entrance phase.
+    final progress = _controller.value;
+    if (progress <= 0.75) {
+      const totalTicks = 12;
+      final tick = (progress / 0.75 * totalTicks).floor();
+      if (tick > _lastHapticTick) {
+        _lastHapticTick = tick;
+        HapticFeedback.lightImpact();
+      }
+    }
     if (mounted) setState(() {});
   }
 
@@ -116,6 +130,7 @@ class HealthCardState extends State<HealthCard>
     // Fresh seed → fresh Voronoi pattern
     _seed = DateTime.now().millisecondsSinceEpoch;
     _hasAnimated = true;
+    _lastHapticTick = -1;
 
     if (forceReanimate) {
       _controller.reset();
@@ -180,7 +195,7 @@ class HealthCardState extends State<HealthCard>
                 padding: const EdgeInsets.all(12),
                 child: Text(
                   'HEALTH',
-                  style: GoogleFonts.inter(
+                  style: GoogleFonts.outfit(
                     color: Colors.white.withValues(alpha: 0.9),
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
