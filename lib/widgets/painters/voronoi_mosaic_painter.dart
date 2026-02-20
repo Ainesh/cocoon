@@ -688,6 +688,7 @@ class VoronoiGroupedPainter extends CustomPainter {
     this.animationProgress = 1.0,
     this.tileCount = 60,
     this.backgroundColor = const Color(0xFF1E1E1E),
+    this.staggerSpread = 0.75,
   });
 
   /// One colour per group. Length determines group count.
@@ -705,6 +706,12 @@ class VoronoiGroupedPainter extends CustomPainter {
 
   /// Grout / background colour.
   final Color backgroundColor;
+
+  /// How much of the timeline is used to spread tile start times (0→1).
+  /// Lower = more tiles start at the same time (higher concurrency).
+  /// Default 0.75 = tiles spread across 75% of timeline.
+  /// Use 0.3–0.4 for faster, more concurrent appearance.
+  final double staggerSpread;
 
   // Own static cache
   static _CachedGroupedMosaic? _cache;
@@ -803,9 +810,10 @@ class VoronoiGroupedPainter extends CustomPainter {
 
       // Per-tile staggered zoom-in → glow → zoom-out → settle
       final orderIdx = tileOrder[i];
-      final startT = (orderIdx / n) * (1.0 - _Config.cycleLength);
+      final cycleFrac = 1.0 - staggerSpread; // fraction of timeline per tile
+      final startT = (orderIdx / n) * staggerSpread;
       final localT =
-          ((animationProgress - startT) / _Config.cycleLength).clamp(0.0, 1.0);
+          ((animationProgress - startT) / cycleFrac).clamp(0.0, 1.0);
       if (localT <= 0) continue;
 
       final anim = _tileAnimation(localT);

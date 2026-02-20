@@ -15,6 +15,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
+import '../../utils/date_utils.dart';
+import '../../widgets/inline_calendar.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
@@ -51,6 +53,10 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   // UI state
   bool _isSubmitting = false;
+  bool _isCalendarExpanded = false;
+  bool _showSaveButton = false;
+  DateTime _focusedDay = DateTime.now();
+  final _scrollController = ScrollController();
   final _nameController = TextEditingController();
   final _nameFocusNode = FocusNode();
   final _notesController = TextEditingController();
@@ -63,15 +69,18 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       setState(() {}); // Rebuild for validation
     });
     _nameFocusNode.addListener(() {
-      setState(() {}); // Rebuild for focus changes
+      if (_nameFocusNode.hasFocus) _isCalendarExpanded = false;
+      setState(() {});
     });
     _notesFocusNode.addListener(() {
-      setState(() {}); // Rebuild for focus changes
+      if (_notesFocusNode.hasFocus) _isCalendarExpanded = false;
+      setState(() {});
     });
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _nameFocusNode.dispose();
     _notesController.dispose();
@@ -160,133 +169,22 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   }
 
   void _selectTimeSlot(TimeSlot slot) {
-    _dismissKeyboard();
     setState(() => _selectedTimeSlot = slot);
+    _scrollToBottom();
   }
 
   void _selectDate(DateTime date) {
     _dismissKeyboard();
-    setState(() => _startDate = date);
+    setState(() {
+      _startDate = date;
+      _isCalendarExpanded = false;
+    });
+    _scrollToBottom();
   }
 
-  Future<void> _pickStartDate() async {
-    _dismissKeyboard();
-    await Future.delayed(const Duration(milliseconds: 50));
-    HapticFeedback.lightImpact();
-    final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _startDate ?? now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365 * 2)),
-      builder: _datePickerTheme,
-    );
-    if (date != null) {
-      setState(() {
-        _startDate = date;
-        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
-          _endDate = null;
-        }
-      });
-    }
-  }
 
-  Future<void> _pickBothDates() async {
-    _dismissKeyboard();
-    await Future.delayed(const Duration(milliseconds: 50));
-    HapticFeedback.lightImpact();
-    await _showDateRangePicker();
-  }
 
-  Future<void> _pickBothDatesWithStart(DateTime existingStart) async {
-    _dismissKeyboard();
-    await Future.delayed(const Duration(milliseconds: 50));
-    HapticFeedback.lightImpact();
-    await _showDateRangePicker(initialStart: existingStart);
-  }
 
-  Future<void> _showDateRangePicker({DateTime? initialStart}) async {
-    final now = DateTime.now();
-    final initialRange = initialStart != null
-        ? DateTimeRange(start: initialStart, end: _endDate ?? initialStart.add(const Duration(days: 2)))
-        : _startDate != null
-            ? DateTimeRange(start: _startDate!, end: _endDate ?? _startDate!.add(const Duration(days: 2)))
-            : DateTimeRange(start: now, end: now.add(const Duration(days: 2)));
-
-    final result = await showDateRangePicker(
-      context: context,
-      initialDateRange: initialRange,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365 * 2)),
-      saveText: 'CONFIRM',
-      builder: _datePickerTheme,
-    );
-
-    if (result != null) {
-      setState(() {
-        _startDate = result.start;
-        _endDate = result.end;
-      });
-    }
-  }
-
-  /// Shared theme for date pickers
-  Widget _datePickerTheme(BuildContext context, Widget? child) {
-    return Theme(
-      data: ThemeData.dark().copyWith(
-        colorScheme: ColorScheme.dark(
-          primary: AppColors.accentRed,
-          onPrimary: Colors.white,
-          primaryContainer: AppColors.accentRed.withValues(alpha: 0.2),
-          surface: AppColors.pureBlack,
-          onSurface: AppColors.lightText,
-          secondary: AppColors.accentRed,
-          onSecondary: Colors.white,
-          surfaceContainerHighest: AppColors.darkCardLight,
-        ),
-        scaffoldBackgroundColor: AppColors.pureBlack,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.pureBlack,
-          foregroundColor: AppColors.lightText,
-          elevation: 0,
-        ),
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(foregroundColor: AppColors.accentRed),
-        ),
-        datePickerTheme: DatePickerThemeData(
-          backgroundColor: AppColors.pureBlack,
-          headerBackgroundColor: AppColors.pureBlack,
-          headerForegroundColor: AppColors.lightText,
-          dayForegroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) return Colors.white;
-            if (states.contains(WidgetState.disabled)) return AppColors.warmMuted;
-            return AppColors.lightText;
-          }),
-          dayBackgroundColor: WidgetStateProperty.resolveWith((states) {
-            if (states.contains(WidgetState.selected)) return AppColors.accentRed;
-            return Colors.transparent;
-          }),
-          todayForegroundColor: WidgetStateProperty.all(AppColors.accentRed),
-          todayBackgroundColor: WidgetStateProperty.all(Colors.transparent),
-          surfaceTintColor: Colors.transparent,
-          dividerColor: AppColors.cardVariant,
-          inputDecorationTheme: InputDecorationTheme(
-            filled: true,
-            fillColor: AppColors.darkCardLight,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: AppColors.accentRed),
-            ),
-          ),
-        ),
-      ),
-      child: child!,
-    );
-  }
 
   Future<void> _submitMoment() async {
     if (!_canSubmit || _isSubmitting) return;
@@ -371,51 +269,83 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
           ),
         ),
         body: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildTypeSelection(),
               if (_step1Complete) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildNameCard(),
               ],
               if (_step2Complete) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildDateCard(),
               ],
               if (_step3Complete && _selectedType == MomentType.connect) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildTimeCard(),
               ],
               if (_step4Complete) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildNotesCard(),
               ],
-              const SizedBox(height: 120),
             ],
           ),
         ),
-        bottomNavigationBar: _canSubmit
-            ? SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: SlideToAction(
-                    label: 'Slide to save',
-                    loadingLabel: 'Saving...',
-                    onConfirm: _submitMoment,
-                    isLoading: _isSubmitting,
-                    enabled: _canSubmit,
-                  ),
-                ),
-              )
-            : null,
+        bottomNavigationBar: _buildStickyBottom(),
       ),
     );
   }
   
-  void _dismissKeyboard() => FocusScope.of(context).unfocus();
+  Widget? _buildStickyBottom() {
+    if (_canSubmit && !_showSaveButton) {
+      // Schedule showing the button after a brief delay
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (mounted && _canSubmit) {
+          setState(() => _showSaveButton = true);
+          _scrollToBottom();
+        }
+      });
+    } else if (!_canSubmit) {
+      _showSaveButton = false;
+    }
+
+    if (!_showSaveButton) return null;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+        child: SlideToAction(
+          label: 'Slide to save',
+          loadingLabel: 'Saving...',
+          onConfirm: _submitMoment,
+          isLoading: _isSubmitting,
+          enabled: _canSubmit,
+        ),
+      ),
+    );
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
+    if (_isCalendarExpanded) setState(() => _isCalendarExpanded = false);
+  }
 
   // ---------------------------------------------------------------------------
   // Type Selection - Health Card Style
@@ -441,8 +371,8 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         children: [
           Text(
             'MOMENT TO',
-            style: GoogleFonts.inter(
-              color: _step1Complete ? AppColors.accentRed : AppColors.warmMuted,
+            style: GoogleFonts.outfit(
+              color: AppColors.accentRed,
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,
@@ -477,11 +407,10 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   Widget _buildTypeOption(MomentType type, String label) {
     final isSelected = _selectedType == type;
-    final noneSelected = _selectedType == null;
-    
-    // Colors: red when none selected, black when selected, dim when another is selected
-    final iconColor = isSelected ? AppColors.pureBlack : (noneSelected ? AppColors.accentRed : AppColors.warmMuted);
-    final textColor = isSelected ? AppColors.pureBlack : (noneSelected ? AppColors.accentRed : AppColors.warmMuted);
+
+    // Colors: black when selected, muted otherwise
+    final iconColor = isSelected ? AppColors.pureBlack : AppColors.warmMuted;
+    final textColor = isSelected ? AppColors.pureBlack : AppColors.warmMuted;
     
     return Expanded(
       child: GestureDetector(
@@ -510,22 +439,8 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Icon - red with glow when none selected, black when selected, dim otherwise
-              Container(
-                decoration: (noneSelected && !isSelected)
-                    ? BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accentRed.withValues(alpha: 0.3),
-                            blurRadius: 10,
-                            spreadRadius: 0,
-                          ),
-                        ],
-                      )
-                    : null,
-                child: getMomentTypeIconWidget(type, size: 24, color: iconColor),
-              ),
+              // Icon
+              getMomentTypeIconWidget(type, size: 24, color: iconColor),
               const SizedBox(height: 6),
               // Label - red when none selected, black when selected, dim otherwise
               Text(
@@ -544,7 +459,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                   style: GoogleFonts.inter(
                     color: AppColors.pureBlack.withValues(alpha: 0.7),
                     fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -563,7 +478,6 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   Widget _buildNameCard() {
     final hasName = _momentName.isNotEmpty;
     final isFocused = _nameFocusNode.hasFocus;
-    final isActive = hasName || isFocused;
     // Show presets when no text and not focused
     final showPresets = !hasName && !isFocused;
     
@@ -572,9 +486,9 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       behavior: HitTestBehavior.opaque,
       child: ActiveCard(
         heading: _nameCardHeading,
-        isActive: isActive,
+        isActive: true,
         helperText: showPresets ? _getHelperText() : null,
-        hideHelperWhenActive: true,
+        hideHelperWhenActive: false,
         shrinkWhenActive: true,
         showBorder: isFocused,
         child: Column(
@@ -653,18 +567,58 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       return _buildEscapeDatesCard();
     }
     
-    // Non-escape: simple single date - tapping anywhere opens picker
+    // Non-escape: pills + expandable inline calendar
     final hasDate = _startDate != null;
     return GestureDetector(
-      onTap: _pickStartDate,
+      onTap: !_isCalendarExpanded ? () {
+        FocusScope.of(context).unfocus();
+        HapticFeedback.lightImpact();
+        setState(() => _isCalendarExpanded = true);
+      } : null,
       behavior: HitTestBehavior.opaque,
       child: ActiveCard(
         heading: 'Date',
-        isActive: hasDate,
-        hideHelperWhenActive: true,
+        isActive: true,
+        hideHelperWhenActive: false,
         shrinkWhenActive: true,
-        child: hasDate ? _buildDateSelected() : _buildDateOptions(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (hasDate && !_isCalendarExpanded) ...[
+              _buildDateSelected(),
+            ] else if (_isCalendarExpanded) ...[
+            // Calendar open — animated expand
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              child: _buildInlineCalendar(),
+            ),
+          ] else ...[
+            // Default: show quick date pills
+            _buildDateOptions(),
+          ],
+        ],
       ),
+      ),
+    );
+  }
+
+  Widget _buildInlineCalendar() {
+    return InlineDateCalendar(
+      focusedDay: _focusedDay,
+      selectedDay: _startDate,
+      onDaySelected: (selected, focused) {
+        FocusScope.of(context).unfocus();
+        setState(() {
+          _startDate = selected;
+          _focusedDay = focused;
+          if (_endDate != null && _endDate!.isBefore(_startDate!)) {
+            _endDate = null;
+          }
+        });
+        _scrollToBottom();
+      },
+      onPageChanged: (focused) => _focusedDay = focused,
     );
   }
 
@@ -672,97 +626,134 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   // Escape Dates - Two-step flow with nights
   // ---------------------------------------------------------------------------
 
+  // Range selection state for escape calendar
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
+
   Widget _buildEscapeDatesCard() {
     final hasStartDate = _startDate != null;
     final hasEndDate = _endDate != null;
     final isComplete = hasStartDate && hasEndDate;
+    final hasAnySelection = hasStartDate || _isCalendarExpanded;
     
-    // Determine helper text based on state
-    String? helperText;
-    if (!hasStartDate) {
-      helperText = 'When are you leaving?';
-    } else if (!hasEndDate) {
-      helperText = 'How long is the getaway?';
+    // Helper text based on state
+    final String? helperText;
+    if (!hasAnySelection) {
+      helperText = 'Select a start for your escape';
+    } else if (hasStartDate && !hasEndDate && _isCalendarExpanded) {
+      helperText = 'Select an end date';
+    } else {
+      helperText = null;
     }
-    
-    // In nights selection state, tapping anywhere opens two-date picker
-    final isInNightsState = hasStartDate && !hasEndDate;
-    
-    final card = ActiveCard(
-      heading: 'Dates',
-      isActive: isComplete,
-      helperText: helperText,
-      hideHelperWhenActive: true,
-      shrinkWhenActive: true,
-      child: _buildEscapeDatesContent(),
-    );
-    
-    if (isInNightsState) {
-      return GestureDetector(
-        onTap: () => _pickBothDatesWithStart(_startDate!),
-        behavior: HitTestBehavior.opaque,
-        child: card,
-      );
-    }
-    
-    return card;
-  }
 
-  Widget _buildEscapeDatesContent() {
-    final hasStartDate = _startDate != null;
-    final hasEndDate = _endDate != null;
-    
-    // State 1: No start date - show start date options
-    if (!hasStartDate) {
-      return _buildDateOptions();
-    }
-    
-    // State 2: Has start date but no end date - show nights options
-    if (!hasEndDate) {
-      return _buildNightsOptions();
-    }
-    
-    // State 3: Both dates selected - show summary
-    return _buildEscapeSummary();
-  }
-
-  Widget _buildNightsOptions() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Show selected start date (tappable to open two-date picker)
-        GestureDetector(
-          onTap: () => _pickBothDatesWithStart(_startDate!),
-          child: Row(
-            children: [
-              Text('From ', style: GoogleFonts.inter(color: AppColors.dimText, fontSize: 13)),
-              Text(
-                _formatDate(_startDate!),
-                style: AppTypography.bodyMedium(color: AppColors.accentRed),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-        // Nights options
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+    return GestureDetector(
+      onTap: !_isCalendarExpanded ? () {
+        FocusScope.of(context).unfocus();
+        HapticFeedback.lightImpact();
+        setState(() => _isCalendarExpanded = true);
+      } : null,
+      behavior: HitTestBehavior.opaque,
+      child: ActiveCard(
+        heading: 'Dates',
+        isActive: true,
+        helperText: helperText,
+        hideHelperWhenActive: false,
+        shrinkWhenActive: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildNightPill(1),
-            _buildNightPill(2),
-            _buildNightPill(3),
-            _buildDatePill('Pick date', _pickEndDateOnly),
+            if (isComplete && !_isCalendarExpanded) ...[
+              _buildEscapeSummary(),
+            ] else if (_isCalendarExpanded) ...[
+            // Range calendar open
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              child: _buildRangeCalendar(),
+            ),
+          ] else if (hasStartDate && !hasEndDate) ...[
+            // Has start, needs end — show nights + calendar option
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _buildNightPill(1),
+                _buildNightPill(2),
+                _buildNightPill(3),
+                _buildDatePill('Pick end date', () {
+                  FocusScope.of(context).unfocus();
+                  HapticFeedback.lightImpact();
+                  setState(() {
+                    _rangeStart = _startDate;
+                    _isCalendarExpanded = true;
+                  });
+                }),
+              ],
+            ),
+          ] else ...[
+            // No selection — show day options like single date card
+            _buildEscapeDateOptions(),
           ],
-        ),
-      ],
+        ],
+      ),
+      ),
     );
   }
 
-  Future<void> _pickEndDateOnly() async {
-    _dismissKeyboard();
-    HapticFeedback.lightImpact();
-    await _showDateRangePicker(initialStart: _startDate);
+  Widget _buildEscapeDateOptions() {
+    final today = DateTime.now();
+    final tomorrow = today.add(const Duration(days: 1));
+    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    final pills = <Widget>[
+      _buildDatePill('Today', () => _selectDate(today)),
+      _buildDatePill('Tomorrow', () => _selectDate(tomorrow)),
+    ];
+
+    int added = 0;
+    for (int d = 2; d <= 6 && added < 4; d++) {
+      final date = today.add(Duration(days: d));
+      final name = dayNames[date.weekday - 1];
+      pills.add(_buildDatePill(name, () => _selectDate(date)));
+      added++;
+    }
+
+    pills.add(_buildDatePill('Pick dates', () {
+      FocusScope.of(context).unfocus();
+      HapticFeedback.lightImpact();
+      setState(() => _isCalendarExpanded = true);
+    }));
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: pills,
+    );
+  }
+
+  Widget _buildRangeCalendar() {
+    return InlineRangeCalendar(
+      focusedDay: _focusedDay,
+      rangeStartDay: _rangeStart ?? _startDate,
+      rangeEndDay: _rangeEnd ?? _endDate,
+      onRangeSelected: (start, end, focused) {
+        setState(() {
+          _focusedDay = focused;
+          if (start != null && end != null) {
+            _startDate = start;
+            _endDate = end;
+            _rangeStart = null;
+            _rangeEnd = null;
+          } else if (start != null) {
+            _startDate = start;
+            _endDate = null;
+            _rangeStart = start;
+            _rangeEnd = null;
+          }
+        });
+      },
+      onPageChanged: (focused) => _focusedDay = focused,
+    );
   }
 
   Widget _buildNightPill(int nights) {
@@ -778,9 +769,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     final nights = _endDate!.difference(_startDate!).inDays;
     final nightsText = nights == 1 ? '1 night' : '$nights nights';
     
-    return GestureDetector(
-      onTap: _pickBothDates,
-      child: Row(
+    return Row(
         children: [
           // Dates - matching "Weekend Getaway" style
           Expanded(
@@ -819,8 +808,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   // ---------------------------------------------------------------------------
@@ -830,31 +818,43 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   Widget _buildDateOptions() {
     final today = DateTime.now();
     final tomorrow = today.add(const Duration(days: 1));
-    final isEscape = _selectedType == MomentType.escape;
-    
+    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+    // Build upcoming day pills: today, tomorrow, then next few unique weekdays
+    final pills = <Widget>[
+      _buildDatePill('Today', () => _selectDate(today)),
+      _buildDatePill('Tomorrow', () => _selectDate(tomorrow)),
+    ];
+
+    // Add upcoming weekdays (skip today & tomorrow, up to 4 more)
+    int added = 0;
+    for (int d = 2; d <= 6 && added < 4; d++) {
+      final date = today.add(Duration(days: d));
+      final name = dayNames[date.weekday - 1];
+      pills.add(_buildDatePill(name, () => _selectDate(date)));
+      added++;
+    }
+
+    // "Pick a date" opens the calendar and dismisses keyboard
+    pills.add(_buildDatePill('Pick a date', () {
+      FocusScope.of(context).unfocus();
+      HapticFeedback.lightImpact();
+      setState(() => _isCalendarExpanded = true);
+    }));
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: [
-        _buildDatePill('Today', () => _selectDate(today)),
-        _buildDatePill('Tomorrow', () => _selectDate(tomorrow)),
-        _buildDatePill(
-          isEscape ? 'Pick dates' : 'Pick a date', 
-          isEscape ? _pickBothDates : _pickStartDate,
-        ),
-      ],
+      children: pills,
     );
   }
 
   Widget _buildDatePill(String label, VoidCallback onTap) => _buildPill(label, onTap);
 
   Widget _buildDateSelected() {
-    return GestureDetector(
-      onTap: _pickStartDate,
-      child: Text(
-        _formatDate(_startDate!),
-        style: AppTypography.bodyMedium(color: AppColors.subtleText),
-      ),
+    return Text(
+      _formatDate(_startDate!),
+      style: AppTypography.bodyMedium(color: AppColors.subtleText),
     );
   }
 
@@ -867,9 +867,9 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     
     return ActiveCard(
       heading: 'Time',
-      isActive: hasTime,
+      isActive: true,
       helperText: !hasTime ? 'Slide to select time' : null,
-      hideHelperWhenActive: true,
+      hideHelperWhenActive: false,
       shrinkWhenActive: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -925,19 +925,19 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         
         if (isDragging) {
           final dragX = _dragPosition!;
-          // Stretch from selected slot toward drag position
+          // Stretch from selected slot toward drag position.
+          // No clamping — Stack has Clip.none so overflow is visible.
           if (dragX < selectedCenter) {
-            // Dragging left - stretch left edge
-            highlightLeft = dragX - baseWidth * 0.4;
-            highlightWidth = (selectedCenter + baseWidth * 0.4) - highlightLeft;
+            // Dragging left — left edge follows drag
+            highlightLeft = dragX - baseWidth * 0.3;
+            highlightWidth = (selectedCenter + baseWidth * 0.5) - highlightLeft;
           } else {
-            // Dragging right - stretch right edge  
-            highlightLeft = selectedCenter - baseWidth * 0.4;
-            highlightWidth = (dragX + baseWidth * 0.4) - highlightLeft;
+            // Dragging right — right edge follows drag
+            highlightLeft = selectedCenter - baseWidth * 0.5;
+            highlightWidth = (dragX + baseWidth * 0.3) - highlightLeft;
           }
-          // Clamp bounds
-          highlightLeft = highlightLeft.clamp(padding, totalWidth - baseWidth - padding);
-          highlightWidth = highlightWidth.clamp(baseWidth, totalWidth - padding * 2);
+          // Only ensure minimum width
+          if (highlightWidth < baseWidth) highlightWidth = baseWidth;
           // Color based on drag position
           colorProgress = (dragX / totalWidth).clamp(0.0, 1.0);
         } else {
@@ -963,7 +963,11 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
             }
           },
           onHorizontalDragEnd: (_) {
-            setState(() => _dragPosition = null);
+            setState(() {
+              _dragPosition = null;
+              _isCalendarExpanded = false;
+            });
+            FocusScope.of(context).unfocus();
           },
           child: Container(
             height: 56,
@@ -1012,7 +1016,11 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                         onTap: () {
                           HapticFeedback.selectionClick();
                           _selectTimeSlot(slot);
-                          setState(() => _dragPosition = null);
+                          FocusScope.of(context).unfocus();
+                          setState(() {
+                            _dragPosition = null;
+                            _isCalendarExpanded = false;
+                          });
                         },
                         behavior: HitTestBehavior.opaque,
                         child: Center(
@@ -1050,18 +1058,17 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildNotesCard() {
-    final hasNotes = _notesController.text.trim().isNotEmpty;
     final isFocused = _notesFocusNode.hasFocus;
-    final isActive = hasNotes || isFocused;
+    final hasContent = _notesController.text.trim().isNotEmpty || isFocused;
     
     return GestureDetector(
       onTap: () => _notesFocusNode.requestFocus(),
       behavior: HitTestBehavior.opaque,
       child: ActiveCard(
         heading: 'Notes',
-        isActive: isActive,
-        helperText: !isActive ? 'Space for your thoughts' : null,
-        hideHelperWhenActive: true,
+        isActive: true,
+        helperText: !hasContent ? 'Space for your thoughts' : null,
+        hideHelperWhenActive: false,
         shrinkWhenActive: true,
         showBorder: isFocused,
         child: TextField(
@@ -1110,9 +1117,5 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}';
-  }
+  String _formatDate(DateTime date) => AppDateFormat.short(date);
 }
