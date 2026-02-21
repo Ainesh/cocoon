@@ -310,14 +310,16 @@ class _CheckInScreenState extends State<CheckInScreen>
                       child: SizedBox(
                         height: 180,
                         width: double.infinity,
-                        child: CustomPaint(
-                          painter: VoronoiGroupedPainter(
-                            groupColors: [connColor, intColor, peaceColor],
-                            seed: _mosaicSeed,
-                            animationProgress: tileAnim,
-                            tileCount: 60,
-                            backgroundColor: AppColors.darkCardLight,
-                            staggerSpread: 0.4,
+                        child: RepaintBoundary(
+                          child: CustomPaint(
+                            painter: VoronoiGroupedPainter(
+                              groupColors: [connColor, intColor, peaceColor],
+                              seed: _mosaicSeed,
+                              animationProgress: tileAnim,
+                              tileCount: 60,
+                              backgroundColor: AppColors.darkCardLight,
+                              staggerSpread: 0.4,
+                            ),
                           ),
                         ),
                       ),
