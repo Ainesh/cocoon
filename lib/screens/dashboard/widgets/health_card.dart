@@ -181,14 +181,16 @@ class HealthCardState extends State<HealthCard>
                   children: [
               // Layer 1: Voronoi mosaic (full-bleed)
               Positioned.fill(
-                child: CustomPaint(
-                  painter: VoronoiMosaicPainter(
-                    animationProgress: animProgress,
-                    targetScore: _targetProgress,
-                    seed: _seed,
-                  ),
-                      ),
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: VoronoiMosaicPainter(
+                      animationProgress: animProgress,
+                      targetScore: _targetProgress,
+                      seed: _seed,
                     ),
+                  ),
+                ),
+              ),
 
               // Layer 2: Label
               Padding(
