@@ -70,6 +70,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   Timer? _deleteTimer;
   OverlayEntry? _overlayEntry;
   String? _plannedByName;
+  String? _partnerEditingName;
+  StreamSubscription<List<({String name, DateTime time})>>? _presenceSubscription;
 
   String get _plannedBySubtitle {
     final name = _plannedByName ?? '';
@@ -89,6 +91,31 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   void initState() {
     super.initState();
     _loadPlannedByName();
+    _watchEditingPresence();
+  }
+
+  void _watchEditingPresence() {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+    // Need spaceId — extract from moment's Firestore path or pass it
+    // For now, we get it from the user's profile
+    _firestoreService.getUserSpaceId(userId).then((spaceId) {
+      if (!mounted || spaceId == null) return;
+      _presenceSubscription = _firestoreService
+          .watchEditingPresence(
+            spaceId: spaceId,
+            momentId: widget.moment.id,
+            excludeUserId: userId,
+          )
+          .listen((editors) {
+        if (mounted) {
+          setState(() {
+            _partnerEditingName =
+                editors.isNotEmpty ? editors.first.name : null;
+          });
+        }
+      });
+    });
   }
 
   Future<void> _loadPlannedByName() async {
@@ -106,9 +133,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   @override
   void dispose() {
+    _presenceSubscription?.cancel();
     _deleteTimer?.cancel();
     _deleteTimer = null;
-    // Remove overlay safely — may already be gone if widget disposed
     _overlayEntry?.remove();
     _overlayEntry = null;
     super.dispose();
@@ -181,6 +208,19 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   void _goToEditScreen([MomentEditField field = MomentEditField.general]) {
     if (onEdit == null) return;
+    if (_partnerEditingName != null) {
+      HapticFeedback.lightImpact();
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$_partnerEditingName is currently editing this moment'),
+          backgroundColor: AppColors.accentRed,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).pop();
     onEdit!(field);
   }
@@ -227,6 +267,38 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
+                    // Partner editing indicator
+                    if (_partnerEditingName != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentRed.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: AppColors.accentRed.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.edit_rounded,
+                                color: AppColors.accentRed, size: 14),
+                            const SizedBox(width: 6),
+                            Text(
+                              '$_partnerEditingName is editing',
+                              style: GoogleFonts.inter(
+                                color: AppColors.accentRed,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     // Type badge with icon
                     _buildTypeBadge(),
                     const SizedBox(height: 20),
