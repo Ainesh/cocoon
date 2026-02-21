@@ -857,10 +857,16 @@ class FirestoreService {
             request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1)
          );
 
-         match /moments/{momentId} {
-           allow read, write: if request.auth != null &&
-             request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-         }
+       match /moments/{momentId} {
+          allow read, write: if request.auth != null &&
+            request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+
+          // Editing presence (optimistic locking)
+          match /editing/{editorId} {
+            allow read, write: if request.auth != null &&
+              request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+          }
+        }
 
         match /checkins/{checkinId} {
           allow read, write: if request.auth != null &&
