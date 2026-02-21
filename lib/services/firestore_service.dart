@@ -492,6 +492,19 @@ class FirestoreService {
 
   /// Returns a stream of upcoming moments for a space.
   ///
+  /// Watches a single moment document for real-time changes.
+  Stream<DocumentSnapshot> watchMoment({
+    required String spaceId,
+    required String momentId,
+  }) {
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
+        .snapshots();
+  }
+
   /// Moments are sorted by startDate and include all future moments
   /// plus any multi-day moments that span today.
   Stream<List<Moment>> watchUpcomingMoments(

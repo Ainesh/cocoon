@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -71,7 +72,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   OverlayEntry? _overlayEntry;
   String? _plannedByName;
   String? _partnerEditingName;
+  String? _hintMessage;
+  Timer? _hintTimer;
+  Moment? _liveMoment; // Updated in real-time when partner edits
   StreamSubscription<List<({String name, DateTime time})>>? _presenceSubscription;
+  StreamSubscription<DocumentSnapshot>? _momentSubscription;
 
   String get _plannedBySubtitle {
     final name = _plannedByName ?? '';
@@ -106,6 +111,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
         spaceId: spaceId,
         momentId: widget.moment.id,
       );
+      // Watch editing presence
       _presenceSubscription = _firestoreService
           .watchEditingPresence(
             spaceId: spaceId,
@@ -118,6 +124,19 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
             _partnerEditingName =
                 editors.isNotEmpty ? editors.first.name : null;
           });
+        }
+      });
+      // Watch moment document for live updates (partner edits)
+      _momentSubscription = _firestoreService
+          .watchMoment(spaceId: spaceId, momentId: widget.moment.id)
+          .listen((snapshot) {
+        if (!mounted || !snapshot.exists) return;
+        final data = snapshot.data() as Map<String, dynamic>?;
+        if (data == null) return;
+        final updated = Moment.fromJson(snapshot.id, data);
+        // Only update if version changed (partner saved)
+        if (updated.version != moment.version) {
+          setState(() => _liveMoment = updated);
         }
       });
     });
@@ -139,6 +158,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   @override
   void dispose() {
     _presenceSubscription?.cancel();
+    _momentSubscription?.cancel();
+    _hintTimer?.cancel();
     _deleteTimer?.cancel();
     _deleteTimer = null;
     _overlayEntry?.remove();
@@ -207,7 +228,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     _overlayEntry = null;
   }
 
-  Moment get moment => widget.moment;
+  Moment get moment => _liveMoment ?? widget.moment;
   OnEditCallback? get onEdit => widget.onEdit;
   VoidCallback? get onDelete => widget.onDelete;
 
@@ -232,15 +253,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   void _showHint(String message) {
     HapticFeedback.lightImpact();
-    ScaffoldMessenger.of(context).clearSnackBars();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.accentRed,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(milliseconds: 1500),
-      ),
-    );
+    _hintTimer?.cancel();
+    setState(() => _hintMessage = message);
+    _hintTimer = Timer(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => _hintMessage = null);
+    });
   }
 
   @override
@@ -344,7 +361,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                         textAlign: TextAlign.center,
                       ),
                     ],
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     
                     // Info cards row (long-press to edit)
                     _buildInfoRow(),
@@ -353,7 +370,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                     const SizedBox(height: 12),
                     _buildNotesSection(),
                     
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 12),
                     
                     // Action buttons
                     _buildActions(context),
@@ -361,6 +378,26 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                 ),
               ),
             ),
+            // In-sheet hint message
+            if (_hintMessage != null)
+              AnimatedOpacity(
+                opacity: _hintMessage != null ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  color: AppColors.accentRed,
+                  child: Text(
+                    _hintMessage!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

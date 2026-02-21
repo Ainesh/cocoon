@@ -1,5 +1,6 @@
 {
   "sandboxAllowedCommands": [
-    "flutter test"
+    "flutter test",
+    "flutter analyze"
   ]
 }
