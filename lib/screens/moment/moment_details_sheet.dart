@@ -62,9 +62,14 @@ class _MomentDetailsContent extends StatefulWidget {
   State<_MomentDetailsContent> createState() => _MomentDetailsContentState();
 }
 
-class _MomentDetailsContentState extends State<_MomentDetailsContent> {
+class _MomentDetailsContentState extends State<_MomentDetailsContent>
+    with SingleTickerProviderStateMixin {
   final _firestoreService = FirestoreService();
   final _authService = AuthService();
+  
+  // Shake animation for editing state
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
   
   bool _isHoldingDelete = false;
   int _activeDots = 24; // Total dots, counts down to 0
@@ -95,6 +100,13 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   @override
   void initState() {
     super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _shakeAnimation = Tween<double>(begin: -0.012, end: 0.012)
+        .chain(CurveTween(curve: Curves.easeInOut))
+        .animate(_shakeController);
     _loadPlannedByName();
     _watchEditingPresence();
   }
@@ -120,10 +132,19 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           )
           .listen((editors) {
         if (mounted) {
+          final wasEditing = _partnerEditingName != null;
+          final isEditing = editors.isNotEmpty;
           setState(() {
-            _partnerEditingName =
-                editors.isNotEmpty ? editors.first.name : null;
+            _partnerEditingName = isEditing ? editors.first.name : null;
           });
+          // Start/stop shake + haptic on state change
+          if (isEditing && !wasEditing) {
+            HapticFeedback.lightImpact();
+            _shakeController.repeat(reverse: true);
+          } else if (!isEditing && wasEditing) {
+            _shakeController.stop();
+            _shakeController.reset();
+          }
         }
       });
       // Watch moment document for live updates (partner edits)
@@ -157,6 +178,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   @override
   void dispose() {
+    _shakeController.dispose();
     _presenceSubscription?.cancel();
     _momentSubscription?.cancel();
     _hintTimer?.cancel();
@@ -302,38 +324,6 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Partner editing indicator
-                    if (_partnerEditingName != null) ...[
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentRed.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: AppColors.accentRed.withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.edit_rounded,
-                                color: AppColors.accentRed, size: 14),
-                            const SizedBox(width: 6),
-                            Text(
-                              '$_partnerEditingName is editing',
-                              style: GoogleFonts.inter(
-                                color: AppColors.accentRed,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
                     // Type badge with icon
                     _buildTypeBadge(),
                     const SizedBox(height: 20),
@@ -361,14 +351,27 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                         textAlign: TextAlign.center,
                       ),
                     ],
+                    // Partner editing indicator — below subtitle
+                    if (_partnerEditingName != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '$_partnerEditingName is currently editing',
+                        style: GoogleFonts.inter(
+                          color: AppColors.accentRed,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     
                     // Info cards row (long-press to edit)
-                    _buildInfoRow(),
+                    _buildShakeable(_buildInfoRow()),
                     
                     // Notes section (always show, long-press to edit)
                     const SizedBox(height: 12),
-                    _buildNotesSection(),
+                    _buildShakeable(_buildNotesSection()),
                     
                     const SizedBox(height: 12),
                     
@@ -401,6 +404,20 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Wraps a widget in a subtle rotation wobble when partner is editing.
+  Widget _buildShakeable(Widget child) {
+    if (_partnerEditingName == null) return child;
+    return AnimatedBuilder(
+      animation: _shakeAnimation,
+      builder: (context, _) {
+        return Transform.rotate(
+          angle: _shakeAnimation.value,
+          child: child,
+        );
+      },
     );
   }
 

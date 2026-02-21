@@ -1,0 +1,42 @@
+name: Static Analysis
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+concurrency:
+  group: analyze-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze & Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Flutter analyzer
+        run: flutter analyze --no-fatal-infos
+
+      - name: Check Dart formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Static Analysis Results" >> $GITHUB_STEP_SUMMARY
+          echo "- **Analyzer**: Checks for errors, warnings, and lint issues" >> $GITHUB_STEP_SUMMARY
+          echo "- **Formatter**: Ensures consistent code style" >> $GITHUB_STEP_SUMMARY

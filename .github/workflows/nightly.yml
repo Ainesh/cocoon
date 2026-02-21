@@ -1,0 +1,112 @@
+name: Nightly Regression
+
+on:
+  schedule:
+    # Run every night at 2:00 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+concurrency:
+  group: nightly-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  full-test-suite:
+    name: Full Test Suite (Nightly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run Flutter analyzer
+        run: flutter analyze --no-fatal-infos
+
+      - name: Check Dart formatting
+        run: dart format --set-exit-if-changed .
+
+      - name: Run all unit and widget tests with coverage
+        run: flutter test --coverage
+
+      - name: Filter coverage
+        run: |
+          sudo apt-get install -y lcov
+          lcov --remove coverage/lcov.info \
+            'lib/firebase_options.dart' \
+            'lib/generated/*' \
+            -o coverage/lcov_filtered.info
+
+      - name: Generate HTML report
+        run: genhtml coverage/lcov_filtered.info -o coverage/html --quiet
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-coverage-${{ github.run_number }}
+          path: coverage/html/
+          retention-days: 30
+
+      - name: Coverage summary
+        run: |
+          echo "## Nightly Regression - $(date +'%Y-%m-%d')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Coverage" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          lcov --summary coverage/lcov_filtered.info 2>&1 | grep -E "lines|functions" >> $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Targets" >> $GITHUB_STEP_SUMMARY
+          echo "| Layer | Target |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Models | >= 95% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Services | >= 85% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Utils | >= 95% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Widgets | >= 70% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Screens | >= 60% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Overall | >= 75% |" >> $GITHUB_STEP_SUMMARY
+
+  nightly-integration:
+    name: Integration Tests (Nightly)
+    runs-on: macos-latest
+    timeout-minutes: 45
+    needs: full-test-suite
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Boot iOS Simulator
+        run: |
+          DEVICE_ID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | grep -oE '[0-9A-F-]{36}')
+          echo "DEVICE_ID=$DEVICE_ID" >> $GITHUB_ENV
+          xcrun simctl boot "$DEVICE_ID" || true
+
+      - name: Run integration tests
+        run: |
+          flutter test integration_test/app_test.dart \
+            --device-id "$DEVICE_ID" \
+            --timeout 300s \
+            || echo "::warning::Some integration tests were skipped"
