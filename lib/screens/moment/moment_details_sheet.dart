@@ -209,20 +209,33 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   void _goToEditScreen([MomentEditField field = MomentEditField.general]) {
     if (onEdit == null) return;
     if (_partnerEditingName != null) {
-      HapticFeedback.lightImpact();
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$_partnerEditingName is currently editing this moment'),
-          backgroundColor: AppColors.accentRed,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      _showHint('$_partnerEditingName is editing this moment, please wait');
       return;
     }
     Navigator.of(context).pop();
     onEdit!(field);
+  }
+
+  void _showEditTapHint() {
+    if (onEdit == null) return;
+    if (_partnerEditingName != null) {
+      _showHint('$_partnerEditingName is editing this moment, please wait');
+    } else {
+      _showHint('Hold to edit');
+    }
+  }
+
+  void _showHint(String message) {
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.accentRed,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(milliseconds: 1500),
+      ),
+    );
   }
 
   @override
@@ -378,6 +391,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     // Long-press any card to go to edit screen with that field focused
     Widget wrapWithLongPress(Widget child, MomentEditField field) {
       return GestureDetector(
+        onTap: _showEditTapHint,
         onLongPress: () {
           HapticFeedback.mediumImpact();
           _goToEditScreen(field);
@@ -740,6 +754,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     final hasNotes = moment.notes != null && moment.notes!.isNotEmpty;
     
     return GestureDetector(
+      onTap: _showEditTapHint,
       onLongPress: () {
         HapticFeedback.mediumImpact();
         _goToEditScreen(MomentEditField.notes);
