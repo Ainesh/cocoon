@@ -48,7 +48,8 @@ class EditMomentScreen extends StatefulWidget {
   State<EditMomentScreen> createState() => _EditMomentScreenState();
 }
 
-class _EditMomentScreenState extends State<EditMomentScreen> {
+class _EditMomentScreenState extends State<EditMomentScreen>
+    with WidgetsBindingObserver {
   // Services
   final _authService = AuthService();
   final _firestoreService = FirestoreService();
@@ -86,6 +87,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Initialize from existing moment
     _startDate = widget.moment.startDate;
     _endDate = widget.moment.endDate;
@@ -175,6 +177,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
   @override
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _presenceRefreshTimer?.cancel();
     _presenceSubscription?.cancel();
     _clearPresence();
@@ -182,6 +185,25 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     _notesFocusNode.dispose();
     _cancelDelete();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Clear presence when app goes to background / is killed
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _clearPresence();
+      _presenceRefreshTimer?.cancel();
+    }
+    // Restore presence when app resumes
+    if (state == AppLifecycleState.resumed) {
+      _refreshPresence();
+      _presenceRefreshTimer?.cancel();
+      _presenceRefreshTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _refreshPresence(),
+      );
+    }
   }
 
   // ---------------------------------------------------------------------------

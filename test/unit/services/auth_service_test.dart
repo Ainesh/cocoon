@@ -12,6 +12,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:couple_space/services/auth_service.dart';
 import '../../helpers/mock_services.dart';
 
+/// Mock for FirebaseAuthException (constructor is @protected).
+class MockFirebaseAuthException extends Mock
+    implements FirebaseAuthException {}
+
 void main() {
   late MockFirebaseAuth mockAuth;
   late MockGoogleSignIn mockGoogleSignIn;
@@ -23,6 +27,17 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     authService = AuthService(auth: mockAuth, googleSignIn: mockGoogleSignIn);
   });
+
+  /// Helper to create a mock FirebaseAuthException with a given code.
+  MockFirebaseAuthException createAuthException(
+    String code, [
+    String? message,
+  ]) {
+    final exception = MockFirebaseAuthException();
+    when(() => exception.code).thenReturn(code);
+    when(() => exception.message).thenReturn(message);
+    return exception;
+  }
 
   // ===========================================================================
   // User State
@@ -136,7 +151,8 @@ void main() {
       verify(() => mockGoogleSignIn.signOut()).called(1);
     });
 
-    test('signOut skips Google sign out when not signed in with Google', () async {
+    test('signOut skips Google sign out when not signed in with Google',
+        () async {
       when(() => mockGoogleSignIn.isSignedIn())
           .thenAnswer((_) async => false);
       when(() => mockAuth.signOut()).thenAnswer((_) async {});
@@ -195,7 +211,7 @@ void main() {
       };
 
       for (final entry in testCases.entries) {
-        final error = FirebaseAuthException(code: entry.key);
+        final error = createAuthException(entry.key);
         expect(
           authService.getErrorMessage(error),
           entry.value,
@@ -206,9 +222,9 @@ void main() {
 
     // AUTH-12
     test('getErrorMessage returns raw message for unknown codes', () {
-      final error = FirebaseAuthException(
-        code: 'some-unknown-code',
-        message: 'Something went wrong',
+      final error = createAuthException(
+        'some-unknown-code',
+        'Something went wrong',
       );
       final message = authService.getErrorMessage(error);
       expect(message, contains('some-unknown-code'));
@@ -216,21 +232,30 @@ void main() {
     });
 
     test('getErrorMessage handles operation-not-allowed code', () {
-      final error = FirebaseAuthException(code: 'operation-not-allowed');
+      final error = createAuthException('operation-not-allowed');
       expect(
         authService.getErrorMessage(error),
         contains('not enabled'),
       );
     });
+
+    test('getErrorMessage handles admin-restricted-operation code', () {
+      final error = createAuthException('admin-restricted-operation');
+      expect(
+        authService.getErrorMessage(error),
+        contains('not enabled'),
+      );
+    });
+
+    test(
+        'getErrorMessage handles account-exists-with-different-credential code',
+        () {
+      final error =
+          createAuthException('account-exists-with-different-credential');
+      expect(
+        authService.getErrorMessage(error),
+        contains('different sign-in credentials'),
+      );
+    });
   });
-}
-
-/// Extension to create FirebaseAuthException for testing.
-class FirebaseAuthException extends FirebaseException
-    implements FirebaseAuthException {
-  FirebaseAuthException({required String code, String? message})
-      : super(plugin: 'auth', code: code, message: message);
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

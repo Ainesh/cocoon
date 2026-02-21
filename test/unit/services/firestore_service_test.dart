@@ -1,15 +1,18 @@
 /// Unit tests for FirestoreService.
 ///
-/// Covers: FS-01 through FS-40 from the test plan.
-/// Uses mocktail to mock Firestore dependencies since fake_cloud_firestore
-/// is incompatible with cloud_firestore ^6.x.
+/// Covers: FS result types, MomentConflictException, local storage,
+/// and invite code configuration from the test plan.
+/// Uses SharedPreferences mock for local storage tests.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:couple_space/services/firestore_service.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   // ===========================================================================
   // Result Types
   // ===========================================================================
@@ -76,16 +79,12 @@ void main() {
   });
 
   // ===========================================================================
-  // Invite Code Format
+  // Invite Code Configuration
   // ===========================================================================
 
   group('Invite Code Configuration', () {
-    // FS-39 - Validate invite code constants are properly defined
-    test('invite code length and chars are configured', () {
-      // We can test the service creates codes of proper format
-      // by testing the public API indirectly.
-      // The constants are private but the format is enforced.
-      // This test verifies the service can be instantiated.
+    // FS-39 - Verify service instantiation (constants are private)
+    test('service can be instantiated', () {
       final service = FirestoreService();
       expect(service, isNotNull);
     });
@@ -99,22 +98,18 @@ void main() {
     late FirestoreService service;
 
     setUp(() {
+      SharedPreferences.setMockInitialValues({});
       service = FirestoreService();
     });
 
     // FS-20 (partial) - Tests local storage operations
     test('saveSpaceId and getSavedSpaceId round-trip', () async {
-      // Set up shared preferences mock
-      await setupMockSharedPreferences();
-
       await service.saveSpaceId('space_abc');
       final saved = await service.getSavedSpaceId();
       expect(saved, 'space_abc');
     });
 
     test('clearSavedSpaceId removes stored value', () async {
-      await setupMockSharedPreferences();
-
       await service.saveSpaceId('space_abc');
       await service.clearSavedSpaceId();
       final saved = await service.getSavedSpaceId();
@@ -122,24 +117,8 @@ void main() {
     });
 
     test('getSavedSpaceId returns null when nothing saved', () async {
-      await setupMockSharedPreferences();
-
       final saved = await service.getSavedSpaceId();
       expect(saved, isNull);
     });
   });
-}
-
-/// Helper to set up SharedPreferences mock for tests.
-Future<void> setupMockSharedPreferences([
-  Map<String, Object> values = const {},
-]) async {
-  TestWidgetsFlutterBinding.ensureInitialized();
-  final binding = TestWidgetsFlutterBinding.instance;
-  // Use the SharedPreferences mock mechanism
-  binding.defaultBinaryMessenger.setMockMethodCallHandler(
-    const MethodChannel('plugins.flutter.io/shared_preferences'),
-    null,
-  );
-  SharedPreferences.setMockInitialValues(values);
 }
