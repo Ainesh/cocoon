@@ -107,6 +107,13 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     _shakeAnimation = Tween<double>(begin: -0.012, end: 0.012)
         .chain(CurveTween(curve: Curves.easeInOut))
         .animate(_shakeController);
+    // Sync haptic with each shake direction change
+    _shakeController.addStatusListener((status) {
+      if (status == AnimationStatus.forward ||
+          status == AnimationStatus.reverse) {
+        HapticFeedback.selectionClick();
+      }
+    });
     _loadPlannedByName();
     _watchEditingPresence();
   }
@@ -137,9 +144,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
           setState(() {
             _partnerEditingName = isEditing ? editors.first.name : null;
           });
-          // Start/stop shake + haptic on state change
+          // Start/stop shake (haptic syncs via controller listener)
           if (isEditing && !wasEditing) {
-            HapticFeedback.lightImpact();
             _shakeController.repeat(reverse: true);
           } else if (!isEditing && wasEditing) {
             _shakeController.stop();
@@ -264,7 +270,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     onEdit!(field);
   }
 
-  void _showEditTapHint() {
+  void _onDoubleTap() {
     if (onEdit == null) return;
     if (_partnerEditingName != null) {
       _showHint('$_partnerEditingName is editing this moment, please wait');
@@ -394,9 +400,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                     _hintMessage!,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.inter(
-                      color: Colors.white,
+                      color: AppColors.pureBlack,
                       fontSize: 13,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -450,7 +456,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     // Long-press any card to go to edit screen with that field focused
     Widget wrapWithLongPress(Widget child, MomentEditField field) {
       return GestureDetector(
-        onTap: _showEditTapHint,
+        onDoubleTap: _onDoubleTap,
         onLongPress: () {
           HapticFeedback.mediumImpact();
           _goToEditScreen(field);
@@ -813,7 +819,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     final hasNotes = moment.notes != null && moment.notes!.isNotEmpty;
     
     return GestureDetector(
-      onTap: _showEditTapHint,
+      onDoubleTap: _onDoubleTap,
       onLongPress: () {
         HapticFeedback.mediumImpact();
         _goToEditScreen(MomentEditField.notes);
