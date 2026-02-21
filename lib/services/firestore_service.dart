@@ -699,6 +699,36 @@ class FirestoreService {
         .delete();
   }
 
+  /// Deletes all stale editing presence docs (older than [maxAge]) for a moment.
+  /// Call this on MDS open or edit screen open to garbage-collect orphaned docs.
+  Future<void> cleanupStalePresence({
+    required String spaceId,
+    required String momentId,
+    Duration maxAge = const Duration(seconds: 90),
+  }) async {
+    final snapshot = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
+        .collection('editing')
+        .get();
+
+    final now = DateTime.now();
+    final batch = _firestore.batch();
+    var deleteCount = 0;
+
+    for (final doc in snapshot.docs) {
+      final ts = doc.data()['timestamp'] as Timestamp?;
+      if (ts == null || now.difference(ts.toDate()) > maxAge) {
+        batch.delete(doc.reference);
+        deleteCount++;
+      }
+    }
+
+    if (deleteCount > 0) await batch.commit();
+  }
+
   /// Watches for other users editing the same moment.
   /// Returns a stream of (userName, timestamp) for editors other than [excludeUserId].
   Stream<List<({String name, DateTime time})>> watchEditingPresence({

@@ -107,6 +107,12 @@ class _EditMomentScreenState extends State<EditMomentScreen>
     final userId = _authService.currentUser?.uid;
     if (userId == null) return;
 
+    // Garbage-collect any orphaned presence docs from crashed sessions
+    _firestoreService.cleanupStalePresence(
+      spaceId: widget.spaceId,
+      momentId: moment.id,
+    );
+
     // Set initial presence
     _refreshPresence();
 

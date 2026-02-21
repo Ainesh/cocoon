@@ -101,6 +101,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     // For now, we get it from the user's profile
     _firestoreService.getUserSpaceId(userId).then((spaceId) {
       if (!mounted || spaceId == null) return;
+      // Garbage-collect orphaned presence docs from crashed sessions
+      _firestoreService.cleanupStalePresence(
+        spaceId: spaceId,
+        momentId: widget.moment.id,
+      );
       _presenceSubscription = _firestoreService
           .watchEditingPresence(
             spaceId: spaceId,

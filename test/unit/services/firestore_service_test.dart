@@ -2,13 +2,14 @@
 ///
 /// Covers: FS result types, MomentConflictException, local storage,
 /// and invite code configuration from the test plan.
-/// Uses SharedPreferences mock for local storage tests.
 library;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:couple_space/services/firestore_service.dart';
+import '../../helpers/mock_services.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -79,30 +80,19 @@ void main() {
   });
 
   // ===========================================================================
-  // Invite Code Configuration
-  // ===========================================================================
-
-  group('Invite Code Configuration', () {
-    // FS-39 - Verify service instantiation (constants are private)
-    test('service can be instantiated', () {
-      final service = FirestoreService();
-      expect(service, isNotNull);
-    });
-  });
-
-  // ===========================================================================
-  // Local Storage
+  // Local Storage (injecting mock Firestore to avoid Firebase.initializeApp)
   // ===========================================================================
 
   group('Local Storage', () {
     late FirestoreService service;
+    late MockFirebaseFirestore mockFirestore;
 
     setUp(() {
       SharedPreferences.setMockInitialValues({});
-      service = FirestoreService();
+      mockFirestore = MockFirebaseFirestore();
+      service = FirestoreService(firestore: mockFirestore);
     });
 
-    // FS-20 (partial) - Tests local storage operations
     test('saveSpaceId and getSavedSpaceId round-trip', () async {
       await service.saveSpaceId('space_abc');
       final saved = await service.getSavedSpaceId();
@@ -119,6 +109,18 @@ void main() {
     test('getSavedSpaceId returns null when nothing saved', () async {
       final saved = await service.getSavedSpaceId();
       expect(saved, isNull);
+    });
+  });
+
+  // ===========================================================================
+  // Invite Code Configuration
+  // ===========================================================================
+
+  group('Invite Code Configuration', () {
+    test('service can be instantiated with mock Firestore', () {
+      final mockFirestore = MockFirebaseFirestore();
+      final service = FirestoreService(firestore: mockFirestore);
+      expect(service, isNotNull);
     });
   });
 }
