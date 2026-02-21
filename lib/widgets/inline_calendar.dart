@@ -10,6 +10,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:table_calendar/table_calendar.dart';
 
 import '../theme/app_colors.dart';
+import '../utils/date_utils.dart';
 
 // =============================================================================
 // Single date calendar
@@ -43,7 +44,8 @@ class InlineDateCalendar extends StatelessWidget {
           selectedDay != null && isSameDay(selectedDay, day),
       onDaySelected: (selected, focused) {
         HapticFeedback.selectionClick();
-        onDaySelected(selected, focused);
+        // Normalize to local midnight — table_calendar returns UTC dates
+        onDaySelected(AppDateFormat.toLocalDate(selected), focused);
       },
       onPageChanged: onPageChanged,
       calendarFormat: CalendarFormat.month,
@@ -107,7 +109,12 @@ class InlineRangeCalendar extends StatelessWidget {
       rangeSelectionMode: RangeSelectionMode.enforced,
       onRangeSelected: (start, end, focused) {
         HapticFeedback.selectionClick();
-        onRangeSelected(start, end, focused);
+        // Normalize to local midnight — table_calendar returns UTC dates
+        onRangeSelected(
+          start != null ? AppDateFormat.toLocalDate(start) : null,
+          end != null ? AppDateFormat.toLocalDate(end) : null,
+          focused,
+        );
       },
       onPageChanged: onPageChanged,
       calendarFormat: CalendarFormat.month,

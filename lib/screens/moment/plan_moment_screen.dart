@@ -176,7 +176,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   void _selectDate(DateTime date) {
     _dismissKeyboard();
     setState(() {
-      _startDate = date;
+      _startDate = AppDateFormat.toLocalDate(date);
       _isCalendarExpanded = false;
     });
     _scrollToBottom();
@@ -761,7 +761,9 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     return _buildPill(label, () {
       _dismissKeyboard();
       HapticFeedback.lightImpact();
-      setState(() => _endDate = _startDate!.add(Duration(days: nights)));
+      setState(() => _endDate = AppDateFormat.toLocalDate(
+        _startDate!.add(Duration(days: nights)),
+      ));
     });
   }
 

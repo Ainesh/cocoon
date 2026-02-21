@@ -396,4 +396,64 @@ void main() {
       expect(str, contains('Date Night'));
     });
   });
+
+  // ===========================================================================
+  // Date normalization (timezone fix)
+  // ===========================================================================
+
+  group('Moment date normalization', () {
+    test('fromJson normalizes UTC startDate to local midnight', () {
+      // Simulate a UTC midnight date from Firestore
+      final utcDate = DateTime.utc(2026, 3, 10);
+      final json = <String, dynamic>{
+        'name': 'Test',
+        'type': 'connect',
+        'startDate': Timestamp.fromDate(utcDate),
+        'createdBy': 'user1',
+        'version': 1,
+      };
+
+      final moment = Moment.fromJson('test-id', json);
+      // Should be March 10 in local time, not shifted
+      expect(moment.startDate.month, 3);
+      expect(moment.startDate.day, 10);
+      expect(moment.startDate.hour, 0);
+      expect(moment.startDate.isUtc, false);
+    });
+
+    test('fromJson normalizes UTC endDate to local midnight', () {
+      final utcStart = DateTime.utc(2026, 3, 10);
+      final utcEnd = DateTime.utc(2026, 3, 12);
+      final json = <String, dynamic>{
+        'name': 'Trip',
+        'type': 'escape',
+        'startDate': Timestamp.fromDate(utcStart),
+        'endDate': Timestamp.fromDate(utcEnd),
+        'createdBy': 'user1',
+        'version': 1,
+      };
+
+      final moment = Moment.fromJson('test-id', json);
+      expect(moment.startDate.day, 10);
+      expect(moment.endDate!.day, 12);
+      expect(moment.endDate!.isUtc, false);
+    });
+
+    test('version field defaults to 1 when missing', () {
+      final json = <String, dynamic>{
+        'name': 'Test',
+        'type': 'connect',
+        'startDate': Timestamp.fromDate(DateTime(2026, 3, 10)),
+        'createdBy': 'user1',
+      };
+      final moment = Moment.fromJson('test-id', json);
+      expect(moment.version, 1);
+    });
+
+    test('version field is included in toJson', () {
+      final moment = createTestMoment(version: 3);
+      final json = moment.toJson();
+      expect(json['version'], 3);
+    });
+  });
 }

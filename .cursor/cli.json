@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Shell(flutter:test)",
-      "Shell(flutter:analyze)"
-    ]
-  }
-}

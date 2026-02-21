@@ -201,10 +201,10 @@ class Moment {
       name: json['name'] as String? ?? '',
       type: MomentType.fromValue(json['type'] as String? ?? 'connect'),
       startDate: json['startDate'] != null
-          ? (json['startDate'] as Timestamp).toDate()
+          ? _toLocalDate((json['startDate'] as Timestamp).toDate())
           : DateTime.now(),
       endDate: json['endDate'] != null
-          ? (json['endDate'] as Timestamp).toDate()
+          ? _toLocalDate((json['endDate'] as Timestamp).toDate())
           : null,
       timeSlot: json['timeSlot'] != null
           ? TimeSlot.fromValue(json['timeSlot'] as String)
@@ -389,4 +389,15 @@ class Moment {
 
   @override
   String toString() => 'Moment($name, $type, $startDate)';
+
+  /// Normalizes a Firestore date to local midnight using UTC date components.
+  ///
+  /// Firestore stores dates as UTC timestamps. When dates represent calendar
+  /// days (not specific times), we need the UTC year/month/day, not the local
+  /// conversion which can shift the day in negative UTC offset timezones.
+  static DateTime _toLocalDate(DateTime dt) {
+    // Use UTC components to avoid day-shift in negative UTC offsets
+    final utc = dt.toUtc();
+    return DateTime(utc.year, utc.month, utc.day);
+  }
 }
