@@ -145,6 +145,7 @@ class Moment {
     this.notes,
     this.createdAt,
     this.updatedAt,
+    this.version = 1,
   });
 
   /// Unique identifier (Firestore document ID).
@@ -179,6 +180,9 @@ class Moment {
 
   /// When the moment was last updated.
   final DateTime? updatedAt;
+
+  /// Optimistic lock version — incremented on each update.
+  final int version;
 
   // ---------------------------------------------------------------------------
   // Factory Constructors
@@ -216,6 +220,7 @@ class Moment {
       updatedAt: json['updatedAt'] != null
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
+      version: json['version'] as int? ?? 1,
     );
   }
 
@@ -238,6 +243,7 @@ class Moment {
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'version': version,
     };
   }
 
@@ -364,6 +370,7 @@ class Moment {
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? version,
   }) {
     return Moment(
       id: id ?? this.id,
@@ -376,6 +383,7 @@ class Moment {
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      version: version ?? this.version,
     );
   }
 

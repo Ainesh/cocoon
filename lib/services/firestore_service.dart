@@ -50,6 +50,18 @@ import '../models/moment.dart';
 import '../models/user_checkin.dart';
 
 // -----------------------------------------------------------------------------
+// Exceptions
+// -----------------------------------------------------------------------------
+
+/// Thrown when a moment update fails due to a version conflict.
+class MomentConflictException implements Exception {
+  MomentConflictException(this.message);
+  final String message;
+  @override
+  String toString() => message;
+}
+
+// -----------------------------------------------------------------------------
 // Result Types
 // -----------------------------------------------------------------------------
 
@@ -585,9 +597,15 @@ class FirestoreService {
   }
 
   /// Updates an existing moment.
+  /// Updates a moment with optimistic locking.
+  ///
+  /// Uses a Firestore transaction to check the `version` field before writing.
+  /// Throws [MomentConflictException] if the moment was modified since it was
+  /// loaded (i.e. partner saved changes while you were editing).
   Future<void> updateMoment({
     required String spaceId,
     required String momentId,
+    required int expectedVersion,
     String? name,
     MomentType? type,
     DateTime? startDate,
@@ -596,29 +614,120 @@ class FirestoreService {
     RepeatSchedule? repeatSchedule,
     String? notes,
   }) async {
-    final updates = <String, dynamic>{
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
+    final docRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId);
 
-    if (name != null) updates['name'] = name;
-    if (type != null) updates['type'] = type.value;
-    if (startDate != null) {
-      updates['startDate'] = Timestamp.fromDate(startDate);
-    }
-    if (endDate != null) {
-      updates['endDate'] = Timestamp.fromDate(endDate);
-    }
-    if (timeSlot != null) updates['timeSlot'] = timeSlot.value;
-    if (repeatSchedule != null) updates['repeatSchedule'] = repeatSchedule.value;
-    // Notes can be explicitly set to null to clear them
-    updates['notes'] = notes;
+    await _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(docRef);
+      if (!snapshot.exists) {
+        throw MomentConflictException('Moment no longer exists.');
+      }
 
+      final currentVersion = snapshot.data()?['version'] as int? ?? 1;
+      if (currentVersion != expectedVersion) {
+        throw MomentConflictException(
+          'This moment was updated by your partner. '
+          'Please go back and try again with the latest version.',
+        );
+      }
+
+      final updates = <String, dynamic>{
+        'updatedAt': FieldValue.serverTimestamp(),
+        'version': currentVersion + 1,
+      };
+
+      if (name != null) updates['name'] = name;
+      if (type != null) updates['type'] = type.value;
+      if (startDate != null) {
+        updates['startDate'] = Timestamp.fromDate(startDate);
+      }
+      if (endDate != null) {
+        updates['endDate'] = Timestamp.fromDate(endDate);
+      }
+      if (timeSlot != null) updates['timeSlot'] = timeSlot.value;
+      if (repeatSchedule != null) {
+        updates['repeatSchedule'] = repeatSchedule.value;
+      }
+      updates['notes'] = notes;
+
+      transaction.update(docRef, updates);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Editing Presence
+  // ---------------------------------------------------------------------------
+
+  /// Marks a moment as being edited by the given user.
+  /// The presence doc auto-expires via a TTL-like pattern — caller should
+  /// refresh every ~30s and clear on dispose.
+  Future<void> setEditingPresence({
+    required String spaceId,
+    required String momentId,
+    required String userId,
+    required String userName,
+  }) async {
     await _firestore
         .collection(_spacesCollection)
         .doc(spaceId)
         .collection('moments')
         .doc(momentId)
-        .update(updates);
+        .collection('editing')
+        .doc(userId)
+        .set({
+      'userName': userName,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Clears editing presence for a user.
+  Future<void> clearEditingPresence({
+    required String spaceId,
+    required String momentId,
+    required String userId,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
+        .collection('editing')
+        .doc(userId)
+        .delete();
+  }
+
+  /// Watches for other users editing the same moment.
+  /// Returns a stream of (userName, timestamp) for editors other than [excludeUserId].
+  Stream<List<({String name, DateTime time})>> watchEditingPresence({
+    required String spaceId,
+    required String momentId,
+    required String excludeUserId,
+  }) {
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
+        .collection('editing')
+        .snapshots()
+        .map((snapshot) {
+      final editors = <({String name, DateTime time})>[];
+      for (final doc in snapshot.docs) {
+        if (doc.id == excludeUserId) continue;
+        final data = doc.data();
+        final ts = data['timestamp'] as Timestamp?;
+        if (ts == null) continue;
+        final time = ts.toDate();
+        // Only show if presence is < 60s old (stale cleanup)
+        if (DateTime.now().difference(time).inSeconds < 60) {
+          editors.add((name: data['userName'] as String? ?? 'Partner', time: time));
+        }
+      }
+      return editors;
+    });
   }
 
   // ---------------------------------------------------------------------------

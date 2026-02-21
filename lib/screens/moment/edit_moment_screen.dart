@@ -68,6 +68,11 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
   DateTime? _rangeEnd;
   double? _dragPosition; // For time slider stretchy effect
   
+  // Editing presence
+  StreamSubscription<List<({String name, DateTime time})>>? _presenceSubscription;
+  Timer? _presenceRefreshTimer;
+  String? _partnerEditingName;
+
   // Delete state
   bool _isHoldingDelete = false;
   int _activeDots = 24;
@@ -88,10 +93,68 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     _notesController = TextEditingController(text: widget.moment.notes ?? '');
     _notesFocusNode.addListener(() => setState(() {}));
     
+    _setupEditingPresence();
+    
     // Handle initial focus after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialFocus();
     });
+  }
+
+  void _setupEditingPresence() {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+
+    // Set initial presence
+    _refreshPresence();
+
+    // Refresh presence every 30s so it doesn't go stale
+    _presenceRefreshTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _refreshPresence(),
+    );
+
+    // Watch for partner editing
+    _presenceSubscription = _firestoreService
+        .watchEditingPresence(
+          spaceId: widget.spaceId,
+          momentId: moment.id,
+          excludeUserId: userId,
+        )
+        .listen((editors) {
+      if (mounted) {
+        setState(() {
+          _partnerEditingName = editors.isNotEmpty ? editors.first.name : null;
+        });
+      }
+    });
+  }
+
+  Future<void> _refreshPresence() async {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+    try {
+      final profile = await _firestoreService.getUserProfile(userId);
+      final userName = profile?['name'] as String? ?? 'Someone';
+      await _firestoreService.setEditingPresence(
+        spaceId: widget.spaceId,
+        momentId: moment.id,
+        userId: userId,
+        userName: userName,
+      );
+    } catch (_) {}
+  }
+
+  Future<void> _clearPresence() async {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+    try {
+      await _firestoreService.clearEditingPresence(
+        spaceId: widget.spaceId,
+        momentId: moment.id,
+        userId: userId,
+      );
+    } catch (_) {}
   }
   
   void _handleInitialFocus() {
@@ -110,7 +173,11 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
   }
 
   @override
+  @override
   void dispose() {
+    _presenceRefreshTimer?.cancel();
+    _presenceSubscription?.cancel();
+    _clearPresence();
     _notesController.dispose();
     _notesFocusNode.dispose();
     _cancelDelete();
@@ -345,6 +412,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
       await _firestoreService.updateMoment(
         spaceId: widget.spaceId,
         momentId: moment.id,
+        expectedVersion: moment.version,
         startDate: _startDate!,
         endDate: _endDate,
         timeSlot: _selectedTimeSlot,
@@ -367,6 +435,9 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
           changedFields: _changedFields,
         );
       }
+
+      // Clear editing presence before leaving
+      await _clearPresence();
       
       // Create updated moment to return
       final updatedMoment = Moment(
@@ -381,12 +452,15 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         createdAt: moment.createdAt,
         updatedAt: DateTime.now(),
+        version: moment.version + 1,
       );
       
       HapticFeedback.heavyImpact();
+      if (mounted) context.pop(updatedMoment);
+    } on MomentConflictException catch (e) {
+      // Version conflict — partner saved first
       if (mounted) {
-        // Pop and return the updated moment so MDS can be re-opened
-        context.pop(updatedMoment);
+        _showConflictDialog(e.message);
       }
     } catch (e) {
       if (mounted) {
@@ -397,6 +471,46 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  void _showConflictDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.darkCardLight,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Edit conflict',
+          style: GoogleFonts.outfit(
+            color: AppColors.warmLight,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        content: Text(
+          message,
+          style: GoogleFonts.inter(
+            color: AppColors.warmDim,
+            fontSize: 14,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              if (mounted) context.pop(); // Go back to dashboard
+            },
+            child: Text(
+              'Go back',
+              style: GoogleFonts.inter(
+                color: AppColors.accentRed,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -446,6 +560,37 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Partner editing indicator
+              if (_partnerEditingName != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentRed.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.accentRed.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.edit_rounded, color: AppColors.accentRed, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '$_partnerEditingName is also editing this moment',
+                          style: GoogleFonts.inter(
+                            color: AppColors.accentRed,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               // Moment Type Badge (non-editable)
               _buildTypeBadge(),
               const SizedBox(height: 12),
