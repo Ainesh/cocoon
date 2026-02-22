@@ -9,6 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:couple_space/models/moment.dart';
 import '../../helpers/test_helpers.dart';
 
+DateTime _todayUtc() {
+  final now = DateTime.now();
+  return DateTime.utc(now.year, now.month, now.day);
+}
+
 void main() {
   // ===========================================================================
   // MomentType Enum
@@ -130,21 +135,21 @@ void main() {
 
     // MOM-11
     test('isToday returns true for today\'s date', () {
-      final moment = createTestMoment(startDate: DateTime.now());
+      final moment = createTestMoment(startDate: _todayUtc());
       expect(moment.isToday, isTrue);
     });
 
     // MOM-12
     test('isToday returns false for yesterday', () {
       final moment = createTestMoment(
-        startDate: DateTime.now().subtract(const Duration(days: 1)),
+        startDate: _todayUtc().subtract(const Duration(days: 1)),
       );
       expect(moment.isToday, isFalse);
     });
 
     // MOM-13
     test('spansToday returns true for multi-day moment spanning today', () {
-      final now = DateTime.now();
+      final now = _todayUtc();
       final moment = createTestMoment(
         type: MomentType.escape,
         startDate: now.subtract(const Duration(days: 1)),
@@ -157,8 +162,8 @@ void main() {
     test('spansToday returns false for past multi-day moment', () {
       final moment = createTestMoment(
         type: MomentType.escape,
-        startDate: DateTime.now().subtract(const Duration(days: 10)),
-        endDate: DateTime.now().subtract(const Duration(days: 5)),
+        startDate: _todayUtc().subtract(const Duration(days: 10)),
+        endDate: _todayUtc().subtract(const Duration(days: 5)),
       );
       expect(moment.spansToday, isFalse);
     });
@@ -166,7 +171,7 @@ void main() {
     // MOM-15
     test('isPast returns true for past dates', () {
       final moment = createTestMoment(
-        startDate: DateTime.now().subtract(const Duration(days: 5)),
+        startDate: _todayUtc().subtract(const Duration(days: 5)),
       );
       expect(moment.isPast, isTrue);
     });
@@ -174,8 +179,8 @@ void main() {
     // MOM-16
     test('isPast uses endDate when available (Escape)', () {
       final moment = createTestMoment(
-        startDate: DateTime.now().subtract(const Duration(days: 5)),
-        endDate: DateTime.now().add(const Duration(days: 2)),
+        startDate: _todayUtc().subtract(const Duration(days: 5)),
+        endDate: _todayUtc().add(const Duration(days: 2)),
       );
       expect(moment.isPast, isFalse);
     });
@@ -183,7 +188,7 @@ void main() {
     // MOM-17
     test('isUpcoming returns true for future dates', () {
       final moment = createTestMoment(
-        startDate: DateTime.now().add(const Duration(days: 5)),
+        startDate: _todayUtc().add(const Duration(days: 5)),
       );
       expect(moment.isUpcoming, isTrue);
     });
@@ -196,10 +201,10 @@ void main() {
 
     // MOM-19
     test('durationDays calculates correctly for multi-day', () {
-      final start = DateTime(2026, 3, 1);
+      final start = DateTime.utc(2026, 3, 1);
       final moment = createTestEscapeMoment(
         startDate: start,
-        endDate: DateTime(2026, 3, 4),
+        endDate: DateTime.utc(2026, 3, 4),
       );
       expect(moment.durationDays, 4); // 3 days difference + 1
     });
@@ -211,18 +216,18 @@ void main() {
     });
 
     test('nights calculates correctly for multi-day', () {
-      final start = DateTime(2026, 3, 1);
+      final start = DateTime.utc(2026, 3, 1);
       final moment = createTestEscapeMoment(
         startDate: start,
-        endDate: DateTime(2026, 3, 4),
+        endDate: DateTime.utc(2026, 3, 4),
       );
       expect(moment.nights, 3);
     });
 
     // MOM-21
     test('dateDisplay shows range for Escape with endDate', () {
-      final start = DateTime(2026, 3, 1);
-      final end = DateTime(2026, 3, 4);
+      final start = DateTime.utc(2026, 3, 1);
+      final end = DateTime.utc(2026, 3, 4);
       final moment = createTestMoment(
         type: MomentType.escape,
         startDate: start,
@@ -235,7 +240,7 @@ void main() {
     test('dateDisplay shows single date for Connect', () {
       final moment = createTestMoment(
         type: MomentType.connect,
-        startDate: DateTime(2026, 2, 15),
+        startDate: DateTime.utc(2026, 2, 15),
       );
       expect(moment.dateDisplay, 'Feb 15');
     });
@@ -253,16 +258,16 @@ void main() {
 
     // MOM-24
     test('relativeDate returns "Today", "Tomorrow", "Yesterday" correctly', () {
-      final today = createTestMoment(startDate: DateTime.now());
+      final today = createTestMoment(startDate: _todayUtc());
       expect(today.relativeDate, 'Today');
 
       final tomorrow = createTestMoment(
-        startDate: DateTime.now().add(const Duration(days: 1)),
+        startDate: _todayUtc().add(const Duration(days: 1)),
       );
       expect(tomorrow.relativeDate, 'Tomorrow');
 
       final yesterday = createTestMoment(
-        startDate: DateTime.now().subtract(const Duration(days: 1)),
+        startDate: _todayUtc().subtract(const Duration(days: 1)),
       );
       expect(yesterday.relativeDate, 'Yesterday');
     });
@@ -270,7 +275,7 @@ void main() {
     // MOM-25
     test('relativeDate returns "In X days" for near-future', () {
       final moment = createTestMoment(
-        startDate: DateTime.now().add(const Duration(days: 4)),
+        startDate: _todayUtc().add(const Duration(days: 4)),
       );
       expect(moment.relativeDate, 'In 4 days');
     });
@@ -278,12 +283,12 @@ void main() {
     // MOM-26
     test('relativeDate returns "Next week", "In X weeks" correctly', () {
       final nextWeek = createTestMoment(
-        startDate: DateTime.now().add(const Duration(days: 8)),
+        startDate: _todayUtc().add(const Duration(days: 8)),
       );
       expect(nextWeek.relativeDate, 'Next week');
 
       final twoWeeks = createTestMoment(
-        startDate: DateTime.now().add(const Duration(days: 16)),
+        startDate: _todayUtc().add(const Duration(days: 16)),
       );
       expect(twoWeeks.relativeDate, 'In 2 weeks');
     });
@@ -291,12 +296,12 @@ void main() {
     // MOM-27
     test('relativeDate returns "Next month", "In X months" correctly', () {
       final nextMonth = createTestMoment(
-        startDate: DateTime.now().add(const Duration(days: 32)),
+        startDate: _todayUtc().add(const Duration(days: 32)),
       );
       expect(nextMonth.relativeDate, 'Next month');
 
       final threeMonths = createTestMoment(
-        startDate: DateTime.now().add(const Duration(days: 95)),
+        startDate: _todayUtc().add(const Duration(days: 95)),
       );
       expect(threeMonths.relativeDate, 'In 3 months');
     });
@@ -304,7 +309,7 @@ void main() {
     // MOM-28
     test('relativeDate returns "X days ago" for near past', () {
       final moment = createTestMoment(
-        startDate: DateTime.now().subtract(const Duration(days: 3)),
+        startDate: _todayUtc().subtract(const Duration(days: 3)),
       );
       expect(moment.relativeDate, '3 days ago');
     });
@@ -336,7 +341,7 @@ void main() {
     // MOM-30
     test('fromJson handles null/missing fields with defaults', () {
       final json = <String, dynamic>{
-        'startDate': Timestamp.fromDate(DateTime.now()),
+        'startDate': Timestamp.fromDate(_todayUtc()),
       };
 
       final moment = Moment.fromJson('test_id', json);
@@ -402,8 +407,7 @@ void main() {
   // ===========================================================================
 
   group('Moment date normalization', () {
-    test('fromJson normalizes UTC startDate to local midnight', () {
-      // Simulate a UTC midnight date from Firestore
+    test('fromJson normalizes dates to UTC midnight', () {
       final utcDate = DateTime.utc(2026, 3, 10);
       final json = <String, dynamic>{
         'name': 'Test',
@@ -414,14 +418,13 @@ void main() {
       };
 
       final moment = Moment.fromJson('test-id', json);
-      // Should be March 10 in local time, not shifted
       expect(moment.startDate.month, 3);
       expect(moment.startDate.day, 10);
       expect(moment.startDate.hour, 0);
-      expect(moment.startDate.isUtc, false);
+      expect(moment.startDate.isUtc, true);
     });
 
-    test('fromJson normalizes UTC endDate to local midnight', () {
+    test('fromJson normalizes endDate to UTC midnight', () {
       final utcStart = DateTime.utc(2026, 3, 10);
       final utcEnd = DateTime.utc(2026, 3, 12);
       final json = <String, dynamic>{
@@ -435,8 +438,9 @@ void main() {
 
       final moment = Moment.fromJson('test-id', json);
       expect(moment.startDate.day, 10);
+      expect(moment.startDate.isUtc, true);
       expect(moment.endDate!.day, 12);
-      expect(moment.endDate!.isUtc, false);
+      expect(moment.endDate!.isUtc, true);
     });
 
     test('version field defaults to 1 when missing', () {

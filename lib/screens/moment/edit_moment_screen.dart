@@ -479,7 +479,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         repeatSchedule: moment.repeatSchedule,
         notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
         createdAt: moment.createdAt,
-        updatedAt: DateTime.now(),
+        updatedAt: DateTime.now().toUtc(),
         version: moment.version + 1,
       );
       

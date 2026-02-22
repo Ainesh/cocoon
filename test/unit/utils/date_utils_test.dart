@@ -93,51 +93,70 @@ void main() {
   });
 
   // ===========================================================================
-  // toLocalDate — timezone normalization
+  // toUtcDate — UTC normalization
   // ===========================================================================
 
-  group('AppDateFormat.toLocalDate', () {
-    test('converts UTC midnight to local midnight', () {
+  group('AppDateFormat.toUtcDate', () {
+    test('converts UTC midnight to UTC midnight (no change)', () {
       final utcDate = DateTime.utc(2026, 3, 10);
-      final local = AppDateFormat.toLocalDate(utcDate);
-      expect(local.year, 2026);
-      expect(local.month, 3);
-      expect(local.day, 10);
-      expect(local.hour, 0);
-      expect(local.minute, 0);
-      expect(local.isUtc, false);
+      final result = AppDateFormat.toUtcDate(utcDate);
+      expect(result.year, 2026);
+      expect(result.month, 3);
+      expect(result.day, 10);
+      expect(result.hour, 0);
+      expect(result.minute, 0);
+      expect(result.isUtc, true);
     });
 
-    test('strips time from local DateTime', () {
-      final withTime = DateTime(2026, 3, 10, 14, 30, 45);
-      final stripped = AppDateFormat.toLocalDate(withTime);
-      expect(stripped.year, 2026);
-      expect(stripped.month, 3);
-      expect(stripped.day, 10);
-      expect(stripped.hour, 0);
-      expect(stripped.minute, 0);
-      expect(stripped.second, 0);
+    test('converts local DateTime to UTC midnight', () {
+      final local = DateTime(2026, 3, 10, 14, 30, 45);
+      final result = AppDateFormat.toUtcDate(local);
+      expect(result.year, 2026);
+      expect(result.month, 3);
+      expect(result.day, 10);
+      expect(result.hour, 0);
+      expect(result.isUtc, true);
     });
 
-    test('preserves date for already-midnight local DateTime', () {
-      final midnight = DateTime(2026, 3, 10);
-      final result = AppDateFormat.toLocalDate(midnight);
-      expect(result, midnight);
+    test('strips time from UTC DateTime', () {
+      final utcWithTime = DateTime.utc(2026, 3, 10, 23, 59, 59);
+      final result = AppDateFormat.toUtcDate(utcWithTime);
+      expect(result.day, 10);
+      expect(result.hour, 0);
+      expect(result.minute, 0);
+      expect(result.isUtc, true);
     });
 
     test('handles year boundary', () {
-      final utcNewYear = DateTime.utc(2027, 1, 1);
-      final local = AppDateFormat.toLocalDate(utcNewYear);
-      expect(local.year, 2027);
-      expect(local.month, 1);
-      expect(local.day, 1);
+      final result = AppDateFormat.toUtcDate(DateTime.utc(2027, 1, 1));
+      expect(result.year, 2027);
+      expect(result.month, 1);
+      expect(result.day, 1);
+      expect(result.isUtc, true);
     });
 
     test('handles leap year Feb 29', () {
-      final utcLeap = DateTime.utc(2028, 2, 29, 23, 59, 59);
-      final local = AppDateFormat.toLocalDate(utcLeap);
-      expect(local.month, 2);
-      expect(local.day, 29);
+      final result = AppDateFormat.toUtcDate(DateTime.utc(2028, 2, 29, 23, 59));
+      expect(result.month, 2);
+      expect(result.day, 29);
+      expect(result.isUtc, true);
+    });
+  });
+
+  // ===========================================================================
+  // todayUtc
+  // ===========================================================================
+
+  group('AppDateFormat.todayUtc', () {
+    test('returns UTC midnight for today', () {
+      final today = AppDateFormat.todayUtc();
+      final now = DateTime.now();
+      expect(today.year, now.year);
+      expect(today.month, now.month);
+      expect(today.day, now.day);
+      expect(today.hour, 0);
+      expect(today.minute, 0);
+      expect(today.isUtc, true);
     });
   });
 }

@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
+import '../../utils/date_utils.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/moment_type_icon.dart';
@@ -586,10 +587,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   
   /// Returns (line1, line2) for escape card days to go badge
   (String, String)? _getEscapeDaysToGoInfo() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final startDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
-    final diff = startDate.difference(today).inDays;
+    final today = AppDateFormat.todayUtc();
+    final diff = moment.startDate.difference(today).inDays;
     
     if (diff < 0) return ('Started', '');
     if (diff == 0) return ('Today!', '');
@@ -804,10 +803,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   /// Returns (line1, line2) for the date badge.
   /// e.g., ("13 days", "to go") or ("Today", "")
   (String, String) _getRelativeDateInfo() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final momentDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
-    final diff = momentDate.difference(today).inDays;
+    final today = AppDateFormat.todayUtc();
+    final diff = moment.startDate.difference(today).inDays;
     
     if (diff < 0) return ('Past', '');
     if (diff == 0) return ('Today', '');

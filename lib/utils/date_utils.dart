@@ -33,26 +33,34 @@ abstract final class AppDateFormat {
   /// Full day name: `Monday`
   static String dayName(DateTime date) => _daysFull[date.weekday - 1];
 
-  /// Normalizes a DateTime to **local midnight** (strips time + UTC flag).
+  // ---------------------------------------------------------------------------
+  // UTC date helpers
+  // ---------------------------------------------------------------------------
+
+  /// Returns today as UTC midnight. Use for all date comparisons and storage.
+  static DateTime todayUtc() {
+    final now = DateTime.now();
+    return DateTime.utc(now.year, now.month, now.day);
+  }
+
+  /// Normalizes any DateTime to **UTC midnight** (strips time, ensures UTC).
   ///
-  /// table_calendar returns UTC midnight dates. Firestore Timestamp stores
-  /// UTC internally. If the user is in a negative UTC offset (e.g. UTC-8),
-  /// reading back a UTC midnight date converts to the previous day in local
-  /// time. This method ensures dates are always stored as local midnight,
-  /// preventing day-shift bugs.
+  /// All dates in the app should be stored and compared as UTC midnight.
+  /// Local timezone conversion happens only in the UI display layer.
   ///
   /// ```dart
-  /// final picked = DateTime.utc(2026, 3, 10); // from table_calendar
-  /// final safe = AppDateFormat.toLocalDate(picked);
-  /// // → DateTime(2026, 3, 10) in local time
+  /// final picked = DateTime(2026, 3, 10, 14, 30); // local with time
+  /// final utc = AppDateFormat.toUtcDate(picked);
+  /// // → DateTime.utc(2026, 3, 10) — UTC midnight
   /// ```
-  static DateTime toLocalDate(DateTime date) {
-    // For UTC dates (from table_calendar), use UTC components to avoid
-    // day-shift in negative UTC offset timezones.
+  static DateTime toUtcDate(DateTime date) {
     if (date.isUtc) {
-      return DateTime(date.year, date.month, date.day);
+      return DateTime.utc(date.year, date.month, date.day);
     }
-    // For local dates, just strip time
-    return DateTime(date.year, date.month, date.day);
+    // For local dates, use local year/month/day but store as UTC
+    return DateTime.utc(date.year, date.month, date.day);
   }
+
+  /// @deprecated Use [toUtcDate] instead.
+  static DateTime toLocalDate(DateTime date) => toUtcDate(date);
 }

@@ -12,6 +12,12 @@ import 'package:couple_space/models/avatar_data.dart';
 import 'package:couple_space/models/moment.dart';
 import 'package:couple_space/models/user_checkin.dart';
 
+/// UTC midnight today — use for all test date defaults.
+DateTime _todayUtc() {
+  final now = DateTime.now();
+  return DateTime.utc(now.year, now.month, now.day);
+}
+
 // =============================================================================
 // Moment Factories
 // =============================================================================
@@ -35,7 +41,7 @@ Moment createTestMoment({
     id: id,
     name: name,
     type: type,
-    startDate: startDate ?? DateTime.now().add(const Duration(days: 1)),
+    startDate: startDate ?? _todayUtc().add(const Duration(days: 1)),
     endDate: endDate,
     timeSlot: timeSlot,
     repeatSchedule: repeatSchedule,
@@ -54,7 +60,7 @@ Moment createTestEscapeMoment({
   DateTime? startDate,
   DateTime? endDate,
 }) {
-  final start = startDate ?? DateTime.now().add(const Duration(days: 7));
+  final start = startDate ?? _todayUtc().add(const Duration(days: 7));
   return createTestMoment(
     id: id,
     name: name,

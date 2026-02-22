@@ -44,8 +44,8 @@ class InlineDateCalendar extends StatelessWidget {
           selectedDay != null && isSameDay(selectedDay, day),
       onDaySelected: (selected, focused) {
         HapticFeedback.selectionClick();
-        // Normalize to local midnight — table_calendar returns UTC dates
-        onDaySelected(AppDateFormat.toLocalDate(selected), focused);
+        // Normalize to UTC midnight — all dates stored as UTC
+        onDaySelected(AppDateFormat.toUtcDate(selected), focused);
       },
       onPageChanged: onPageChanged,
       calendarFormat: CalendarFormat.month,
@@ -109,10 +109,10 @@ class InlineRangeCalendar extends StatelessWidget {
       rangeSelectionMode: RangeSelectionMode.enforced,
       onRangeSelected: (start, end, focused) {
         HapticFeedback.selectionClick();
-        // Normalize to local midnight — table_calendar returns UTC dates
+        // Normalize to UTC midnight — all dates stored as UTC
         onRangeSelected(
-          start != null ? AppDateFormat.toLocalDate(start) : null,
-          end != null ? AppDateFormat.toLocalDate(end) : null,
+          start != null ? AppDateFormat.toUtcDate(start) : null,
+          end != null ? AppDateFormat.toUtcDate(end) : null,
           focused,
         );
       },
