@@ -532,6 +532,28 @@ class FirestoreService {
     }
   }
 
+  /// Gets a single moment by ID.
+  ///
+  /// Returns null if the moment doesn't exist (e.g., deleted).
+  Future<Moment?> getMoment({
+    required String spaceId,
+    required String momentId,
+  }) async {
+    try {
+      final doc = await _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('moments')
+          .doc(momentId)
+          .get();
+      if (!doc.exists) return null;
+      return Moment.fromFirestore(doc);
+    } catch (e) {
+      debugPrint('Error getting moment: $e');
+      return null;
+    }
+  }
+
   /// Creates a new moment in a couple space.
   Future<String> createMoment({
     required String spaceId,
