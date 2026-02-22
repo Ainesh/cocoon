@@ -1,6 +1,8 @@
 /// Main shell screen with stretchy tab navigation for Couple Space app.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,6 +41,7 @@ class _MainShellState extends State<MainShell> {
   String? _spaceName;
   int _selectedTab = 0;
   double? _dragPosition;
+  StreamSubscription<NotificationNavigation>? _notificationSub;
 
   late final List<Widget> _tabs;
 
@@ -51,6 +54,13 @@ class _MainShellState extends State<MainShell> {
     ];
     _loadSpaceName();
     _registerFcmToken();
+    _listenForNotificationTaps();
+  }
+
+  @override
+  void dispose() {
+    _notificationSub?.cancel();
+    super.dispose();
   }
 
   /// Register FCM token for push notifications.
@@ -74,7 +84,43 @@ class _MainShellState extends State<MainShell> {
       debugPrint('Error registering FCM token: $e');
     }
   }
-  
+
+  /// Listen for notification taps and navigate to the relevant screen.
+  void _listenForNotificationTaps() {
+    _notificationSub = NotificationService.instance.onNotificationTap.listen(
+      (nav) {
+        if (!mounted) return;
+        debugPrint('Notification navigation: $nav');
+        _handleNotificationNavigation(nav);
+      },
+    );
+
+    // Check for pending navigation from app launch via notification
+    final pending = NotificationService.instance.consumePendingNavigation();
+    if (pending != null) {
+      // Delay slightly to ensure the widget tree is ready
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _handleNotificationNavigation(pending);
+      });
+    }
+  }
+
+  /// Navigate based on notification data.
+  void _handleNotificationNavigation(NotificationNavigation nav) {
+    final spaceId = nav.spaceId.isNotEmpty ? nav.spaceId : widget.spaceId;
+
+    if (nav.isCheckIn) {
+      // Navigate to check-in screen
+      context.push('/checkin/$spaceId');
+    } else if (nav.isMoment && nav.entityId.isNotEmpty) {
+      // Navigate to dashboard (moments tab) — the moment will be visible there
+      context.go('/dashboard/$spaceId');
+    } else {
+      // Default: go to dashboard
+      context.go('/dashboard/$spaceId');
+    }
+  }
+
   Future<void> _loadSpaceName() async {
     try {
       final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);

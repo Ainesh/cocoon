@@ -27,6 +27,8 @@
 /// Works automatically with google-services.json
 library;
 
+import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -65,6 +67,24 @@ class NotificationService {
 
   bool _isInitialized = false;
   String? _fcmToken;
+
+  /// Stream controller for notification navigation events.
+  final _navigationController = StreamController<NotificationNavigation>.broadcast();
+
+  /// Pending navigation from app launch via notification (terminated state).
+  NotificationNavigation? _pendingNavigation;
+
+  /// Stream of navigation events triggered by notification taps.
+  /// Listen to this in your shell/root widget to handle navigation.
+  Stream<NotificationNavigation> get onNotificationTap => _navigationController.stream;
+
+  /// Consumes and returns any pending navigation from app launch.
+  /// Returns null if there is no pending navigation.
+  NotificationNavigation? consumePendingNavigation() {
+    final pending = _pendingNavigation;
+    _pendingNavigation = null;
+    return pending;
+  }
 
   /// Current FCM token for this device.
   String? get fcmToken => _fcmToken;
@@ -237,11 +257,11 @@ class NotificationService {
     final notification = message.notification;
     if (notification == null) return;
 
-    // Show as local notification
+    // Show as local notification (encode full data as JSON payload for tap handling)
     await _showLocalNotification(
       title: notification.title ?? 'Cocoon',
       body: notification.body ?? '',
-      payload: message.data['type'] ?? '',
+      payload: jsonEncode(message.data),
       channelId: _getChannelFromData(message.data),
     );
   }
@@ -253,31 +273,57 @@ class NotificationService {
   }
 
   /// Check if app was opened from a notification when terminated.
+  /// Stores as pending since the UI may not be ready yet.
   Future<void> _checkInitialMessage() async {
     final initialMessage = await _messaging.getInitialMessage();
     if (initialMessage != null) {
       debugPrint('App opened from terminated via notification');
-      _navigateFromNotification(initialMessage.data);
+      final data = initialMessage.data;
+      final spaceId = data['spaceId'] as String? ?? '';
+      if (spaceId.isNotEmpty) {
+        _pendingNavigation = NotificationNavigation(
+          type: data['type'] as String? ?? '',
+          spaceId: spaceId,
+          entityType: data['entityType'] as String? ?? '',
+          entityId: data['entityId'] as String? ?? '',
+        );
+      }
     }
   }
 
   /// Handle local notification tap.
   void _onNotificationTapped(NotificationResponse response) {
     debugPrint('Local notification tapped: ${response.payload}');
-    // Parse payload and navigate
-    // Note: Navigation should be handled by the app's router
+    if (response.payload == null || response.payload!.isEmpty) return;
+
+    try {
+      final data = jsonDecode(response.payload!) as Map<String, dynamic>;
+      _navigateFromNotification(data);
+    } catch (e) {
+      debugPrint('Error parsing notification payload: $e');
+    }
   }
 
   /// Navigate based on notification data.
   void _navigateFromNotification(Map<String, dynamic> data) {
     final type = data['type'] as String?;
     final spaceId = data['spaceId'] as String?;
+    final entityType = data['entityType'] as String?;
     final entityId = data['entityId'] as String?;
 
-    debugPrint('Navigate from notification: type=$type, spaceId=$spaceId, entityId=$entityId');
+    debugPrint(
+      'Navigate from notification: type=$type, spaceId=$spaceId, '
+      'entityType=$entityType, entityId=$entityId',
+    );
 
-    // Note: Actual navigation should be handled by the app's router
-    // This could be implemented via a callback or stream that the app listens to
+    if (spaceId == null || spaceId.isEmpty) return;
+
+    _navigationController.add(NotificationNavigation(
+      type: type ?? '',
+      spaceId: spaceId,
+      entityType: entityType ?? '',
+      entityId: entityId ?? '',
+    ));
   }
 
   /// Get appropriate channel ID based on notification data.
@@ -399,4 +445,46 @@ class NotificationService {
     final settings = await _requestPermission();
     return settings.authorizationStatus == AuthorizationStatus.authorized;
   }
+}
+
+// =============================================================================
+// Navigation Data
+// =============================================================================
+
+/// Data from a notification tap used to navigate to the right screen.
+class NotificationNavigation {
+  const NotificationNavigation({
+    required this.type,
+    required this.spaceId,
+    this.entityType = '',
+    this.entityId = '',
+  });
+
+  /// Activity type (e.g., 'checkin', 'moment_planned').
+  final String type;
+
+  /// The space this notification belongs to.
+  final String spaceId;
+
+  /// Entity type (e.g., 'moment', 'checkin').
+  final String entityType;
+
+  /// Entity ID for deep-linking to a specific item.
+  final String entityId;
+
+  /// Whether this is a moment-related notification.
+  bool get isMoment => const [
+        'moment_planned',
+        'moment_edited',
+        'moment_deleted',
+        'moment_completed',
+      ].contains(type);
+
+  /// Whether this is a check-in notification.
+  bool get isCheckIn => type == 'checkin';
+
+  @override
+  String toString() =>
+      'NotificationNavigation(type: $type, spaceId: $spaceId, '
+      'entityType: $entityType, entityId: $entityId)';
 }
