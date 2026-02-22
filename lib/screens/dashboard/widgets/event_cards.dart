@@ -64,7 +64,7 @@ class ComingUpCard extends StatelessWidget {
               style: GoogleFonts.outfit(
                 color: AppColors.warmMuted,
                 fontSize: 10,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w600,
                 letterSpacing: 1.5,
               ),
             ),
@@ -103,7 +103,7 @@ class ComingUpCard extends StatelessWidget {
                 Text(
                   '+ ${moments.length - 2} moments this month',
                   style: GoogleFonts.inter(
-                    color: AppColors.accentRed,
+                    color: AppColors.warmMuted,
                     fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),

@@ -1,18 +1,17 @@
-/// Main shell screen with bottom navigation for Couple Space app.
-///
-/// Wraps all main screens (Dashboard, Calendar, Check-ins, Agreements)
-/// with a premium neumorphic bottom navigation bar using IndexedStack for state preservation.
+/// Main shell screen with stretchy tab navigation for Couple Space app.
 library;
 
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
-import 'agreements_tab.dart';
-import 'calendar_tab.dart';
-import 'checkins_tab.dart';
+import '../services/notification_service.dart';
 import 'dashboard/dashboard_tab.dart';
 
 // Theme constants for premium styling
@@ -39,8 +38,11 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   final _authService = AuthService();
   final _firestoreService = FirestoreService();
-  int _currentIndex = 0;
   String? _spaceName;
+  int _selectedTab = 0;
+  double? _dragPosition;
+  StreamSubscription<NotificationNavigation>? _notificationSub;
+  final _dashboardKey = GlobalKey<DashboardTabState>();
 
   late final List<Widget> _tabs;
 
@@ -48,14 +50,98 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _tabs = [
-      DashboardTab(spaceId: widget.spaceId),
-      CalendarTab(spaceId: widget.spaceId),
-      CheckInsTab(spaceId: widget.spaceId),
-      AgreementsTab(spaceId: widget.spaceId),
+      DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
+      const _ComingSoonPage(),
     ];
     _loadSpaceName();
+    _registerFcmToken();
+    _listenForNotificationTaps();
   }
-  
+
+  @override
+  void dispose() {
+    _notificationSub?.cancel();
+    super.dispose();
+  }
+
+  /// Register FCM token for push notifications.
+  Future<void> _registerFcmToken() async {
+    try {
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) return;
+
+      final notificationService = NotificationService.instance;
+      final token = notificationService.fcmToken;
+      
+      if (token != null) {
+        await _firestoreService.storeFcmToken(
+          userId: userId,
+          token: token,
+          deviceInfo: notificationService.getDeviceInfo(),
+        );
+        debugPrint('FCM token registered for user: $userId');
+      }
+    } catch (e) {
+      debugPrint('Error registering FCM token: $e');
+    }
+  }
+
+  /// Listen for notification taps and navigate to the relevant screen.
+  void _listenForNotificationTaps() {
+    final notifService = NotificationService.instance;
+
+    // Listen for live notification taps (foreground + some background cases)
+    _notificationSub = notifService.onNotificationTap.listen(
+      (nav) {
+        if (!mounted) return;
+        debugPrint('Notification navigation (stream): $nav');
+        // Consume pending to prevent double navigation
+        notifService.consumePendingNavigation();
+        _handleNotificationNavigation(nav);
+      },
+    );
+
+    // Check for pending navigation (background resume / terminated launch)
+    // Delayed to ensure widget tree + GoRouter are fully ready
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      final pending = notifService.consumePendingNavigation();
+      if (pending != null) {
+        debugPrint('Notification navigation (pending): $pending');
+        _handleNotificationNavigation(pending);
+      }
+    });
+  }
+
+  /// Navigate based on notification data.
+  void _handleNotificationNavigation(NotificationNavigation nav) {
+    final spaceId = nav.spaceId.isNotEmpty ? nav.spaceId : widget.spaceId;
+    debugPrint('Navigating for notification: type=${nav.type}, spaceId=$spaceId');
+
+    if (nav.isCheckIn) {
+      // Check-in notification → open check-in screen
+      context.push('/checkin/$spaceId');
+    } else if (nav.isMoment && nav.entityId.isNotEmpty) {
+      // Moment notification → switch to dashboard tab and open moment details
+      if (_selectedTab != 0) {
+        setState(() => _selectedTab = 0);
+      }
+      // Small delay to ensure dashboard is visible before showing sheet
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        _dashboardKey.currentState?.openEntityById(
+          entityType: nav.entityType,
+          entityId: nav.entityId,
+        );
+      });
+    } else {
+      // Default: go to dashboard
+      if (_selectedTab != 0) {
+        setState(() => _selectedTab = 0);
+      }
+    }
+  }
+
   Future<void> _loadSpaceName() async {
     try {
       final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);
@@ -77,9 +163,9 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          _getTitle(),
+          _spaceName ?? 'Home',
           style: GoogleFonts.outfit(
-            fontWeight: _currentIndex == 0 ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: FontWeight.w700,
             fontSize: 22,
             color: _lightText,
           ),
@@ -103,118 +189,156 @@ class _MainShellState extends State<MainShell> {
         ],
       ),
       body: IndexedStack(
-        index: _currentIndex,
+        index: _selectedTab,
         children: _tabs,
       ),
-      floatingActionButton: _buildFab(),
-      bottomNavigationBar: _buildBottomNav(),
+      bottomNavigationBar: _buildNavBar(),
     );
   }
 
-  Widget _buildBottomNav() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _darkGlass,
-        border: Border(
-          top: BorderSide(
-            color: _refinedRed.withValues(alpha: 0.1),
-            width: 1,
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _refinedRed.withValues(alpha: 0.1),
-            offset: const Offset(0, -4),
-            blurRadius: 20,
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, Icons.home_outlined, Icons.home_rounded),
-              _buildNavItem(1, Icons.event_outlined, Icons.event_rounded),
-              _buildNavItem(2, Icons.edit_note_outlined, Icons.edit_note_rounded),
-              _buildNavItem(3, Icons.handshake_outlined, Icons.handshake_rounded),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _buildNavBar() {
+    const height = 48.0;
 
-  Widget _buildNavItem(int index, IconData icon, IconData selectedIcon) {
-    final isSelected = _currentIndex == index;
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final totalWidth = constraints.maxWidth;
+            const dashWidth = 52.0;
+            final comingSoonWidth = totalWidth - dashWidth - 8;
 
-    return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected ? _refinedRed.withValues(alpha: 0.15) : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: isSelected
-              ? Border.all(color: _refinedRed.withValues(alpha: 0.3))
-              : null,
-        ),
-        child: Icon(
-          isSelected ? selectedIcon : icon,
-          color: isSelected ? _refinedRed : _dimText,
-          size: 26,
-        ),
-      ),
-    );
-  }
+            final isDragging = _dragPosition != null;
+            double highlightLeft;
+            double highlightWidth;
 
-  String _getTitle() {
-    return switch (_currentIndex) {
-      0 => _spaceName ?? 'Home',
-      1 => 'Events',
-      2 => 'Check-ins',
-      3 => 'Agreements',
-      _ => 'Home',
-    };
-  }
+            if (isDragging) {
+              final dragX = _dragPosition!;
+              final overSecond = dragX > dashWidth + 4;
+              if (overSecond) {
+                highlightLeft = dashWidth + 8;
+                highlightWidth = comingSoonWidth;
+              } else {
+                highlightLeft = 0;
+                highlightWidth = dashWidth;
+              }
+              // Stretch toward drag
+              final tabCenter = highlightLeft + highlightWidth / 2;
+              if (dragX < tabCenter) {
+                final newLeft = dragX.clamp(0.0, highlightLeft);
+                highlightWidth += (highlightLeft - newLeft);
+                highlightLeft = newLeft;
+              } else {
+                final newRight =
+                    dragX.clamp(highlightLeft + highlightWidth, totalWidth);
+                highlightWidth = newRight - highlightLeft;
+              }
+            } else {
+              if (_selectedTab == 0) {
+                highlightLeft = 0;
+                highlightWidth = dashWidth;
+              } else {
+                highlightLeft = dashWidth + 8;
+                highlightWidth = comingSoonWidth;
+              }
+            }
 
-  Widget? _buildFab() {
-    return switch (_currentIndex) {
-      0 => null, // Plan a Moment is accessible from dashboard card
-      1 => null, // Events tab - no FAB needed
-      2 => _buildPremiumFab(
-          icon: Icons.edit_note_rounded,
-          label: 'Check-in now',
-          onPressed: () => context.push('/checkin/${widget.spaceId}'),
-        ),
-      3 => _buildPremiumFab(
-          icon: Icons.add_rounded,
-          label: 'Add agreement',
-          onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Agreements coming soon!'),
-                backgroundColor: _refinedRed,
-                behavior: SnackBarBehavior.floating,
+            return GestureDetector(
+              onHorizontalDragStart: (d) {
+                setState(() =>
+                    _dragPosition = d.localPosition.dx.clamp(0, totalWidth));
+              },
+              onHorizontalDragUpdate: (d) {
+                final pos = d.localPosition.dx.clamp(0.0, totalWidth);
+                setState(() => _dragPosition = pos);
+
+                final newTab = pos > dashWidth + 4 ? 1 : 0;
+                if (_selectedTab != newTab) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _selectedTab = newTab);
+                }
+              },
+              onHorizontalDragEnd: (_) {
+                setState(() => _dragPosition = null);
+              },
+              onTapDown: (d) {
+                final newTab = d.localPosition.dx > dashWidth + 4 ? 1 : 0;
+                if (_selectedTab != newTab) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _selectedTab = newTab);
+                }
+              },
+              child: SizedBox(
+                height: height,
+                child: Stack(
+                  children: [
+                    // Stretchy highlight — solid red, same as time selector
+                    AnimatedPositioned(
+                      duration: Duration(
+                          milliseconds: isDragging ? 80 : 350),
+                      curve: isDragging
+                          ? Curves.easeOut
+                          : Curves.easeOutCubic,
+                      left: highlightLeft,
+                      top: 0,
+                      bottom: 0,
+                      width: highlightWidth,
+                      child: AnimatedContainer(
+                        duration: Duration(
+                            milliseconds: isDragging ? 80 : 300),
+                        curve: isDragging
+                            ? Curves.easeOut
+                            : Curves.easeOutCubic,
+                        decoration: BoxDecoration(
+                          color: _refinedRed,
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _refinedRed.withValues(alpha: 0.4),
+                              blurRadius: 12,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Tab labels
+                    Row(
+                      children: [
+                        // Dashboard icon
+                        SizedBox(
+                          width: dashWidth,
+                          child: Center(
+                            child: Icon(
+                              Icons.space_dashboard_rounded,
+                              color: _selectedTab == 0
+                                  ? _pureBlack
+                                  : _dimText,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Coming Soon
+                        Expanded(
+                          child: Center(
+                            child: Icon(
+                              Icons.hardware_rounded,
+                              color: _selectedTab == 1
+                                  ? _pureBlack
+                                  : _dimText,
+                              size: 22,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },
         ),
-      _ => null,
-    };
-  }
-
-  Widget _buildPremiumFab({
-    required IconData icon,
-    required String label,
-    required VoidCallback onPressed,
-  }) {
-    return _PremiumFab(
-      icon: icon,
-      label: label,
-      onPressed: onPressed,
+      ),
     );
   }
 
@@ -380,81 +504,48 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-/// Premium FAB with micro-interactions.
-class _PremiumFab extends StatefulWidget {
-  const _PremiumFab({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  State<_PremiumFab> createState() => _PremiumFabState();
-}
-
-class _PremiumFabState extends State<_PremiumFab> {
-  bool _isPressed = false;
-  bool _isHovered = false;
+/// Coming Soon placeholder page.
+class _ComingSoonPage extends StatelessWidget {
+  const _ComingSoonPage();
 
   @override
   Widget build(BuildContext context) {
-    final isActive = _isPressed || _isHovered;
-
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: GestureDetector(
-        onTapDown: (_) => setState(() => _isPressed = true),
-        onTapUp: (_) {
-          setState(() => _isPressed = false);
-          widget.onPressed();
-        },
-        onTapCancel: () => setState(() => _isPressed = false),
-        child: AnimatedScale(
-          scale: _isPressed ? 0.95 : 1.0,
-          duration: const Duration(milliseconds: 100),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 150),
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: _refinedRed,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: _refinedRed.withValues(alpha: isActive ? 0.5 : 0.3),
-                  offset: Offset(0, isActive ? 8 : 4),
-                  blurRadius: isActive ? 24 : 16,
-                  spreadRadius: isActive ? 0 : -2,
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.3),
-                  offset: const Offset(0, 2),
-                  blurRadius: 8,
-                ),
-              ],
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.hardware_rounded,
+              color: _refinedRed.withValues(alpha: 0.6),
+              size: 48,
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(widget.icon, color: Colors.white, size: 20),
-                const SizedBox(width: 8),
-                Text(
-                  widget.label,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            const SizedBox(height: 20),
+            Text(
+              'More features are\non the way',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                color: _lightText,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
             ),
-          ),
+            const SizedBox(height: 12),
+            Text(
+              'The team is working on new features to help you grow together. Look out for updates!',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                color: _dimText,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+

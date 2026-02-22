@@ -77,16 +77,22 @@ Cocoon helps couples stay intentionally connected through:
 - Space name customization from settings
 
 ### 📊 Dashboard
-- **Relationship Health Card**
-  - Animated circular progress with 32 dots
-  - Normal distribution timing curve (suspenseful finish)
-  - Haptic feedback for each dot
+- **Navigation** — Stretchy 2-tab selector (Dashboard ↔ Coming Soon)
+  - Solid red sliding highlight with drag + snap
+  - Dashboard icon (space_dashboard) + construction icon
+  - Coming Soon page with "More features on the way" messaging
+- **Relationship Health Card** — Voronoi Mosaic
+  - Animated Voronoi mosaic fills a rounded rectangle with organic tiles
+  - Tiles appear one-by-one with zoom-in → glow → zoom-out → settle animation
+  - Tile colours represent health score on a blue (low) → red (high) spectrum
+  - Geometry cached (O(n² × rays)) — never recomputed in paint()
+  - Phantom border seeds create organic rounded edges at card boundary
   - Tap for detailed breakdown sheet
   - Live updates when partner checks in
 - **Coming Up Card** — Upcoming moments with smart layout:
   - Featured moment (next up) with full details
   - Secondary moment in compact view
-  - "+ X moments this month" indicator when more scheduled
+  - "+ X moments this month" indicator (muted) when more scheduled
   - Adaptive sizing: card shrinks when fewer moments planned
 - **Plan a Moment** — Adaptive button that expands when Coming Up is small
 - **Check-in Button** — Quick access to daily check-in
@@ -102,29 +108,84 @@ Three types of moments with progressive reveal UI:
 | **Escape** | ✈️ | Getaways | Multi-day | Destination, Date range |
 
 **Features:**
-- Health card-style type selection
+- Type selection with muted icons, red highlight on selected
 - Preset suggestions with custom input option
-- Stretchy time slot slider with color gradient
-- Slide to save confirmation
+- Inline `table_calendar` date picker (no popup dialogs)
+- Quick date pills: Today, Tomorrow, weekday names, Pick a date
+- Range calendar for Escape with solid red highlight bar
+- Stretchy time slot slider with color gradient (morning blue → night red)
+- Calendar collapses on field focus change / drag end
+- Delayed slide-to-save (400ms after all fields complete)
+- Auto-scroll to bottom when new cards appear
 - Swipe right to dismiss
+- `ClampingScrollPhysics` — no bouncy overscroll
 
 ### 📝 Moment Details
 - View full moment details in a bottom sheet
+- "Planned by You on Saturday, Feb 15" subtitle with human-readable date
 - Long-press any card to edit that field
 - **Hold to Cancel** with animated countdown overlay
 - Dotted circle progress animation during deletion
 
+### 🔍 Check-in Details
+- View-only bottom sheet opened from Activity Trail
+- Voronoi mosaic at top grouped by pulse attribute
+- 3 static vertical bars showing Connection, Intimacy, Peace scores
+- Reflection card (if notes were provided)
+- "Checked in by You on Saturday, Feb 15" subtitle
+
 ### 💬 Check-ins
-- **Score Selectors** — Custom circular sliders (32 dots like health card)
-  - Blue-to-red gradient based on score
-  - Glowing numbers and bars
-  - Haptic feedback tied to dot filling
-- **Health Metrics** — Connection ❤️, Intimacy 🔥, Peace ☮️ (1-10)
+- **Pulse Check Card** — Voronoi mosaic + 3 vertical bar sliders
+  - Top: Grouped Voronoi mosaic — tiles randomly assigned to 3 pulse attributes
+  - Each group's tiles coloured by that slider's value (blue→red)
+  - Staggered tile entrance animation (2s) + quick bar settle from max (600ms)
+  - Bottom: 3 vertical bar sliders (Connection ❤️, Intimacy 🔥, Peace ☮️)
+  - Drag vertically to set 1-10 score with haptic feedback
+  - "PULSE CHECK" header + helper text
 - **Smart Defaults** — Sliders start from your last check-in
-- **Trend Charts** — Visualize your history with smooth curves
-- **Partner Activity** — Timeline of partner's recent check-ins
-- **Reflection** — Optional appreciation or thoughts
-- **Slide to Save** — Swipe-to-confirm submission
+- **Reflection** — Optional appreciation or thoughts (always-red label)
+- **Slide to Save** — Sticky bottom swipe-to-confirm, always enabled
+
+### 🔔 Push Notifications
+Real-time notifications triggered by partner activities via Firebase Cloud Functions:
+
+**Features:**
+- Notifications for all activity types (check-ins, moments, space events)
+- Configurable priority levels per activity type (silent, low, normal, high, critical)
+- Per-activity enable/disable toggles
+- Global notification master switch
+- FCM token management with multi-device support
+- Automatic cleanup of invalid tokens
+- **Tap-to-navigate deep links**: Tapping a notification opens the relevant content
+  - Check-in notifications → Opens check-in screen
+  - Moment notifications → Opens moment details bottom sheet on dashboard
+  - Space events → Opens dashboard
+  - Works from all 3 app states: foreground, background, and terminated
+  - Uses pending navigation pattern to handle timing between FCM events and widget lifecycle
+
+**Notification Types:**
+| Activity | Default Priority | Default Enabled |
+|----------|-----------------|-----------------|
+| Check-in | Normal | ✅ |
+| Moment Planned | Normal | ✅ |
+| Moment Edited | Low | ✅ |
+| Moment Deleted | Normal | ✅ |
+| Moment Completed | Low | ✅ |
+| Space Joined | High | ✅ |
+| Space Renamed | Low | ✅ |
+| Invite Accepted | High | ✅ |
+
+**Architecture:**
+- **Cloud Function** (`onActivityCreated`): Firestore trigger on `spaces/{spaceId}/activities/{activityId}` → finds partner → sends FCM multicast
+- **NotificationService**: Singleton handling FCM init, permissions, token management, local notification display, and navigation stream
+- **MainShell**: Listens to notification tap stream for navigation, handles pending navigation from terminated state
+
+**Platform Setup:**
+- iOS: Enable Push Notifications + Background Modes capabilities, upload APNs key to Firebase Console
+- Android: Works automatically with google-services.json
+- Web: Requires `firebase-messaging-sw.js` service worker
+
+---
 
 ### 📋 Activity Trail
 A comprehensive activity tracking system that logs all couple interactions:
@@ -139,10 +200,13 @@ A comprehensive activity tracking system that logs all couple interactions:
 | **Space Created** | Space was created | Creator name |
 
 **Features:**
-- Paginated display (6 initial, load 4 more)
-- Color-coded icons by action type (red=create, blue=delete, purple=edit)
+- Paginated display (6 initial, load 4 more) with "+ more activity" text
+- "You" for current user, partner's name for their activities
+- Event/moment names highlighted in bold, actor names in dim style
+- Check-in icon: organic mosaic tile SVG on tinted background
+- Score-coloured pulse attribute icons (blue→red) for check-in activities
+- Color-coded moment icons by action type (red=create, blue=delete, purple=edit)
 - Relative timestamps ("2h ago", "Yesterday")
-- Detailed check-in scores with emoji indicators
 - "Modified X" details for edited moments
 
 ---
@@ -183,10 +247,11 @@ Scores calculated from **past 30 days** of check-ins from both partners.
 1. **Simplicity First** — `setState` for local state, no complex state management
 2. **Real-time by Default** — Firestore streams for live updates
 3. **Modular Screens** — Large screens split into focused widgets
-4. **DRY Widgets** — Reusable components with barrel exports
-5. **Centralized Theming** — All colors, typography, spacing in one place
+4. **DRY Component Library** — Shared widgets (`InlineDateCalendar`, `InlineRangeCalendar`, `ActiveCard`, `SlideToAction`, etc.) with barrel exports
+5. **Centralized Theming** — 10-colour palette, `AppTypography` styles, `AppDateFormat` utils
 6. **Progressive Disclosure** — UI reveals as user completes steps
 7. **Haptic Feedback** — Tactile response for all meaningful interactions
+8. **Consistent Spacing** — 12px card gaps, `ClampingScrollPhysics` everywhere
 
 ### Layer Architecture
 
@@ -196,16 +261,16 @@ Scores calculated from **past 30 days** of check-ins from both partners.
 │   (UI composition, local state, gestures)   │
 ├─────────────────────────────────────────────┤
 │                   Widgets                    │
-│  (Reusable UI components, painters, etc.)   │
+│  (Reusable component library, painters)     │
 ├─────────────────────────────────────────────┤
-│                  Services                    │
-│     (Firebase Auth, Firestore CRUD)         │
+│              Services + Utils                │
+│   (Firebase Auth/Firestore, date format)    │
 ├─────────────────────────────────────────────┤
 │                   Models                     │
 │   (Data classes, enums, factory methods)    │
 ├─────────────────────────────────────────────┤
 │                   Theme                      │
-│   (Colors, Typography, Spacing constants)   │
+│  (Colors, Typography, Spacing constants)    │
 └─────────────────────────────────────────────┘
 ```
 
@@ -235,27 +300,31 @@ When your partner submits a check-in, your dashboard automatically:
 
 | Token | Hex | Usage |
 |-------|-----|-------|
-| `pureBlack` | `#0A0A0A` | Background |
-| `darkCard` | `#161616` | Card backgrounds |
-| `darkCardLight` | `#1E1E1E` | Elevated cards |
-| `cardVariant` | `#252525` | Pills, inputs |
-| `accentRed` | `#E84545` | Primary accent, CTAs |
-| `warmLight` | `#EDE6DB` | High-contrast text |
-| `warmDim` | `#8A8480` | Body text |
-| `warmMuted` | `#6B665F` | Subtle/disabled text |
-| `subtleText` | `#B8B2A8` | Secondary content |
+| `pureBlack` | `#0A0A0A` | Screen / sheet backgrounds |
+| `darkCardLight` | `#1E1E1E` | All card backgrounds |
+| `cardVariant` | `#2A2A2A` | Nested elements, slider tracks, pills |
+| `accentRed` | `#E84545` | Single primary red — accent, CTAs, selection |
+| `accentPurple` | `#8A2BE2` | Secondary accent |
+| `lightText` | `#F5F5F5` | Primary text on dark |
+| `warmLight` | `#EDE6DB` | High-contrast warm text |
+| `warmDim` | `#9A938A` | Secondary / body text |
+| `warmMuted` | `#6B665F` | Labels, helper text |
 | `morningColor` | `#60A5FA` | Time slot low (morning/cool) |
-| `nightColor` | `#E84545` | Time slot high (night/warm) |
-| `success` | `#4ADE80` | Positive trends |
-| `trendNegative` | `#F87171` | Negative trends |
+| `nightColor` | `= accentRed` | Time slot high (night/warm) |
+| `success` | `#4ADE80` | Positive / green |
+| `error` | `#FF6B6B` | Error / negative |
+| `warning` | `#F97316` | Warning orange |
+
+> **Note:** Legacy aliases (`darkCard`, `darkGlass`, `darkSurface`, `refinedRed`, `brightRed`, `deepRed`, `subtleText`, `bodyGray`, `dimText`, `mutedText`, `softViolet`, `trendNegative`) resolve to the colours above for backward compatibility.
 
 ### Typography
 
 | Purpose | Font | Weight | Usage |
 |---------|------|--------|-------|
-| **Display** | Outfit | 600-700 | Headlines, scores, pulse words |
-| **Body** | Inter | 400-500 | Body text, labels |
-| **Accent** | Cormorant Garamond | 500-600 | Health remarks, hints |
+| **Display** | Outfit | 600-700 | Headlines, scores, pulse words, calendar numbers |
+| **Body** | Inter | 400-500 | Body text, descriptions |
+| **Card Label** | Outfit | 600 | Section headings (HEALTH, PULSE, DATE, etc.) |
+| **Accent** | Cormorant Garamond | 500-600 | Health remarks, taglines |
 
 ```dart
 // Import
@@ -264,6 +333,8 @@ import 'package:couple_space/theme/theme.dart';
 // Usage
 Text('Score', style: AppTypography.headlineLarge())
 Text('Description', style: AppTypography.bodyMedium(color: AppColors.warmDim))
+Text('PULSE', style: AppTypography.cardLabel())  // 10px, w600, letterSpacing 1.5
+Text('Hint text', style: AppTypography.helperText())
 ```
 
 ### Spacing System
@@ -284,11 +355,13 @@ Text('Description', style: AppTypography.bodyMedium(color: AppColors.warmDim))
 
 | Animation | Duration | Curve | Usage |
 |-----------|----------|-------|-------|
-| Health dots | 2200ms | SuspensefulCurve | Score reveal |
+| Health mosaic | 3800ms | SuspensefulCurve | Voronoi tile entrance |
+| Calendar expand | 300ms | easeOutCubic | Inline calendar open/close |
 | Card transitions | 200-300ms | easeOutCubic | State changes |
-| Slider snapping | 60ms (drag) / 280ms (release) | easeOut | Time slider |
+| Slider snapping | 80ms (drag) / 300ms (release) | easeOut / easeOutCubic | Time slider, nav tab |
 | Micro-interactions | 100-150ms | easeInOut | Hover, press |
 | Delete countdown | 3000ms | linear | Hold to cancel |
+| Save button appear | 400ms | — (delayed) | Slide-to-save reveal |
 
 ### Haptic Feedback
 
@@ -422,23 +495,23 @@ bool get _canSubmit => _selectedType != null && _momentName.isNotEmpty;
 
 ### 5. DRY Patterns
 
-**Extract repeated UI patterns into helper methods or widgets:**
+**Extract repeated UI patterns into shared widgets:**
 
 ```dart
-// Good: Reusable helper within a file
-Widget _buildPill(String label, VoidCallback onTap) {
-  return GestureDetector(
-    onTap: onTap,
-    child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: AppColors.cardVariant,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(label, style: _pillTextStyle),
-    ),
-  );
-}
+// Good: Shared calendar widget used by PAM + edit moment
+InlineDateCalendar(
+  focusedDay: _focusedDay,
+  selectedDay: _startDate,
+  onDaySelected: (selected, focused) { ... },
+);
+
+// Good: Shared date formatting utility
+AppDateFormat.short(date)     // "Mon, Feb 15"
+AppDateFormat.compact(date)   // "Feb 15"
+AppDateFormat.subtitle(date)  // "Monday, Feb 15"
+
+// Good: Centralized card label style
+Text('PULSE', style: AppTypography.cardLabel())
 ```
 
 ### 6. Theme Usage
@@ -539,8 +612,13 @@ Future<void> _loadData() async {
 ## Project Structure
 
 ```
+functions/                       # Cloud Functions for push notifications
+├── src/index.ts                 # onActivityCreated trigger
+├── package.json                 # Node.js dependencies
+└── tsconfig.json                # TypeScript config
+
 lib/
-├── main.dart                    # App entry, Firebase init, portrait lock
+├── main.dart                    # App entry, Firebase init, notifications
 ├── firebase_options.dart        # Auto-generated Firebase config
 │
 ├── theme/                       # Centralized theming
@@ -553,6 +631,7 @@ lib/
 │   ├── activity.dart            # Activity model for activity trail
 │   ├── avatar_data.dart         # Avatar and color data
 │   ├── moment.dart              # Moment model (Connect, Celebrate, Escape)
+│   ├── notification_preferences.dart # Notification config per activity type
 │   └── user_checkin.dart        # Check-in model & CheckInStats
 │
 ├── router/
@@ -563,14 +642,12 @@ lib/
 │   ├── login_screen.dart        # Welcome with auth options
 │   ├── onboarding_screen.dart   # Space creation wizard
 │   ├── join_screen.dart         # Join space with invite
-│   ├── main_shell.dart          # Bottom nav + settings
-│   ├── calendar_tab.dart        # Moments calendar view
-│   ├── checkins_tab.dart        # Check-ins timeline
-│   ├── agreements_tab.dart      # Coming soon placeholder
+│   ├── main_shell.dart          # Stretchy tab nav + settings + coming soon
 │   │
-│   ├── checkin/                 # Check-in screen module
+│   ├── checkin/                 # Check-in module
 │   │   ├── checkin.dart         # Barrel export
-│   │   ├── checkin_screen.dart  # Main check-in form
+│   │   ├── checkin_screen.dart  # Pulse check form
+│   │   ├── checkin_details_sheet.dart  # View-only check-in sheet
 │   │   └── widgets/
 │   │       ├── partner_checkins.dart
 │   │       └── your_trend.dart
@@ -581,7 +658,7 @@ lib/
 │   │   └── widgets/
 │   │       ├── activity_trail.dart     # Activity history with pagination
 │   │       ├── event_cards.dart        # ComingUpCard, PlanMomentCard
-│   │       ├── health_card.dart        # Animated health score
+│   │       ├── health_card.dart        # Animated Voronoi health score
 │   │       └── health_details_sheet.dart
 │   │
 │   └── moment/                  # Moment planning module
@@ -592,22 +669,28 @@ lib/
 │
 ├── services/
 │   ├── auth_service.dart        # Firebase Auth + Google Sign-In
-│   └── firestore_service.dart   # All Firestore CRUD + streams
+│   ├── firestore_service.dart   # All Firestore CRUD + streams
+│   └── notification_service.dart # FCM setup + local notifications
 │
-└── widgets/
+├── utils/
+│   └── date_utils.dart          # AppDateFormat — shared date formatting
+│
+└── widgets/                     # Reusable component library
     ├── widgets.dart             # Barrel export
     ├── action_button.dart       # ActionButton, HoldToActionButton
-    ├── active_card.dart         # Card with active state
+    ├── active_card.dart         # Card with active/highlighted state
     ├── animated_tap_button.dart # Button with tap animation
     ├── avatar_selector.dart     # Avatar & color picker
+    ├── inline_calendar.dart     # InlineDateCalendar, InlineRangeCalendar
     ├── moment_type_icon.dart    # getMomentTypeIconWidget helper
-    ├── neumorphic_container.dart # PremiumCard, SectionHeader
-    ├── dotted_slider.dart       # ScoreSelector (32-dot circular slider)
+    ├── neumorphic_container.dart # PremiumCard, SectionHeader, EmptyState
+    ├── dotted_slider.dart       # ScoreSelector, VerticalBarSlider
     ├── slide_to_action.dart     # Swipe-to-confirm
     ├── animations/
     │   └── suspenseful_curve.dart
     └── painters/
-        ├── circle_progress_painters.dart
+        ├── circle_progress_painters.dart  # Dotted + continuous arc painters
+        ├── voronoi_mosaic_painter.dart    # Voronoi engine + 3 mosaic painters
         └── trend_chart_painter.dart
 ```
 
@@ -846,6 +929,10 @@ flutter pub get
 # iOS specific (macOS only)
 cd ios && pod install && cd ..
 
+# Deploy Cloud Functions (for push notifications)
+cd functions && npm install && npm run build && cd ..
+firebase deploy --only functions --project your-project-id
+
 # Run the app
 flutter run -d chrome    # Web
 flutter run -d ios       # iOS Simulator
@@ -866,7 +953,7 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 | `/login` | Welcome | No | Auth options |
 | `/join?code=ABC` | Join | No | Partner invitation |
 | `/onboarding` | Create Space | Yes | New user setup |
-| `/dashboard/:id` | Main Shell | Yes | 4-tab navigation |
+| `/dashboard/:id` | Main Shell | Yes | Dashboard + coming soon |
 | `/checkin/:id` | Check-in | Yes | Submit scores |
 | `/moment/:id` | Plan Moment | Yes | Create new moment |
 | `/moment/:id/edit?focus=X` | Edit Moment | Yes | Edit existing moment |
@@ -880,6 +967,8 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 | `firebase_core` | ^4.4.0 | Firebase initialization |
 | `firebase_auth` | ^6.1.4 | Authentication |
 | `cloud_firestore` | ^6.1.2 | Database |
+| `firebase_messaging` | ^16.1.1 | Push notifications |
+| `flutter_local_notifications` | ^18.0.1 | Local notification display |
 | `google_sign_in` | ^6.2.2 | Google auth |
 | `go_router` | ^17.0.1 | Declarative routing |
 | `shared_preferences` | ^2.5.4 | Local storage |
@@ -888,6 +977,7 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 | `google_fonts` | ^8.0.0 | Typography |
 | `flutter_svg` | ^2.2.3 | SVG icons |
 | `fl_chart` | ^1.1.1 | Trend charts |
+| `table_calendar` | ^3.2.0 | Inline date picker |
 | `flutter_animate` | ^4.5.2 | Animations |
 | `font_awesome_flutter` | ^10.12.0 | Additional icons |
 | `cupertino_icons` | ^1.0.8 | iOS-style icons |
@@ -926,16 +1016,16 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 | Issue | Location | Priority | Notes |
 |-------|----------|----------|-------|
 | Unused `RepeatSchedule` | `Moment` model | Low | Field exists but UI removed |
-| `agreements_tab.dart` placeholder | Screens | Low | Shows "coming soon" |
+| Duplicated time slider | PAM + edit moment | Medium | ~100 lines each, tightly coupled to screen state |
+| `main_shell.dart` local constants | `main_shell.dart` | Low | Uses local `_refinedRed` etc. instead of `AppColors` |
 | No offline support | Services | Medium | App requires network |
-| Local color constants | Various files | Low | Some files still have local color constants |
+| Deprecated `scale` usage | action_button, animated_tap_button | Low | Use `scaleByDouble` |
 
 ### Planned Features
 
 | Feature | Description | Complexity |
 |---------|-------------|------------|
-| **Check-in Details Sheet** | View individual check-in details from activity trail | Low |
-| **Push Notifications** | Remind to check in, moment alerts | Medium |
+| ~~Push Notifications~~ | ~~Remind to check in, moment alerts~~ | ✅ Done |
 | **Recurring Moments** | Weekly date nights, etc. | Medium |
 | **Shared Notes** | Both partners can edit | Low |
 | **Photo Memories** | Attach photos to moments | Medium |
@@ -1038,4 +1128,4 @@ MIT License — see [LICENSE](LICENSE) file for details.
 
 ---
 
-*Last updated: February 9, 2026*
+*Last updated: February 22, 2026*

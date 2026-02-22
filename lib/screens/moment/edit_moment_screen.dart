@@ -12,6 +12,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
+import '../../utils/date_utils.dart';
+import '../../widgets/inline_calendar.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
@@ -60,6 +62,10 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
 
   // UI state
   bool _isSubmitting = false;
+  bool _isCalendarExpanded = false;
+  DateTime _focusedDay = DateTime.now();
+  DateTime? _rangeStart;
+  DateTime? _rangeEnd;
   double? _dragPosition; // For time slider stretchy effect
   
   // Delete state
@@ -91,11 +97,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
   void _handleInitialFocus() {
     switch (widget.initialFocus) {
       case EditMomentFocus.date:
-        if (moment.type == MomentType.escape) {
-          _pickBothDates();
-        } else {
-          _pickStartDate();
-        }
+        setState(() => _isCalendarExpanded = true);
         break;
       case EditMomentFocus.notes:
         _notesFocusNode.requestFocus();
@@ -228,8 +230,6 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
   // Actions
   // ---------------------------------------------------------------------------
 
-  void _dismissKeyboard() => FocusScope.of(context).unfocus();
-  
   /// Attempt to go back - shows confirmation if there are unsaved changes
   Future<void> _handleBack() async {
     if (_hasChanges) {
@@ -244,7 +244,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.darkCard,
+        backgroundColor: AppColors.darkCardLight,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text(
           'Discard changes?',
@@ -287,79 +287,53 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     );
   }
 
-  Future<void> _pickStartDate() async {
-    _dismissKeyboard();
-    await Future.delayed(const Duration(milliseconds: 50));
-    HapticFeedback.lightImpact();
-    final now = DateTime.now();
-    final date = await showDatePicker(
-      context: context,
-      initialDate: _startDate ?? now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365 * 2)),
-      builder: _datePickerTheme,
-    );
-    if (date != null) {
-      setState(() {
-        _startDate = date;
-        if (_endDate != null && _endDate!.isBefore(_startDate!)) {
-          _endDate = null;
-        }
-      });
-    }
-  }
-
-  Future<void> _pickBothDates() async {
-    _dismissKeyboard();
-    await Future.delayed(const Duration(milliseconds: 50));
-    HapticFeedback.lightImpact();
-    await _showDateRangePicker();
-  }
-
-  Future<void> _showDateRangePicker({DateTime? initialStart}) async {
-    final now = DateTime.now();
-    final initialRange = initialStart != null
-        ? DateTimeRange(start: initialStart, end: _endDate ?? initialStart.add(const Duration(days: 2)))
-        : _startDate != null
-            ? DateTimeRange(start: _startDate!, end: _endDate ?? _startDate!.add(const Duration(days: 2)))
-            : DateTimeRange(start: now, end: now.add(const Duration(days: 2)));
-
-    final result = await showDateRangePicker(
-      context: context,
-      initialDateRange: initialRange,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 365 * 2)),
-      saveText: 'CONFIRM',
-      builder: _datePickerTheme,
-    );
-
-    if (result != null) {
-      setState(() {
-        _startDate = result.start;
-        _endDate = result.end;
-      });
-    }
-  }
-
-  Widget _datePickerTheme(BuildContext context, Widget? child) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        colorScheme: ColorScheme.dark(
-          primary: AppColors.accentRed,
-          onPrimary: AppColors.pureBlack,
-          surface: AppColors.darkCardLight,
-          onSurface: AppColors.warmLight,
-          primaryContainer: AppColors.accentRed.withValues(alpha: 0.2),
-        ), dialogTheme: DialogThemeData(backgroundColor: AppColors.darkCard),
-      ),
-      child: child!,
-    );
-  }
-
   void _selectTimeSlot(TimeSlot slot) {
-    _dismissKeyboard();
     HapticFeedback.selectionClick();
     setState(() => _selectedTimeSlot = slot);
+  }
+
+  void _dismissKeyboard() {
+    FocusScope.of(context).unfocus();
+    if (_isCalendarExpanded) setState(() => _isCalendarExpanded = false);
+  }
+
+  Widget _buildInlineCalendar() {
+    return InlineDateCalendar(
+      focusedDay: _focusedDay,
+      selectedDay: _startDate,
+      onDaySelected: (selected, focused) {
+        setState(() {
+          _startDate = selected;
+          _focusedDay = focused;
+          if (_endDate != null && _endDate!.isBefore(_startDate!)) {
+            _endDate = null;
+          }
+        });
+      },
+      onPageChanged: (focused) => _focusedDay = focused,
+    );
+  }
+
+  Widget _buildRangeCalendar() {
+    return InlineRangeCalendar(
+      focusedDay: _focusedDay,
+      rangeStartDay: _rangeStart ?? _startDate,
+      rangeEndDay: _rangeEnd ?? _endDate,
+      onRangeSelected: (start, end, focused) {
+        setState(() {
+          _rangeStart = start;
+          _rangeEnd = end;
+          _focusedDay = focused;
+          if (start != null) _startDate = start;
+          if (end != null) {
+            _endDate = end;
+            _rangeStart = null;
+            _rangeEnd = null;
+          }
+        });
+      },
+      onPageChanged: (focused) => _focusedDay = focused,
+    );
   }
 
   Future<void> _submit() async {
@@ -467,13 +441,14 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
           centerTitle: true,
         ),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Moment Type Badge (non-editable)
               _buildTypeBadge(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               
               // Moment Name (non-editable)
               Text(
@@ -485,7 +460,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               
               // Helper text - cannot change type/name
               Text(
@@ -503,43 +478,34 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
               
               // Time Card (Connect only)
               if (moment.type == MomentType.connect) ...[
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _buildTimeCard(),
               ],
               
               // Notes Card
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               _buildNotesCard(),
               
-              // Extra padding to account for sticky bottom buttons
-              const SizedBox(height: 120),
+              // Hold to cancel
+              const SizedBox(height: 12),
+              _buildHoldToDeleteButton(),
             ],
           ),
         ),
-        // Sticky bottom buttons
-        bottomNavigationBar: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Slide to Save (only when changes exist)
-                if (_canSubmit) ...[
-                  SlideToAction(
+        bottomNavigationBar: _canSubmit
+            ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                  child: SlideToAction(
                     label: 'Slide to save',
                     loadingLabel: 'Saving...',
                     onConfirm: _submit,
                     isLoading: _isSubmitting,
                     enabled: _canSubmit && !_isSubmitting,
                   ),
-                  const SizedBox(height: 12),
-                ],
-                // Hold to Delete (always visible)
-                _buildHoldToDeleteButton(),
-              ],
-            ),
-          ),
-        ),
+                ),
+              )
+            : null,
         ),
       ),
     );
@@ -572,28 +538,66 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
 
   Widget _buildDateCard() {
     final isEscape = moment.type == MomentType.escape;
-    final hasDate = _startDate != null;
     
-    return GestureDetector(
-      onTap: isEscape ? _pickBothDates : _pickStartDate,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: double.infinity,
-        child: ActiveCard(
-          heading: isEscape ? 'Dates' : 'Date',
-          isActive: hasDate,
-          child: hasDate 
-              ? (isEscape ? _buildEscapeDateDisplay() : _buildSingleDateDisplay())
-              : _buildDatePlaceholder(),
-        ),
+    if (isEscape) {
+      return _buildEscapeDateCard();
+    }
+
+    // Single date — inline calendar
+    final hasDate = _startDate != null;
+    return ActiveCard(
+      heading: 'Date',
+      isActive: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasDate && !_isCalendarExpanded) ...[
+            GestureDetector(
+              onTap: () => setState(() => _isCalendarExpanded = true),
+              behavior: HitTestBehavior.opaque,
+              child: Text(
+                _formatDate(_startDate!),
+                style: AppTypography.bodyMedium(color: AppColors.subtleText),
+              ),
+            ),
+          ] else ...[
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              child: _buildInlineCalendar(),
+            ),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _buildSingleDateDisplay() {
-    return Text(
-      _formatDate(_startDate!),
-      style: AppTypography.bodyMedium(color: AppColors.subtleText),
+  Widget _buildEscapeDateCard() {
+    final hasStart = _startDate != null;
+    final hasEnd = _endDate != null;
+    final isComplete = hasStart && hasEnd;
+
+    return ActiveCard(
+      heading: 'Dates',
+      isActive: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isComplete && !_isCalendarExpanded) ...[
+            GestureDetector(
+              onTap: () => setState(() => _isCalendarExpanded = true),
+              behavior: HitTestBehavior.opaque,
+              child: _buildEscapeDateDisplay(),
+            ),
+          ] else ...[
+            AnimatedSize(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              child: _buildRangeCalendar(),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -630,16 +634,6 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     );
   }
 
-  Widget _buildDatePlaceholder() {
-    return Text(
-      'Tap to select date',
-      style: GoogleFonts.inter(
-        color: AppColors.warmMuted,
-        fontSize: 14,
-      ),
-    );
-  }
-
   Color _getTimeSlotColor(int index) {
     final progress = index / (TimeSlot.values.length - 1);
     return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ?? AppColors.nightColor;
@@ -654,9 +648,9 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     
     return ActiveCard(
       heading: 'Time',
-      isActive: hasTime,
+      isActive: true,
       helperText: !hasTime ? 'What time of day?' : null,
-      hideHelperWhenActive: true,
+      hideHelperWhenActive: false,
       shrinkWhenActive: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -700,19 +694,16 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
         
         if (isDragging) {
           final dragX = _dragPosition!;
-          // Stretch from selected slot toward drag position
+          // Stretch from selected slot toward drag position.
+          // No clamping — Stack has Clip.none so overflow is visible.
           if (dragX < selectedCenter) {
-            // Dragging left - stretch left edge
-            highlightLeft = dragX - baseWidth * 0.4;
-            highlightWidth = (selectedCenter + baseWidth * 0.4) - highlightLeft;
+            highlightLeft = dragX - baseWidth * 0.3;
+            highlightWidth = (selectedCenter + baseWidth * 0.5) - highlightLeft;
           } else {
-            // Dragging right - stretch right edge  
-            highlightLeft = selectedCenter - baseWidth * 0.4;
-            highlightWidth = (dragX + baseWidth * 0.4) - highlightLeft;
+            highlightLeft = selectedCenter - baseWidth * 0.5;
+            highlightWidth = (dragX + baseWidth * 0.3) - highlightLeft;
           }
-          // Clamp bounds
-          highlightLeft = highlightLeft.clamp(padding, totalWidth - baseWidth - padding);
-          highlightWidth = highlightWidth.clamp(baseWidth, totalWidth - padding * 2);
+          if (highlightWidth < baseWidth) highlightWidth = baseWidth;
           // Color based on drag position
           colorProgress = (dragX / totalWidth).clamp(0.0, 1.0);
         } else {
@@ -738,7 +729,11 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
             }
           },
           onHorizontalDragEnd: (_) {
-            setState(() => _dragPosition = null);
+            setState(() {
+              _dragPosition = null;
+              _isCalendarExpanded = false;
+            });
+            FocusScope.of(context).unfocus();
           },
           child: Container(
             height: 56,
@@ -785,7 +780,11 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
                         onTap: () {
                           HapticFeedback.selectionClick();
                           _selectTimeSlot(slot);
-                          setState(() => _dragPosition = null);
+                          FocusScope.of(context).unfocus();
+                          setState(() {
+                            _dragPosition = null;
+                            _isCalendarExpanded = false;
+                          });
                         },
                         behavior: HitTestBehavior.opaque,
                         child: Center(
@@ -819,20 +818,18 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
   }
 
   Widget _buildNotesCard() {
-    final hasNotes = _notesController.text.trim().isNotEmpty;
-    final isFocused = _notesFocusNode.hasFocus;
-    final isActive = hasNotes || isFocused;
+    final hasContent = _notesController.text.trim().isNotEmpty || _notesFocusNode.hasFocus;
     
     return GestureDetector(
       onTap: () => _notesFocusNode.requestFocus(),
       behavior: HitTestBehavior.opaque,
       child: ActiveCard(
         heading: 'Notes',
-        isActive: isActive,
-        helperText: !isActive ? 'Space for your thoughts' : null,
-        hideHelperWhenActive: true,
+        isActive: true,
+        helperText: !hasContent ? 'Space for your thoughts' : null,
+        hideHelperWhenActive: false,
         shrinkWhenActive: true,
-        showBorder: isFocused,
+        showBorder: _notesFocusNode.hasFocus,
         child: TextField(
           controller: _notesController,
           focusNode: _notesFocusNode,
@@ -892,11 +889,7 @@ class _EditMomentScreenState extends State<EditMomentScreen> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return '${days[date.weekday - 1]}, ${months[date.month - 1]} ${date.day}';
-  }
+  String _formatDate(DateTime date) => AppDateFormat.short(date);
 }
 
 /// Overlay shown while holding the delete button
@@ -931,7 +924,7 @@ class _DeleteCountdownOverlay extends StatelessWidget {
           margin: const EdgeInsets.all(40),
           padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 32),
           decoration: BoxDecoration(
-            color: AppColors.darkCard,
+            color: AppColors.darkCardLight,
             borderRadius: BorderRadius.circular(24),
           ),
           child: Column(

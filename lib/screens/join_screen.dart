@@ -331,7 +331,7 @@ class _JoinScreenState extends State<JoinScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.cardSurface,
+        color: AppColors.darkCardLight,
         borderRadius: BorderRadius.circular(20),
       ),
       child: AvatarSelector(
