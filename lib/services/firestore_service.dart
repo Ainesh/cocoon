@@ -47,6 +47,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/activity.dart';
 import '../models/moment.dart';
+import '../models/notification_preferences.dart';
 import '../models/user_checkin.dart';
 
 // -----------------------------------------------------------------------------
@@ -553,6 +554,28 @@ class FirestoreService {
     } catch (e) {
       debugPrint('Error getting upcoming moments: $e');
       return [];
+    }
+  }
+
+  /// Gets a single moment by ID.
+  ///
+  /// Returns null if the moment doesn't exist (e.g., deleted).
+  Future<Moment?> getMoment({
+    required String spaceId,
+    required String momentId,
+  }) async {
+    try {
+      final doc = await _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('moments')
+          .doc(momentId)
+          .get();
+      if (!doc.exists) return null;
+      return Moment.fromFirestore(doc);
+    } catch (e) {
+      debugPrint('Error getting moment: $e');
+      return null;
     }
   }
 
@@ -1336,5 +1359,166 @@ class FirestoreService {
         'newName': newName,
       },
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // FCM Token Management
+  // ---------------------------------------------------------------------------
+
+  /// Stores an FCM token for a user's device.
+  ///
+  /// Tokens are stored as a map to support multiple devices per user.
+  /// Each token has metadata including platform and last update time.
+  Future<void> storeFcmToken({
+    required String userId,
+    required String token,
+    required Map<String, dynamic> deviceInfo,
+  }) async {
+    try {
+      await _firestore.collection(_usersCollection).doc(userId).set({
+        'fcmTokens': {
+          token: deviceInfo,
+        },
+      }, SetOptions(merge: true));
+      debugPrint('Stored FCM token for user: $userId');
+    } catch (e) {
+      debugPrint('Error storing FCM token: $e');
+      rethrow;
+    }
+  }
+
+  /// Removes an FCM token for a user (e.g., on logout).
+  Future<void> removeFcmToken({
+    required String userId,
+    required String token,
+  }) async {
+    try {
+      await _firestore.collection(_usersCollection).doc(userId).update({
+        'fcmTokens.$token': FieldValue.delete(),
+      });
+      debugPrint('Removed FCM token for user: $userId');
+    } catch (e) {
+      debugPrint('Error removing FCM token: $e');
+      // Don't rethrow - token removal failure shouldn't break logout
+    }
+  }
+
+  /// Gets all FCM tokens for a user.
+  Future<Map<String, dynamic>> getFcmTokens(String userId) async {
+    try {
+      final doc =
+          await _firestore.collection(_usersCollection).doc(userId).get();
+      return doc.data()?['fcmTokens'] as Map<String, dynamic>? ?? {};
+    } catch (e) {
+      debugPrint('Error getting FCM tokens: $e');
+      return {};
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Notification Preferences
+  // ---------------------------------------------------------------------------
+
+  /// Gets notification preferences for a user.
+  Future<NotificationPreferences> getNotificationPreferences(
+      String userId) async {
+    try {
+      final doc =
+          await _firestore.collection(_usersCollection).doc(userId).get();
+      final data = doc.data()?['notificationPreferences'] as Map<String, dynamic>?;
+      return NotificationPreferences.fromFirestore(data);
+    } catch (e) {
+      debugPrint('Error getting notification preferences: $e');
+      return NotificationPreferences();
+    }
+  }
+
+  /// Updates notification preferences for a user.
+  Future<void> updateNotificationPreferences({
+    required String userId,
+    required NotificationPreferences preferences,
+  }) async {
+    try {
+      await _firestore.collection(_usersCollection).doc(userId).set({
+        'notificationPreferences': preferences.toFirestore(),
+      }, SetOptions(merge: true));
+      debugPrint('Updated notification preferences for user: $userId');
+    } catch (e) {
+      debugPrint('Error updating notification preferences: $e');
+      rethrow;
+    }
+  }
+
+  /// Updates a single activity type's notification config.
+  Future<void> updateActivityNotificationConfig({
+    required String userId,
+    required ActivityType activityType,
+    bool? enabled,
+    NotificationPriority? priority,
+  }) async {
+    try {
+      final current = await getNotificationPreferences(userId);
+      final updated = current.updateActivityConfig(
+        activityType,
+        enabled: enabled,
+        priority: priority,
+      );
+      await updateNotificationPreferences(userId: userId, preferences: updated);
+    } catch (e) {
+      debugPrint('Error updating activity notification config: $e');
+      rethrow;
+    }
+  }
+
+  /// Toggles global notifications on/off for a user.
+  Future<void> toggleGlobalNotifications({
+    required String userId,
+    required bool enabled,
+  }) async {
+    try {
+      final current = await getNotificationPreferences(userId);
+      final updated = current.copyWith(globalEnabled: enabled);
+      await updateNotificationPreferences(userId: userId, preferences: updated);
+    } catch (e) {
+      debugPrint('Error toggling global notifications: $e');
+      rethrow;
+    }
+  }
+
+  /// Watches notification preferences for real-time updates.
+  Stream<NotificationPreferences> watchNotificationPreferences(String userId) {
+    return _firestore
+        .collection(_usersCollection)
+        .doc(userId)
+        .snapshots()
+        .map((doc) {
+      final data = doc.data()?['notificationPreferences'] as Map<String, dynamic>?;
+      return NotificationPreferences.fromFirestore(data);
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Partner Token Lookup (for Cloud Functions reference)
+  // ---------------------------------------------------------------------------
+
+  /// Gets the partner's user ID from a space.
+  /// Used by Cloud Functions to find who to notify.
+  Future<String?> getPartnerUserId({
+    required String spaceId,
+    required String currentUserId,
+  }) async {
+    try {
+      final spaceDoc =
+          await _firestore.collection(_spacesCollection).doc(spaceId).get();
+      final memberIds =
+          List<String>.from(spaceDoc.data()?['memberIds'] ?? []);
+      return memberIds.firstWhere(
+        (id) => id != currentUserId,
+        orElse: () => '',
+      );
+    } catch (e) {
+      debugPrint('Error getting partner user ID: $e');
+      return null;
+    }
   }
 }

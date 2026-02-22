@@ -268,6 +268,128 @@ End-to-end user journeys that require Firebase emulators.
 
 ---
 
+## 7. Push Notification Tests
+
+### Notification Delivery (Manual)
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| NOTIF-01 | Check-in triggers notification | User A checks in → User B on iPhone | Push: "{name} checked in ❤️" | ✅ |
+| NOTIF-02 | Moment planned triggers notification | User A plans a moment | Push: "{name} planned something 💫" | ✅ |
+| NOTIF-03 | Moment edited triggers notification | User A edits a moment | Push: "{name} updated a moment" | ✅ |
+| NOTIF-04 | Moment deleted triggers notification | User A deletes a moment | Push: "{name} cancelled a moment" | ✅ |
+| NOTIF-05 | No self-notification | User A performs action | User A does NOT receive notification | ✅ |
+| NOTIF-06 | No notification without FCM token | Partner has no token | Function logs "no FCM tokens" | ✅ |
+
+### Activity Trail Navigation (Manual)
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| TRAIL-01 | Tap upcoming moment | Tap moment_planned (future) | Details sheet opens (from cache) | ✅ |
+| TRAIL-02 | Tap past moment | Tap moment_planned (past date) | Details sheet opens (Firestore fetch) | ✅ |
+| TRAIL-03 | Tap edited moment | Tap moment_edited in trail | Details sheet opens | ✅ |
+| TRAIL-04 | Tap deleted moment | Tap moment_deleted | Non-navigable, nothing happens | ✅ |
+| TRAIL-05 | Tap check-in | Tap checkin in trail | Check-in details sheet opens | ✅ |
+| TRAIL-06 | Empty entityId | Activity with entityId="" | Not tappable | ✅ |
+| TRAIL-07 | Null entityId | Activity with entityId=null | Not tappable | ✅ |
+| TRAIL-08 | Deleted moment from Firestore | Tap activity for deleted moment | No crash, getMoment returns null | ✅ |
+
+### Deep Link Navigation (Manual)
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| DEEP-01 | Moment notif → details (background) | Background → tap moment notif | Details sheet opens | ✅ |
+| DEEP-02 | Moment notif → details (foreground) | Foreground → tap local notif | Details sheet opens | ✅ |
+| DEEP-03 | Check-in notif → check-in screen | Tap check-in notification | Check-in screen opens | ✅ |
+| DEEP-04 | Notif from terminated state | Kill app → tap notification | App launches → correct screen | ☐ |
+
+### Cloud Function (Manual)
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| CF-01 | Function triggers on activity | Create activity in Firestore | `onActivityCreated` executes | ✅ |
+| CF-02 | Finds correct partner | Activity by User A in space | Function identifies User B | ✅ |
+| CF-03 | Notification content correct | Check-in activity | Title includes name + emoji | ✅ |
+| CF-04 | Respects notification prefs | Partner has type disabled | No notification sent | ☐ |
+| CF-05 | Respects global disable | Partner globalEnabled=false | No notifications | ☐ |
+| CF-06 | Single-member space | 1 member in space | Logs "No partner found" | ☐ |
+
+### FCM Token Management (Manual)
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| FCM-01 | Token stored on login | Enter main shell | Token in Firestore | ✅ |
+| FCM-02 | Token has device info | Check Firestore | platform, device, updatedAt | ✅ |
+| FCM-03 | Invalid token cleanup | Send to invalid token | Function removes token | ☐ |
+
+### Unit Tests — Activity Model (`test/models/activity_test.dart`)
+
+| ID | Test | Status |
+|----|------|--------|
+| ACT-01 | `ActivityType.fromValue` all 10 values | ✅ |
+| ACT-02 | `fromValue` defaults to checkin for unknown | ✅ |
+| ACT-03 | `isMomentActivity` true for moment types only | ✅ |
+| ACT-04 | `isSpaceActivity` true for space types only | ✅ |
+| ACT-05 | `EntityType.fromValue` all 3 types | ✅ |
+| ACT-06 | `EntityType.fromValue` defaults to space | ✅ |
+| ACT-07 | `isNavigable` true for moment_planned + entityId | ✅ |
+| ACT-08 | `isNavigable` true for moment_edited + entityId | ✅ |
+| ACT-09 | `isNavigable` false for moment_deleted | ✅ |
+| ACT-10 | `isNavigable` false for null entityId | ✅ |
+| ACT-11 | `isNavigable` false for empty entityId | ✅ |
+| ACT-12 | `isNavigable` true for checkin + entityId | ✅ |
+| ACT-13 | `isNavigable` true for space_joined + entityId | ✅ |
+| ACT-14 | `description` checkin → "checked in" | ✅ |
+| ACT-15 | `description` moment_planned with name | ✅ |
+| ACT-16 | `description` moment_planned without name | ✅ |
+| ACT-17 | `description` moment_edited with name | ✅ |
+| ACT-18 | `description` space_renamed with name | ✅ |
+| ACT-19 | `changedFields` for moment_edited | ✅ |
+| ACT-20 | `changedFields` empty for non-edited | ✅ |
+| ACT-21 | `changedFields` empty when metadata missing | ✅ |
+| ACT-22 | `relativeTime` "Just now" | ✅ |
+| ACT-23 | `relativeTime` minutes ago | ✅ |
+| ACT-24 | `relativeTime` hours ago | ✅ |
+| ACT-25 | `relativeTime` "Yesterday" | ✅ |
+| ACT-26 | `relativeTime` days ago | ✅ |
+| ACT-27 | `relativeTime` weeks ago | ✅ |
+
+### Unit Tests — NotificationPreferences (`test/models/notification_preferences_test.dart`)
+
+| ID | Test | Status |
+|----|------|--------|
+| PREF-01 | `NotificationPriority.fromValue` all values | ✅ |
+| PREF-02 | `fromValue` defaults to normal | ✅ |
+| PREF-03 | `displayName` human-readable | ✅ |
+| PREF-04 | `toJson` serializes correctly | ✅ |
+| PREF-05 | `fromJson` deserializes correctly | ✅ |
+| PREF-06 | `fromJson` defaults for missing fields | ✅ |
+| PREF-07 | `copyWith` updates fields | ✅ |
+| PREF-08 | Default prefs have all types | ✅ |
+| PREF-09 | `shouldNotify` false when global disabled | ✅ |
+| PREF-10 | `shouldNotify` false for disabled types | ✅ |
+| PREF-11 | `getPriority` correct defaults | ✅ |
+| PREF-12 | `enabledActivityTypes` excludes disabled | ✅ |
+| PREF-13 | `enabledActivityTypes` empty when global off | ✅ |
+| PREF-14 | `toggleGlobal` flips | ✅ |
+| PREF-15 | `toggleActivityType` flips | ✅ |
+| PREF-16 | `updateActivityConfig` updates priority | ✅ |
+| PREF-17 | Firestore round-trip | ✅ |
+| PREF-18 | `fromFirestore(null)` defaults | ✅ |
+
+### Unit Tests — NotificationNavigation (`test/services/notification_navigation_test.dart`)
+
+| ID | Test | Status |
+|----|------|--------|
+| NAV-01 | `isMoment` true for moment_planned | ✅ |
+| NAV-02 | `isMoment` true for all moment variants | ✅ |
+| NAV-03 | `isCheckIn` true for checkin | ✅ |
+| NAV-04 | `isMoment`/`isCheckIn` false for space events | ✅ |
+| NAV-05 | Default entityType/entityId empty | ✅ |
+| NAV-06 | `toString` includes all fields | ✅ |
+
+---
+
 ## Running Tests
 
 ### Unit & Widget Tests
@@ -278,8 +400,6 @@ flutter test
 ### With Coverage
 ```bash
 flutter test --coverage
-# or use the helper script:
-./test/test_coverage.sh
 ```
 
 ### Integration Tests (requires device/emulator)
@@ -287,9 +407,16 @@ flutter test --coverage
 flutter test integration_test/app_test.dart
 ```
 
-### Specific Test File
+### Notification-Specific Tests
 ```bash
-flutter test test/unit/models/moment_test.dart
+flutter test test/models/activity_test.dart
+flutter test test/models/notification_preferences_test.dart
+flutter test test/services/notification_navigation_test.dart
+```
+
+### Cloud Function Logs
+```bash
+firebase functions:log --project couple-space-36e1a
 ```
 
 ---
@@ -304,3 +431,7 @@ flutter test test/unit/models/moment_test.dart
 | Widgets | >= 70% | Active |
 | Screens | >= 60% | Active |
 | Overall | >= 75% | Active |
+
+---
+
+*Last updated: February 22, 2026*

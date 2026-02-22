@@ -1,6 +1,9 @@
 /// Main shell screen with stretchy tab navigation for Couple Space app.
 library;
 
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../services/notification_service.dart';
 import 'dashboard/dashboard_tab.dart';
 
 // Theme constants for premium styling
@@ -37,6 +41,8 @@ class _MainShellState extends State<MainShell> {
   String? _spaceName;
   int _selectedTab = 0;
   double? _dragPosition;
+  StreamSubscription<NotificationNavigation>? _notificationSub;
+  final _dashboardKey = GlobalKey<DashboardTabState>();
 
   late final List<Widget> _tabs;
 
@@ -44,12 +50,98 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _tabs = [
-      DashboardTab(spaceId: widget.spaceId),
+      DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
       const _ComingSoonPage(),
     ];
     _loadSpaceName();
+    _registerFcmToken();
+    _listenForNotificationTaps();
   }
-  
+
+  @override
+  void dispose() {
+    _notificationSub?.cancel();
+    super.dispose();
+  }
+
+  /// Register FCM token for push notifications.
+  Future<void> _registerFcmToken() async {
+    try {
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) return;
+
+      final notificationService = NotificationService.instance;
+      final token = notificationService.fcmToken;
+      
+      if (token != null) {
+        await _firestoreService.storeFcmToken(
+          userId: userId,
+          token: token,
+          deviceInfo: notificationService.getDeviceInfo(),
+        );
+        debugPrint('FCM token registered for user: $userId');
+      }
+    } catch (e) {
+      debugPrint('Error registering FCM token: $e');
+    }
+  }
+
+  /// Listen for notification taps and navigate to the relevant screen.
+  void _listenForNotificationTaps() {
+    final notifService = NotificationService.instance;
+
+    // Listen for live notification taps (foreground + some background cases)
+    _notificationSub = notifService.onNotificationTap.listen(
+      (nav) {
+        if (!mounted) return;
+        debugPrint('Notification navigation (stream): $nav');
+        // Consume pending to prevent double navigation
+        notifService.consumePendingNavigation();
+        _handleNotificationNavigation(nav);
+      },
+    );
+
+    // Check for pending navigation (background resume / terminated launch)
+    // Delayed to ensure widget tree + GoRouter are fully ready
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      final pending = notifService.consumePendingNavigation();
+      if (pending != null) {
+        debugPrint('Notification navigation (pending): $pending');
+        _handleNotificationNavigation(pending);
+      }
+    });
+  }
+
+  /// Navigate based on notification data.
+  void _handleNotificationNavigation(NotificationNavigation nav) {
+    final spaceId = nav.spaceId.isNotEmpty ? nav.spaceId : widget.spaceId;
+    debugPrint('Navigating for notification: type=${nav.type}, spaceId=$spaceId');
+
+    if (nav.isCheckIn) {
+      // Check-in notification → open check-in screen
+      context.push('/checkin/$spaceId');
+    } else if (nav.isMoment && nav.entityId.isNotEmpty) {
+      // Moment notification → switch to dashboard tab and open moment details
+      if (_selectedTab != 0) {
+        setState(() => _selectedTab = 0);
+      }
+      // Small delay to ensure dashboard is visible before showing sheet
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        _dashboardKey.currentState?.openEntityById(
+          entityType: nav.entityType,
+          entityId: nav.entityId,
+        );
+      });
+    } else {
+      // Default: go to dashboard
+      if (_selectedTab != 0) {
+        setState(() => _selectedTab = 0);
+      }
+    }
+  }
+
   Future<void> _loadSpaceName() async {
     try {
       final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);

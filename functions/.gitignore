@@ -1,0 +1,16 @@
+# Compiled JavaScript
+lib/
+
+# Node modules
+node_modules/
+
+# Local env files
+.env
+.env.local
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store

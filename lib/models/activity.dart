@@ -206,8 +206,9 @@ class Activity {
   }
 
   /// Whether this activity can be tapped to navigate to the entity.
-  /// Check-in navigation disabled until check-in details sheet is implemented.
-  bool get isNavigable => entityId != null && 
+  bool get isNavigable =>
+      entityId != null &&
+      entityId!.isNotEmpty &&
       type != ActivityType.momentDeleted;
 
   // ---------------------------------------------------------------------------

@@ -30,10 +30,10 @@ class DashboardTab extends StatefulWidget {
   final String spaceId;
 
   @override
-  State<DashboardTab> createState() => _DashboardTabState();
+  State<DashboardTab> createState() => DashboardTabState();
 }
 
-class _DashboardTabState extends State<DashboardTab> {
+class DashboardTabState extends State<DashboardTab> {
   final _firestoreService = FirestoreService();
   final _authService = AuthService();
 
@@ -182,6 +182,32 @@ class _DashboardTabState extends State<DashboardTab> {
   // Actions
   // ---------------------------------------------------------------------------
 
+  /// Opens a moment or check-in details sheet by entity ID.
+  /// Called from notification deep links.
+  Future<void> openEntityById({required String entityType, required String entityId}) async {
+    if (entityType == 'moment' && entityId.isNotEmpty) {
+      // Try cached first, fall back to Firestore
+      final cached = _momentsNotifier.value
+          .where((m) => m.id == entityId)
+          .firstOrNull;
+      if (cached != null) {
+        _showMomentDetails(cached);
+        return;
+      }
+      try {
+        final moment = await _firestoreService.getMoment(
+          spaceId: widget.spaceId,
+          momentId: entityId,
+        );
+        if (moment != null && mounted) {
+          _showMomentDetails(moment);
+        }
+      } catch (e) {
+        debugPrint('Error opening moment from notification: $e');
+      }
+    }
+  }
+
   void _showHealthDetails() {
     showHealthDetailsSheet(
       context: context,
@@ -251,12 +277,7 @@ class _DashboardTabState extends State<DashboardTab> {
 
     switch (activity.entityType) {
       case EntityType.moment:
-        final moment = _momentsNotifier.value
-            .where((m) => m.id == activity.entityId)
-            .firstOrNull;
-        if (moment != null) {
-          _showMomentDetails(moment);
-        }
+        _openMomentFromActivity(activity);
         break;
       case EntityType.checkin:
         _showCheckinDetails(activity);
@@ -264,6 +285,35 @@ class _DashboardTabState extends State<DashboardTab> {
       case EntityType.space:
       case null:
         break;
+    }
+  }
+
+  /// Opens moment details for an activity.
+  /// Checks cached upcoming moments first, falls back to Firestore fetch.
+  Future<void> _openMomentFromActivity(Activity activity) async {
+    final entityId = activity.entityId;
+    if (entityId == null || entityId.isEmpty) return;
+
+    // Try cached upcoming moments first
+    final cached = _momentsNotifier.value
+        .where((m) => m.id == entityId)
+        .firstOrNull;
+    if (cached != null) {
+      _showMomentDetails(cached);
+      return;
+    }
+
+    // Not in cache — fetch from Firestore (past or non-upcoming moment)
+    try {
+      final doc = await _firestoreService.getMoment(
+        spaceId: widget.spaceId,
+        momentId: entityId,
+      );
+      if (doc != null && mounted) {
+        _showMomentDetails(doc);
+      }
+    } catch (e) {
+      debugPrint('Error fetching moment for activity: $e');
     }
   }
 
