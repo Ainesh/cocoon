@@ -41,8 +41,9 @@ void main() {
         // Note: Requires Firebase Auth emulator for actual sign-up.
         // This test will be fully functional when running with emulators.
       },
-      skip: 'Requires Firebase emulator - run with: firebase emulators:exec '
-          '"flutter test integration_test/app_test.dart"',
+      // Requires Firebase emulator - run with: firebase emulators:exec
+      // "flutter test integration_test/app_test.dart"
+      skip: true,
     );
 
     testWidgets(
@@ -54,7 +55,7 @@ void main() {
         // 4. Tap Sign In
         // 5. Verify navigation to dashboard
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
   });
 
@@ -76,7 +77,7 @@ void main() {
         // 8. Tap "Go to Dashboard"
         // 9. Verify dashboard loads
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
   });
 
@@ -94,7 +95,7 @@ void main() {
         // 4. Tap Join
         // 5. Verify success and navigation to dashboard
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
   });
 
@@ -114,7 +115,7 @@ void main() {
         // 6. Verify return to dashboard
         // 7. Verify activity trail shows new check-in
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
   });
 
@@ -134,7 +135,7 @@ void main() {
         // 6. Save moment
         // 7. Verify moment appears on dashboard
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
 
     testWidgets(
@@ -147,7 +148,7 @@ void main() {
         // 5. Save changes
         // 6. Verify updated moment on dashboard
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
 
     testWidgets(
@@ -158,7 +159,7 @@ void main() {
         // 3. Confirm deletion dialog
         // 4. Verify moment is removed from dashboard
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
   });
 
@@ -174,7 +175,7 @@ void main() {
         // 2. Tap sign out action
         // 3. Verify navigation to login screen
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
   });
 
@@ -190,7 +191,7 @@ void main() {
         // 2. Navigate to /dashboard/some-id
         // 3. Verify redirect to /login
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
 
     testWidgets(
@@ -200,7 +201,7 @@ void main() {
         // 2. Navigate to /login
         // 3. Verify redirect to /dashboard or /onboarding
       },
-      skip: 'Requires Firebase emulator',
+      skip: true, // Requires Firebase emulator
     );
   });
 
@@ -217,7 +218,7 @@ void main() {
         // 3. Attempt to submit check-in
         // 4. Verify error snackbar appears
       },
-      skip: 'Requires Firebase emulator with network simulation',
+      skip: true, // Requires Firebase emulator with network simulation
     );
   });
 }
