@@ -75,7 +75,7 @@ class ActiveCard extends StatelessWidget {
           // Heading - turns red when active
           Text(
             heading.toUpperCase(),
-            style: GoogleFonts.inter(
+            style: GoogleFonts.outfit(
               color: isActive ? AppColors.accentRed : AppColors.warmMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,

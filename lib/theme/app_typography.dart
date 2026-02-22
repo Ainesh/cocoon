@@ -226,4 +226,23 @@ abstract final class AppTypography {
         fontWeight: weight ?? FontWeight.w500,
         color: color ?? AppColors.dimText,
       );
+
+  // ---------------------------------------------------------------------------
+  // Card Styles
+  // ---------------------------------------------------------------------------
+
+  /// Card section label (10px, semi-bold, uppercase with letter spacing).
+  /// Used for HEALTH, ACTIVITY, PULSE CHECK, DATE, TIME, NOTES etc.
+  static TextStyle cardLabel({Color? color}) => GoogleFonts.outfit(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.5,
+        color: color ?? AppColors.warmMuted,
+      );
+
+  /// Helper / hint text below card labels (12px, regular).
+  static TextStyle helperText({Color? color}) => GoogleFonts.inter(
+        fontSize: 12,
+        color: color ?? AppColors.warmMuted.withValues(alpha: 0.7),
+      );
 }

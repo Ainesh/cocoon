@@ -138,7 +138,7 @@ class _ActivityTrailState extends State<ActivityTrail> {
           // Header
           Text(
             'ACTIVITY',
-            style: GoogleFonts.inter(
+            style: GoogleFonts.outfit(
               color: AppColors.warmMuted,
               fontSize: 10,
               fontWeight: FontWeight.w600,
