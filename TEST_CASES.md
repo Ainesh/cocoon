@@ -1,40 +1,72 @@
-# Test Cases — Push Notifications
+# Test Cases
 
 ## Unit Tests
+
+### Activity Model (`test/models/activity_test.dart`)
+
+| # | Test | Status |
+|---|------|--------|
+| 1 | `ActivityType.fromValue` returns correct type for all 10 values | ✅ |
+| 2 | `fromValue` defaults to `checkin` for unknown/empty values | ✅ |
+| 3 | `isMomentActivity` returns true for moment types only | ✅ |
+| 4 | `isSpaceActivity` returns true for space types only | ✅ |
+| 5 | `EntityType.fromValue` returns correct type | ✅ |
+| 6 | `EntityType.fromValue` defaults to `space` for unknown values | ✅ |
+| 7 | `isNavigable` true for `moment_planned` with entityId | ✅ |
+| 8 | `isNavigable` true for `moment_edited` with entityId | ✅ |
+| 9 | `isNavigable` false for `moment_deleted` even with entityId | ✅ |
+| 10 | `isNavigable` false when entityId is null | ✅ |
+| 11 | `isNavigable` false when entityId is empty string | ✅ |
+| 12 | `isNavigable` true for checkin with entityId | ✅ |
+| 13 | `isNavigable` true for space_joined with entityId | ✅ |
+| 14 | `description` returns "checked in" for checkin | ✅ |
+| 15 | `description` includes quoted moment name for moment_planned | ✅ |
+| 16 | `description` uses action text when moment name missing | ✅ |
+| 17 | `description` says "updated" for moment_edited with name | ✅ |
+| 18 | `description` includes new name for space_renamed | ✅ |
+| 19 | `changedFields` returns list for moment_edited with metadata | ✅ |
+| 20 | `changedFields` returns empty for non-edited types | ✅ |
+| 21 | `changedFields` returns empty when metadata missing | ✅ |
+| 22 | `relativeTime` returns "Just now" for recent timestamps | ✅ |
+| 23 | `relativeTime` returns minutes ago for < 1 hour | ✅ |
+| 24 | `relativeTime` returns hours ago for < 24 hours | ✅ |
+| 25 | `relativeTime` returns "Yesterday" for 1 day ago | ✅ |
+| 26 | `relativeTime` returns days ago for < 7 days | ✅ |
+| 27 | `relativeTime` returns weeks ago for < 30 days | ✅ |
 
 ### NotificationPreferences (`test/models/notification_preferences_test.dart`)
 
 | # | Test | Status |
 |---|------|--------|
-| 1 | `NotificationPriority.fromValue` returns correct priority for all values | ✅ |
-| 2 | `fromValue` defaults to `normal` for unknown/empty values | ✅ |
-| 3 | `displayName` returns human-readable strings | ✅ |
-| 4 | `ActivityNotificationConfig.toJson` serializes enabled + priority | ✅ |
-| 5 | `ActivityNotificationConfig.fromJson` deserializes correctly | ✅ |
-| 6 | `fromJson` uses defaults for missing fields | ✅ |
-| 7 | `copyWith` updates fields without mutating original | ✅ |
-| 8 | Default preferences have all activity types configured | ✅ |
-| 9 | `shouldNotify` returns false when global is disabled | ✅ |
-| 10 | `shouldNotify` returns false for disabled activity types (e.g., space_created) | ✅ |
-| 11 | `getPriority` returns correct defaults (checkin=normal, spaceJoined=high, etc.) | ✅ |
-| 12 | `enabledActivityTypes` excludes disabled types | ✅ |
-| 13 | `enabledActivityTypes` returns empty when global disabled | ✅ |
-| 14 | `toggleGlobal` flips `globalEnabled` | ✅ |
-| 15 | `toggleActivityType` flips enabled for specific type | ✅ |
-| 16 | `updateActivityConfig` updates priority without affecting other types | ✅ |
-| 17 | `toFirestore` / `fromFirestore` round-trip preserves all data | ✅ |
-| 18 | `fromFirestore(null)` returns sensible defaults | ✅ |
+| 28 | `NotificationPriority.fromValue` returns correct priority for all values | ✅ |
+| 29 | `fromValue` defaults to `normal` for unknown/empty values | ✅ |
+| 30 | `displayName` returns human-readable strings | ✅ |
+| 31 | `ActivityNotificationConfig.toJson` serializes enabled + priority | ✅ |
+| 32 | `ActivityNotificationConfig.fromJson` deserializes correctly | ✅ |
+| 33 | `fromJson` uses defaults for missing fields | ✅ |
+| 34 | `copyWith` updates fields without mutating original | ✅ |
+| 35 | Default preferences have all activity types configured | ✅ |
+| 36 | `shouldNotify` returns false when global is disabled | ✅ |
+| 37 | `shouldNotify` returns false for disabled activity types (e.g., space_created) | ✅ |
+| 38 | `getPriority` returns correct defaults (checkin=normal, spaceJoined=high, etc.) | ✅ |
+| 39 | `enabledActivityTypes` excludes disabled types | ✅ |
+| 40 | `enabledActivityTypes` returns empty when global disabled | ✅ |
+| 41 | `toggleGlobal` flips `globalEnabled` | ✅ |
+| 42 | `toggleActivityType` flips enabled for specific type | ✅ |
+| 43 | `updateActivityConfig` updates priority without affecting other types | ✅ |
+| 44 | `toFirestore` / `fromFirestore` round-trip preserves all data | ✅ |
+| 45 | `fromFirestore(null)` returns sensible defaults | ✅ |
 
 ### NotificationNavigation (`test/services/notification_navigation_test.dart`)
 
 | # | Test | Status |
 |---|------|--------|
-| 19 | `isMoment` returns true for `moment_planned` | ✅ |
-| 20 | `isMoment` returns true for all moment variants (planned, edited, deleted, completed) | ✅ |
-| 21 | `isCheckIn` returns true for `checkin` type | ✅ |
-| 22 | `isMoment` and `isCheckIn` return false for space events | ✅ |
-| 23 | Default `entityType` and `entityId` are empty strings | ✅ |
-| 24 | `toString` includes all fields | ✅ |
+| 46 | `isMoment` returns true for `moment_planned` | ✅ |
+| 47 | `isMoment` returns true for all moment variants (planned, edited, deleted, completed) | ✅ |
+| 48 | `isCheckIn` returns true for `checkin` type | ✅ |
+| 49 | `isMoment` and `isCheckIn` return false for space events | ✅ |
+| 50 | Default `entityType` and `entityId` are empty strings | ✅ |
+| 51 | `toString` includes all fields | ✅ |
 
 ---
 
@@ -50,6 +82,20 @@
 | M4 | Moment deleted triggers notification | User A deletes a moment | User B receives push: "{name} cancelled a moment" | ✅ |
 | M5 | No self-notification | User A performs action | User A does NOT receive a notification | ✅ |
 | M6 | No notification without FCM token | Partner has no token in Firestore | Cloud Function logs "Partner has no registered FCM tokens" | ✅ |
+
+### Activity Trail Navigation
+
+| # | Scenario | Steps | Expected | Tested |
+|---|----------|-------|----------|--------|
+| A1 | Tap upcoming moment activity | Tap moment_planned in trail (future date) | Moment details sheet opens (from cache) | ✅ |
+| A2 | Tap past moment activity | Tap moment_planned in trail (past date) | Moment details sheet opens (fetched from Firestore) | ✅ |
+| A3 | Tap edited moment activity | Tap moment_edited in trail | Moment details sheet opens | ✅ |
+| A4 | Tap deleted moment activity | Tap moment_deleted in trail | Nothing happens (correctly non-navigable) | ✅ |
+| A5 | Tap check-in activity | Tap checkin in trail | Check-in details sheet opens | ✅ |
+| A6 | Tap space event activity | Tap space_joined in trail | Nothing happens (no detail view) | ✅ |
+| A7 | Activity with empty entityId | Activity has entityId="" | Not tappable (isNavigable=false) | ✅ |
+| A8 | Activity with null entityId | Activity has entityId=null | Not tappable (isNavigable=false) | ✅ |
+| A9 | Moment deleted from Firestore | Tap activity for moment that was deleted | No crash, nothing opens (getMoment returns null) | ✅ |
 
 ### Deep Link Navigation
 
