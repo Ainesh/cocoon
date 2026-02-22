@@ -30,10 +30,10 @@ class DashboardTab extends StatefulWidget {
   final String spaceId;
 
   @override
-  State<DashboardTab> createState() => _DashboardTabState();
+  State<DashboardTab> createState() => DashboardTabState();
 }
 
-class _DashboardTabState extends State<DashboardTab> {
+class DashboardTabState extends State<DashboardTab> {
   final _firestoreService = FirestoreService();
   final _authService = AuthService();
 
@@ -181,6 +181,19 @@ class _DashboardTabState extends State<DashboardTab> {
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
+
+  /// Opens a moment or check-in details sheet by entity ID.
+  /// Called from notification deep links.
+  void openEntityById({required String entityType, required String entityId}) {
+    if (entityType == 'moment' && entityId.isNotEmpty) {
+      final moment = _momentsNotifier.value
+          .where((m) => m.id == entityId)
+          .firstOrNull;
+      if (moment != null) {
+        _showMomentDetails(moment);
+      }
+    }
+  }
 
   void _showHealthDetails() {
     showHealthDetailsSheet(

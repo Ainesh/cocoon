@@ -42,6 +42,7 @@ class _MainShellState extends State<MainShell> {
   int _selectedTab = 0;
   double? _dragPosition;
   StreamSubscription<NotificationNavigation>? _notificationSub;
+  final _dashboardKey = GlobalKey<DashboardTabState>();
 
   late final List<Widget> _tabs;
 
@@ -49,7 +50,7 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _tabs = [
-      DashboardTab(spaceId: widget.spaceId),
+      DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
       const _ComingSoonPage(),
     ];
     _loadSpaceName();
@@ -87,37 +88,57 @@ class _MainShellState extends State<MainShell> {
 
   /// Listen for notification taps and navigate to the relevant screen.
   void _listenForNotificationTaps() {
-    _notificationSub = NotificationService.instance.onNotificationTap.listen(
+    final notifService = NotificationService.instance;
+
+    // Listen for live notification taps (foreground + some background cases)
+    _notificationSub = notifService.onNotificationTap.listen(
       (nav) {
         if (!mounted) return;
-        debugPrint('Notification navigation: $nav');
+        debugPrint('Notification navigation (stream): $nav');
+        // Consume pending to prevent double navigation
+        notifService.consumePendingNavigation();
         _handleNotificationNavigation(nav);
       },
     );
 
-    // Check for pending navigation from app launch via notification
-    final pending = NotificationService.instance.consumePendingNavigation();
-    if (pending != null) {
-      // Delay slightly to ensure the widget tree is ready
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) _handleNotificationNavigation(pending);
-      });
-    }
+    // Check for pending navigation (background resume / terminated launch)
+    // Delayed to ensure widget tree + GoRouter are fully ready
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      final pending = notifService.consumePendingNavigation();
+      if (pending != null) {
+        debugPrint('Notification navigation (pending): $pending');
+        _handleNotificationNavigation(pending);
+      }
+    });
   }
 
   /// Navigate based on notification data.
   void _handleNotificationNavigation(NotificationNavigation nav) {
     final spaceId = nav.spaceId.isNotEmpty ? nav.spaceId : widget.spaceId;
+    debugPrint('Navigating for notification: type=${nav.type}, spaceId=$spaceId');
 
     if (nav.isCheckIn) {
-      // Navigate to check-in screen
+      // Check-in notification → open check-in screen
       context.push('/checkin/$spaceId');
     } else if (nav.isMoment && nav.entityId.isNotEmpty) {
-      // Navigate to dashboard (moments tab) — the moment will be visible there
-      context.go('/dashboard/$spaceId');
+      // Moment notification → switch to dashboard tab and open moment details
+      if (_selectedTab != 0) {
+        setState(() => _selectedTab = 0);
+      }
+      // Small delay to ensure dashboard is visible before showing sheet
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (!mounted) return;
+        _dashboardKey.currentState?.openEntityById(
+          entityType: nav.entityType,
+          entityId: nav.entityId,
+        );
+      });
     } else {
       // Default: go to dashboard
-      context.go('/dashboard/$spaceId');
+      if (_selectedTab != 0) {
+        setState(() => _selectedTab = 0);
+      }
     }
   }
 

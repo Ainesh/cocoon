@@ -156,10 +156,12 @@ Real-time notifications triggered by partner activities via Firebase Cloud Funct
 - Global notification master switch
 - FCM token management with multi-device support
 - Automatic cleanup of invalid tokens
-- **Tap-to-navigate**: Tapping a notification opens the relevant screen
-  - Check-in notifications → Check-in screen
-  - Moment notifications → Dashboard
-  - Works from foreground, background, and terminated states
+- **Tap-to-navigate deep links**: Tapping a notification opens the relevant content
+  - Check-in notifications → Opens check-in screen
+  - Moment notifications → Opens moment details bottom sheet on dashboard
+  - Space events → Opens dashboard
+  - Works from all 3 app states: foreground, background, and terminated
+  - Uses pending navigation pattern to handle timing between FCM events and widget lifecycle
 
 **Notification Types:**
 | Activity | Default Priority | Default Enabled |

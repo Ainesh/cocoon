@@ -305,6 +305,10 @@ class NotificationService {
   }
 
   /// Navigate based on notification data.
+  ///
+  /// Stores as pending AND emits to stream to cover both cases:
+  /// - Stream listener already active → handled immediately
+  /// - Stream listener not yet set up (background resume timing) → consumed later
   void _navigateFromNotification(Map<String, dynamic> data) {
     final type = data['type'] as String?;
     final spaceId = data['spaceId'] as String?;
@@ -318,12 +322,18 @@ class NotificationService {
 
     if (spaceId == null || spaceId.isEmpty) return;
 
-    _navigationController.add(NotificationNavigation(
+    final nav = NotificationNavigation(
       type: type ?? '',
       spaceId: spaceId,
       entityType: entityType ?? '',
       entityId: entityId ?? '',
-    ));
+    );
+
+    // Store as pending for late listeners (background resume timing)
+    _pendingNavigation = nav;
+
+    // Also emit for any active listeners
+    _navigationController.add(nav);
   }
 
   /// Get appropriate channel ID based on notification data.
