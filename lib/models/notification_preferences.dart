@@ -82,9 +82,9 @@ class ActivityNotificationConfig {
 
   /// Converts to JSON for Firestore storage.
   Map<String, dynamic> toJson() => {
-        'enabled': enabled,
-        'priority': priority.value,
-      };
+    'enabled': enabled,
+    'priority': priority.value,
+  };
 
   /// Creates from Firestore JSON data.
   factory ActivityNotificationConfig.fromJson(
@@ -275,18 +275,17 @@ class NotificationPreferences {
 
   /// Converts to Firestore document format.
   Map<String, dynamic> toFirestore() => {
-        'globalEnabled': globalEnabled,
-        'activityConfigs': activityConfigs.map(
-          (type, config) => MapEntry(type.value, config.toJson()),
-        ),
-      };
+    'globalEnabled': globalEnabled,
+    'activityConfigs': activityConfigs.map(
+      (type, config) => MapEntry(type.value, config.toJson()),
+    ),
+  };
 
   /// Creates from Firestore document data.
   factory NotificationPreferences.fromFirestore(Map<String, dynamic>? data) {
     if (data == null) return NotificationPreferences();
 
-    final configsData =
-        data['activityConfigs'] as Map<String, dynamic>? ?? {};
+    final configsData = data['activityConfigs'] as Map<String, dynamic>? ?? {};
     final configs = <ActivityType, ActivityNotificationConfig>{};
 
     // Initialize with defaults first
@@ -295,8 +294,7 @@ class NotificationPreferences {
       final typeData = configsData[type.value] as Map<String, dynamic>?;
       configs[type] = typeData != null
           ? ActivityNotificationConfig.fromJson(type, typeData)
-          : defaults[type] ??
-              ActivityNotificationConfig(activityType: type);
+          : defaults[type] ?? ActivityNotificationConfig(activityType: type);
     }
 
     return NotificationPreferences(
@@ -326,14 +324,12 @@ class NotificationPreferences {
     bool? enabled,
     NotificationPriority? priority,
   }) {
-    final newConfigs =
-        Map<ActivityType, ActivityNotificationConfig>.from(activityConfigs);
-    final current = newConfigs[type] ??
-        ActivityNotificationConfig(activityType: type);
-    newConfigs[type] = current.copyWith(
-      enabled: enabled,
-      priority: priority,
+    final newConfigs = Map<ActivityType, ActivityNotificationConfig>.from(
+      activityConfigs,
     );
+    final current =
+        newConfigs[type] ?? ActivityNotificationConfig(activityType: type);
+    newConfigs[type] = current.copyWith(enabled: enabled, priority: priority);
     return copyWith(activityConfigs: newConfigs);
   }
 

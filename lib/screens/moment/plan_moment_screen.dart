@@ -27,10 +27,7 @@ import '../../widgets/slide_to_action.dart';
 
 /// Plan a Moment screen for creating new moments.
 class PlanMomentScreen extends StatefulWidget {
-  const PlanMomentScreen({
-    super.key,
-    required this.spaceId,
-  });
+  const PlanMomentScreen({super.key, required this.spaceId});
 
   final String spaceId;
 
@@ -96,10 +93,10 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   /// Step 1: Type selected
   bool get _step1Complete => _selectedType != null;
-  
+
   /// Step 2: Name filled
   bool get _step2Complete => _step1Complete && _momentName.isNotEmpty;
-  
+
   /// Step 3: Date filled (must be selected, not default)
   bool get _step3Complete {
     if (!_step2Complete) return false;
@@ -107,7 +104,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     if (_selectedType == MomentType.escape) return _endDate != null;
     return true;
   }
-  
+
   /// Step 4: Time filled (only for Connect)
   bool get _step4Complete {
     if (!_step3Complete) return false;
@@ -120,13 +117,28 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   List<String> get _presets {
     return switch (_selectedType) {
       MomentType.celebrate => ['Anniversary', 'Promotion', 'Move in', '...'],
-      MomentType.connect => ['Date Night', 'Brunch', 'Movie', 'Walk', 'House Party', 'Shopping', 'Socials', '...'],
-      MomentType.escape => ['Festival', 'Retreat', 'Time off', 'Weekend Getaway', 'Beach Trip', '...'],
+      MomentType.connect => [
+        'Date Night',
+        'Brunch',
+        'Movie',
+        'Walk',
+        'House Party',
+        'Shopping',
+        'Socials',
+        '...',
+      ],
+      MomentType.escape => [
+        'Festival',
+        'Retreat',
+        'Time off',
+        'Weekend Getaway',
+        'Beach Trip',
+        '...',
+      ],
       null => [],
     };
   }
 
-  
   String get _nameCardHeading {
     return switch (_selectedType) {
       MomentType.celebrate => 'Occasion',
@@ -176,15 +188,11 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   void _selectDate(DateTime date) {
     _dismissKeyboard();
     setState(() {
-      _startDate = date;
+      _startDate = AppDateFormat.toUtcDate(date);
       _isCalendarExpanded = false;
     });
     _scrollToBottom();
   }
-
-
-
-
 
   Future<void> _submitMoment() async {
     if (!_canSubmit || _isSubmitting) return;
@@ -202,7 +210,9 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         type: _selectedType!,
         startDate: _startDate!,
         endDate: _selectedType == MomentType.escape ? _endDate : null,
-        timeSlot: _selectedType == MomentType.connect ? _selectedTimeSlot : null,
+        timeSlot: _selectedType == MomentType.connect
+            ? _selectedTimeSlot
+            : null,
         repeatSchedule: _repeatSchedule,
         notes: notes.isNotEmpty ? notes : null,
         createdBy: userId,
@@ -211,7 +221,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       // Log activity
       final profile = await _firestoreService.getUserProfile(userId);
       final userName = profile?['name'] as String? ?? 'Someone';
-      
+
       await _firestoreService.logMomentPlannedActivity(
         spaceId: widget.spaceId,
         userId: userId,
@@ -264,7 +274,10 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
           ),
           centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.lightText),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: AppColors.lightText,
+            ),
             onPressed: () => context.pop(),
           ),
         ),
@@ -300,7 +313,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       ),
     );
   }
-  
+
   Widget? _buildStickyBottom() {
     if (_canSubmit && !_showSaveButton) {
       // Schedule showing the button after a brief delay
@@ -390,7 +403,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
             ),
           ],
           const SizedBox(height: 20),
-          
+
           Row(
             children: [
               _buildTypeOption(MomentType.connect, 'Connect'),
@@ -411,20 +424,15 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     // Colors: black when selected, muted otherwise
     final iconColor = isSelected ? AppColors.pureBlack : AppColors.warmMuted;
     final textColor = isSelected ? AppColors.pureBlack : AppColors.warmMuted;
-    
+
     return Expanded(
       child: GestureDetector(
         onTap: () => _selectType(type),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: EdgeInsets.symmetric(
-            vertical: 16,
-            horizontal: 8,
-          ),
+          padding: EdgeInsets.symmetric(vertical: 16, horizontal: 8),
           decoration: BoxDecoration(
-            color: isSelected 
-                ? AppColors.accentRed
-                : AppColors.cardVariant,
+            color: isSelected ? AppColors.accentRed : AppColors.cardVariant,
             borderRadius: BorderRadius.circular(14),
             boxShadow: isSelected
                 ? [
@@ -480,7 +488,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     final isFocused = _nameFocusNode.hasFocus;
     // Show presets when no text and not focused
     final showPresets = !hasName && !isFocused;
-    
+
     return GestureDetector(
       onTap: () => _nameFocusNode.requestFocus(),
       behavior: HitTestBehavior.opaque,
@@ -519,7 +527,9 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: _presets.map((preset) => _buildPresetPill(preset)).toList(),
+                children: _presets
+                    .map((preset) => _buildPresetPill(preset))
+                    .toList(),
               ),
             ],
           ],
@@ -527,19 +537,19 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       ),
     );
   }
-  
+
   String _getHelperText() => 'Pick one or name your own';
 
   Widget _buildPresetPill(String preset) {
     final isSelected = _selectedPreset == preset;
-    
+
     return GestureDetector(
       onTap: () => _selectPreset(preset),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected 
+          color: isSelected
               ? AppColors.accentRed.withValues(alpha: 0.2)
               : AppColors.cardVariant,
           borderRadius: BorderRadius.circular(20),
@@ -562,19 +572,21 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   Widget _buildDateCard() {
     final isEscape = _selectedType == MomentType.escape;
-    
+
     if (isEscape) {
       return _buildEscapeDatesCard();
     }
-    
+
     // Non-escape: pills + expandable inline calendar
     final hasDate = _startDate != null;
     return GestureDetector(
-      onTap: !_isCalendarExpanded ? () {
-        FocusScope.of(context).unfocus();
-        HapticFeedback.lightImpact();
-        setState(() => _isCalendarExpanded = true);
-      } : null,
+      onTap: !_isCalendarExpanded
+          ? () {
+              FocusScope.of(context).unfocus();
+              HapticFeedback.lightImpact();
+              setState(() => _isCalendarExpanded = true);
+            }
+          : null,
       behavior: HitTestBehavior.opaque,
       child: ActiveCard(
         heading: 'Date',
@@ -587,18 +599,18 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
             if (hasDate && !_isCalendarExpanded) ...[
               _buildDateSelected(),
             ] else if (_isCalendarExpanded) ...[
-            // Calendar open — animated expand
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              child: _buildInlineCalendar(),
-            ),
-          ] else ...[
-            // Default: show quick date pills
-            _buildDateOptions(),
+              // Calendar open — animated expand
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                child: _buildInlineCalendar(),
+              ),
+            ] else ...[
+              // Default: show quick date pills
+              _buildDateOptions(),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -635,7 +647,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     final hasEndDate = _endDate != null;
     final isComplete = hasStartDate && hasEndDate;
     final hasAnySelection = hasStartDate || _isCalendarExpanded;
-    
+
     // Helper text based on state
     final String? helperText;
     if (!hasAnySelection) {
@@ -647,11 +659,13 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     }
 
     return GestureDetector(
-      onTap: !_isCalendarExpanded ? () {
-        FocusScope.of(context).unfocus();
-        HapticFeedback.lightImpact();
-        setState(() => _isCalendarExpanded = true);
-      } : null,
+      onTap: !_isCalendarExpanded
+          ? () {
+              FocusScope.of(context).unfocus();
+              HapticFeedback.lightImpact();
+              setState(() => _isCalendarExpanded = true);
+            }
+          : null,
       behavior: HitTestBehavior.opaque,
       child: ActiveCard(
         heading: 'Dates',
@@ -665,37 +679,37 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
             if (isComplete && !_isCalendarExpanded) ...[
               _buildEscapeSummary(),
             ] else if (_isCalendarExpanded) ...[
-            // Range calendar open
-            AnimatedSize(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              child: _buildRangeCalendar(),
-            ),
-          ] else if (hasStartDate && !hasEndDate) ...[
-            // Has start, needs end — show nights + calendar option
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _buildNightPill(1),
-                _buildNightPill(2),
-                _buildNightPill(3),
-                _buildDatePill('Pick end date', () {
-                  FocusScope.of(context).unfocus();
-                  HapticFeedback.lightImpact();
-                  setState(() {
-                    _rangeStart = _startDate;
-                    _isCalendarExpanded = true;
-                  });
-                }),
-              ],
-            ),
-          ] else ...[
-            // No selection — show day options like single date card
-            _buildEscapeDateOptions(),
+              // Range calendar open
+              AnimatedSize(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                child: _buildRangeCalendar(),
+              ),
+            ] else if (hasStartDate && !hasEndDate) ...[
+              // Has start, needs end — show nights + calendar option
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _buildNightPill(1),
+                  _buildNightPill(2),
+                  _buildNightPill(3),
+                  _buildDatePill('Pick end date', () {
+                    FocusScope.of(context).unfocus();
+                    HapticFeedback.lightImpact();
+                    setState(() {
+                      _rangeStart = _startDate;
+                      _isCalendarExpanded = true;
+                    });
+                  }),
+                ],
+              ),
+            ] else ...[
+              // No selection — show day options like single date card
+              _buildEscapeDateOptions(),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -703,7 +717,15 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   Widget _buildEscapeDateOptions() {
     final today = DateTime.now();
     final tomorrow = today.add(const Duration(days: 1));
-    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayNames = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
 
     final pills = <Widget>[
       _buildDatePill('Today', () => _selectDate(today)),
@@ -718,17 +740,15 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       added++;
     }
 
-    pills.add(_buildDatePill('Pick dates', () {
-      FocusScope.of(context).unfocus();
-      HapticFeedback.lightImpact();
-      setState(() => _isCalendarExpanded = true);
-    }));
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: pills,
+    pills.add(
+      _buildDatePill('Pick dates', () {
+        FocusScope.of(context).unfocus();
+        HapticFeedback.lightImpact();
+        setState(() => _isCalendarExpanded = true);
+      }),
     );
+
+    return Wrap(spacing: 8, runSpacing: 8, children: pills);
   }
 
   Widget _buildRangeCalendar() {
@@ -761,54 +781,58 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     return _buildPill(label, () {
       _dismissKeyboard();
       HapticFeedback.lightImpact();
-      setState(() => _endDate = _startDate!.add(Duration(days: nights)));
+      setState(
+        () => _endDate = AppDateFormat.toUtcDate(
+          _startDate!.add(Duration(days: nights)),
+        ),
+      );
     });
   }
 
   Widget _buildEscapeSummary() {
     final nights = _endDate!.difference(_startDate!).inDays;
     final nightsText = nights == 1 ? '1 night' : '$nights nights';
-    
+
     return Row(
-        children: [
-          // Dates - matching "Weekend Getaway" style
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                style: AppTypography.bodyMedium(color: AppColors.subtleText),
-                children: [
-                  TextSpan(
-                    text: 'From ',
-                    style: GoogleFonts.inter(color: AppColors.dimText),
-                  ),
-                  TextSpan(text: _formatDate(_startDate!)),
-                  TextSpan(
-                    text: ' to ',
-                    style: GoogleFonts.inter(color: AppColors.dimText),
-                  ),
-                  TextSpan(text: _formatDate(_endDate!)),
-                ],
-              ),
+      children: [
+        // Dates - matching "Weekend Getaway" style
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              style: AppTypography.bodyMedium(color: AppColors.subtleText),
+              children: [
+                TextSpan(
+                  text: 'From ',
+                  style: GoogleFonts.inter(color: AppColors.dimText),
+                ),
+                TextSpan(text: _formatDate(_startDate!)),
+                TextSpan(
+                  text: ' to ',
+                  style: GoogleFonts.inter(color: AppColors.dimText),
+                ),
+                TextSpan(text: _formatDate(_endDate!)),
+              ],
             ),
           ),
-          // Nights badge on the right
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.accentRed.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              nightsText,
-              style: GoogleFonts.inter(
-                color: AppColors.accentRed,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-              ),
+        ),
+        // Nights badge on the right
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppColors.accentRed.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            nightsText,
+            style: GoogleFonts.inter(
+              color: AppColors.accentRed,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
           ),
-        ],
-      );
+        ),
+      ],
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -818,7 +842,15 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   Widget _buildDateOptions() {
     final today = DateTime.now();
     final tomorrow = today.add(const Duration(days: 1));
-    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayNames = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
 
     // Build upcoming day pills: today, tomorrow, then next few unique weekdays
     final pills = <Widget>[
@@ -836,20 +868,19 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     }
 
     // "Pick a date" opens the calendar and dismisses keyboard
-    pills.add(_buildDatePill('Pick a date', () {
-      FocusScope.of(context).unfocus();
-      HapticFeedback.lightImpact();
-      setState(() => _isCalendarExpanded = true);
-    }));
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: pills,
+    pills.add(
+      _buildDatePill('Pick a date', () {
+        FocusScope.of(context).unfocus();
+        HapticFeedback.lightImpact();
+        setState(() => _isCalendarExpanded = true);
+      }),
     );
+
+    return Wrap(spacing: 8, runSpacing: 8, children: pills);
   }
 
-  Widget _buildDatePill(String label, VoidCallback onTap) => _buildPill(label, onTap);
+  Widget _buildDatePill(String label, VoidCallback onTap) =>
+      _buildPill(label, onTap);
 
   Widget _buildDateSelected() {
     return Text(
@@ -864,7 +895,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   Widget _buildTimeCard() {
     final hasTime = _selectedTimeSlot != null;
-    
+
     return ActiveCard(
       heading: 'Time',
       isActive: true,
@@ -891,38 +922,44 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   // Track drag position for stretchy effect
   double? _dragPosition;
-  
+
   Color _getTimeSlotColor(int index) {
     final progress = index / (TimeSlot.values.length - 1);
-    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ?? AppColors.nightColor;
+    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ??
+        AppColors.nightColor;
   }
-  
+
   Color _getTimeSlotColorFromProgress(double progress) {
-    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress.clamp(0.0, 1.0)) ?? AppColors.nightColor;
+    return Color.lerp(
+          AppColors.morningColor,
+          AppColors.nightColor,
+          progress.clamp(0.0, 1.0),
+        ) ??
+        AppColors.nightColor;
   }
 
   Widget _buildTimeSlotSlider() {
     final slots = TimeSlot.values;
-    final selectedIndex = _selectedTimeSlot != null 
-        ? slots.indexOf(_selectedTimeSlot!) 
+    final selectedIndex = _selectedTimeSlot != null
+        ? slots.indexOf(_selectedTimeSlot!)
         : 0;
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final slotWidth = constraints.maxWidth / slots.length;
         final totalWidth = constraints.maxWidth;
         final padding = 4.0;
         final baseWidth = slotWidth - (padding * 2);
-        
+
         // Selected slot center position
         final selectedCenter = (selectedIndex + 0.5) * slotWidth;
         final isDragging = _dragPosition != null;
-        
+
         // Calculate stretchy highlight bounds
         double highlightLeft;
         double highlightWidth;
         double colorProgress;
-        
+
         if (isDragging) {
           final dragX = _dragPosition!;
           // Stretch from selected slot toward drag position.
@@ -946,15 +983,18 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
           highlightWidth = baseWidth;
           colorProgress = selectedIndex / (slots.length - 1);
         }
-        
+
         return GestureDetector(
           onHorizontalDragStart: (details) {
-            setState(() => _dragPosition = details.localPosition.dx.clamp(0, totalWidth));
+            setState(
+              () =>
+                  _dragPosition = details.localPosition.dx.clamp(0, totalWidth),
+            );
           },
           onHorizontalDragUpdate: (details) {
             final pos = details.localPosition.dx.clamp(0.0, totalWidth);
             setState(() => _dragPosition = pos);
-            
+
             // Snap selection at slot centers
             final index = (pos / slotWidth).floor().clamp(0, slots.length - 1);
             if (_selectedTimeSlot != slots[index]) {
@@ -994,7 +1034,9 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: _getTimeSlotColorFromProgress(colorProgress).withValues(alpha: 0.4),
+                          color: _getTimeSlotColorFromProgress(
+                            colorProgress,
+                          ).withValues(alpha: 0.4),
                           blurRadius: 12,
                           spreadRadius: 0,
                         ),
@@ -1008,9 +1050,10 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                     final index = entry.key;
                     final slot = entry.value;
                     // Show first slot as selected when nothing is selected yet
-                    final isSelected = _selectedTimeSlot == slot || 
+                    final isSelected =
+                        _selectedTimeSlot == slot ||
                         (_selectedTimeSlot == null && index == 0);
-                    
+
                     return Expanded(
                       child: GestureDetector(
                         onTap: () {
@@ -1027,9 +1070,11 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                           child: Icon(
                             _getTimeSlotIcon(slot),
                             size: 22,
-                            color: isSelected 
-                                ? AppColors.pureBlack 
-                                : _getTimeSlotColor(index).withValues(alpha: 0.5),
+                            color: isSelected
+                                ? AppColors.pureBlack
+                                : _getTimeSlotColor(
+                                    index,
+                                  ).withValues(alpha: 0.5),
                           ),
                         ),
                       ),
@@ -1043,7 +1088,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       },
     );
   }
-  
+
   IconData _getTimeSlotIcon(TimeSlot slot) {
     return switch (slot) {
       TimeSlot.morning => Icons.wb_sunny_rounded,
@@ -1060,7 +1105,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   Widget _buildNotesCard() {
     final isFocused = _notesFocusNode.hasFocus;
     final hasContent = _notesController.text.trim().isNotEmpty || isFocused;
-    
+
     return GestureDetector(
       onTap: () => _notesFocusNode.requestFocus(),
       behavior: HitTestBehavior.opaque,

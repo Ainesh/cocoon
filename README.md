@@ -120,9 +120,26 @@ Three types of moments with progressive reveal UI:
 - Swipe right to dismiss
 - `ClampingScrollPhysics` — no bouncy overscroll
 
+### ✏️ Edit Moment
+- Inline calendar + time slider (same components as Plan a Moment)
+- **Optimistic Locking** — version-based conflict detection via Firestore transaction
+  - If partner saved changes while you were editing, shows conflict dialog
+  - "Go back" action returns to dashboard to reload latest version
+- **Editing Presence** — real-time "Partner is editing" banner
+  - Red indicator at top of edit screen when partner is also editing
+  - Presence auto-refreshes every 30s, stale after 60s
+  - Cleaned up on dispose / save / back navigation
+- Hold to Cancel moved inline (part of scrollable content)
+
 ### 📝 Moment Details
 - View full moment details in a bottom sheet
 - "Planned by You on Saturday, Feb 15" subtitle with human-readable date
+- **Editing Awareness** — real-time partner editing indicator
+  - Red text under subtitle: "{Name} is currently editing"
+  - Cards wobble (iOS-style shake) with synced haptic vibration
+  - Double-tap shows "Hold to edit" or "{Name} is editing, please wait"
+  - Long-press blocked when partner is editing
+  - Live moment data — sheet updates when partner saves
 - Long-press any card to edit that field
 - **Hold to Cancel** with animated countdown overlay
 - Dotted circle progress animation during deletion
@@ -252,6 +269,8 @@ Scores calculated from **past 30 days** of check-ins from both partners.
 6. **Progressive Disclosure** — UI reveals as user completes steps
 7. **Haptic Feedback** — Tactile response for all meaningful interactions
 8. **Consistent Spacing** — 12px card gaps, `ClampingScrollPhysics` everywhere
+9. **UTC-First Dates** — All dates stored/compared as UTC midnight, converted to local only in UI
+10. **Optimistic Locking** — Version-based conflict detection + editing presence for shared data
 
 ### Layer Architecture
 
@@ -291,6 +310,32 @@ When your partner submits a check-in, your dashboard automatically:
 2. Recalculates stats locally
 3. Updates the health card
 4. Triggers the animation
+
+### Date Architecture (UTC-First)
+
+All dates are stored and compared as **UTC midnight**. Local timezone conversion happens only in the UI display layer.
+
+| Layer | Type | Example |
+|-------|------|---------|
+| **Storage** (Firestore) | UTC midnight | `DateTime.utc(2026, 3, 10)` |
+| **Model** (Moment) | UTC midnight | `moment.startDate.isUtc == true` |
+| **Comparison** (isToday, isPast) | UTC midnight | `_todayUtc()` vs `startDate` |
+| **Calendar** (table_calendar) | UTC → normalized | `AppDateFormat.toUtcDate(selected)` |
+| **Display** (UI) | Local via formatters | `AppDateFormat.short(date)` → "Tue, Mar 10" |
+
+**TimeSlot** (`morning`, `afternoon`, `evening`, `night`) is a relative label — always interpreted in the user's local context alongside the stored date. No UTC conversion needed.
+
+### Optimistic Locking
+
+Prevents data loss when both partners edit the same moment simultaneously.
+
+- **Version field** — `Moment.version` (int, default 1) incremented on each update
+- **Firestore transaction** — `updateMoment` reads current version, compares with expected, fails on mismatch
+- **Editing presence** — `moments/{id}/editing/{userId}` subcollection
+  - Written on edit screen open, refreshed every 30s, stale after 60s
+  - Cleared on dispose, save, back, app background (`WidgetsBindingObserver`)
+  - Orphaned docs garbage-collected on MDS/edit screen open (90s threshold)
+- **MDS awareness** — partner editing shown as red text + card wobble + blocked edit
 
 ---
 
@@ -716,6 +761,7 @@ class Moment {
   final String? notes;
   final String createdBy;
   final DateTime? createdAt;
+  final int version;              // Optimistic lock (incremented on each update)
   
   // Computed properties
   String get relativeDate;        // "Today", "Tomorrow", "In 3 days"
@@ -826,8 +872,13 @@ class FirestoreService {
   // Moments
   Stream<List<Moment>> watchUpcomingMoments(spaceId);
   Future<String> createMoment({spaceId, name, type, startDate, ...});
-  Future<void> updateMoment({spaceId, momentId, ...});
+  Future<void> updateMoment({spaceId, momentId, expectedVersion, ...}); // Optimistic lock
   Future<void> deleteMoment({spaceId, momentId});
+  
+  // Editing Presence
+  Future<void> setEditingPresence({spaceId, momentId, userId, userName});
+  Future<void> clearEditingPresence({spaceId, momentId, userId});
+  Stream<List<({String name, DateTime time})>> watchEditingPresence({spaceId, momentId, excludeUserId});
   
   // Check-ins
   Stream<List<UserCheckIn>> watchRecentCheckIns(spaceId, {daysBack});
@@ -888,10 +939,16 @@ class FirestoreService {
             request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1)
          );
 
-         match /moments/{momentId} {
-           allow read, write: if request.auth != null &&
-             request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-         }
+       match /moments/{momentId} {
+          allow read, write: if request.auth != null &&
+            request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+
+          // Editing presence (optimistic locking)
+          match /editing/{editorId} {
+            allow read, write: if request.auth != null &&
+              request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+          }
+        }
 
         match /checkins/{checkinId} {
           allow read, write: if request.auth != null &&
@@ -1006,6 +1063,10 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 - ✅ Proper disposal of controllers and streams
 - ✅ No sensitive data in logs or error messages
 - ✅ Firebase config excluded from version control
+- ✅ Optimistic locking on shared data (moment edits)
+- ✅ Editing presence with auto-cleanup (dispose, background, stale GC)
+- ✅ UTC-first date storage — no timezone day-shift bugs
+- ✅ App lifecycle handling (`WidgetsBindingObserver`) for presence cleanup
 
 ---
 

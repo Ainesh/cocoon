@@ -123,3 +123,30 @@ void dispose() {
   super.dispose();
 }
 ```
+
+---
+
+## Firestore Security Rules
+
+The canonical rules file is `firestore.rules` in the project root.
+
+### Rule Structure
+
+```
+spaces/{spaceId}
+├── moments/{momentId}          ← members read/write
+│   └── editing/{editorId}      ← members read/write (editing presence)
+├── checkins/{checkinId}        ← members read/write
+└── activities/{activityId}     ← members read/write
+
+users/{userId}                  ← self write, space members read
+invites/{inviteId}              ← any authenticated user
+```
+
+### When Adding New Subcollections
+
+If you add a new subcollection under `spaces/{spaceId}`, you **must**:
+1. Add a matching `match` rule in `firestore.rules`
+2. Use the standard member check: `request.auth.uid in get(.../spaces/$(spaceId)).data.memberIds`
+3. If nesting under an existing subcollection (e.g. `moments/{id}/newSub/{id}`), add the rule **inside** the parent match block
+4. Deploy updated rules: `firebase deploy --only firestore:rules`

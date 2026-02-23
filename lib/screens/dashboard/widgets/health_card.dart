@@ -93,7 +93,8 @@ class HealthCardState extends State<HealthCard>
     final connectionPct = widget.checkInStats.avgConnection * 10;
     final intimacyPct = widget.checkInStats.avgIntimacy * 10;
     final peacePct = widget.checkInStats.avgPeace * 10;
-    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
+    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3)
+        .round();
     _targetProgress = overallHealth / 100;
   }
 
@@ -126,7 +127,7 @@ class HealthCardState extends State<HealthCard>
   /// Set [forceReanimate] to true to replay the animation (e.g., on refresh).
   void animateHealthScore({bool forceReanimate = false}) {
     if (_hasAnimated && !forceReanimate) return;
-    
+
     // Fresh seed → fresh Voronoi pattern
     _seed = DateTime.now().millisecondsSinceEpoch;
     _hasAnimated = true;
@@ -135,10 +136,10 @@ class HealthCardState extends State<HealthCard>
     if (forceReanimate) {
       _controller.reset();
     }
-    
+
     // Immediate rebuild to show dark state before tiles start appearing
     setState(() {});
-    
+
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) {
         HapticFeedback.mediumImpact();
@@ -154,7 +155,7 @@ class HealthCardState extends State<HealthCard>
   @override
   Widget build(BuildContext context) {
     final animProgress = _controller.value;
-    
+
     return GestureDetector(
       onTap: widget.onTap,
       child: Container(
@@ -168,8 +169,7 @@ class HealthCardState extends State<HealthCard>
                 const Color(0xFF60A5FA),
                 AppColors.accentRed,
                 _targetProgress,
-              )!
-                  .withValues(alpha: 0.25),
+              )!.withValues(alpha: 0.25),
               blurRadius: 24,
               offset: const Offset(0, 8),
             ),
@@ -177,8 +177,8 @@ class HealthCardState extends State<HealthCard>
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
-                child: Stack(
-                  children: [
+          child: Stack(
+            children: [
               // Layer 1: Voronoi mosaic (full-bleed)
               Positioned.fill(
                 child: RepaintBoundary(
@@ -206,13 +206,13 @@ class HealthCardState extends State<HealthCard>
                       Shadow(
                         color: Colors.black.withValues(alpha: 0.6),
                         blurRadius: 4,
-            ),
-          ],
-        ),
-      ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-        ],
-      ),
+            ],
+          ),
         ),
       ),
     );

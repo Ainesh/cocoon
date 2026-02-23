@@ -58,8 +58,11 @@ class _CheckinDetailsContent extends StatelessWidget {
   final String? notes;
 
   Color _scoreColor(int score) =>
-      Color.lerp(AppColors.morningColor, AppColors.nightColor,
-          ((score - 1) / 9).clamp(0.0, 1.0)) ??
+      Color.lerp(
+        AppColors.morningColor,
+        AppColors.nightColor,
+        ((score - 1) / 9).clamp(0.0, 1.0),
+      ) ??
       AppColors.nightColor;
 
   @override
@@ -157,13 +160,17 @@ class _CheckinDetailsContent extends StatelessWidget {
                                   child: Text(
                                     'PULSE CHECK',
                                     style: GoogleFonts.outfit(
-                                      color: Colors.white.withValues(alpha: 0.9),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.9,
+                                      ),
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 1.5,
                                       shadows: [
                                         Shadow(
-                                          color: Colors.black.withValues(alpha: 0.6),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.6,
+                                          ),
                                           blurRadius: 4,
                                         ),
                                       ],
@@ -179,7 +186,8 @@ class _CheckinDetailsContent extends StatelessWidget {
                               child: SizedBox(
                                 height: 220,
                                 child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     Expanded(
                                       child: _buildStaticBar(
@@ -295,8 +303,10 @@ class _CheckinDetailsContent extends StatelessWidget {
                     ),
                     Container(
                       width: double.infinity,
-                      height: (trackHeight * progress)
-                          .clamp(trackHeight * 0.05, trackHeight),
+                      height: (trackHeight * progress).clamp(
+                        trackHeight * 0.05,
+                        trackHeight,
+                      ),
                       decoration: BoxDecoration(
                         color: color,
                         borderRadius: BorderRadius.circular(borderRadius),

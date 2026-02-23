@@ -24,32 +24,32 @@ class TrendChartPainter extends CustomPainter {
 
   /// Primary line values (e.g., connection scores)
   final List<double> primaryValues;
-  
+
   /// Secondary line values (e.g., intimacy scores)
   final List<double> secondaryValues;
-  
+
   /// Primary line color (default: accentRed)
   final Color? primaryColor;
-  
+
   /// Secondary line color (default: blue)
   final Color? secondaryColor;
-  
+
   /// Maximum value for scaling (default: 10)
   final double maxValue;
-  
+
   /// Line stroke width (default: 2.5)
   final double strokeWidth;
 
   @override
   void paint(Canvas canvas, Size size) {
     if (primaryValues.isEmpty) return;
-    
+
     final primary = primaryColor ?? AppColors.accentRed;
     final secondary = secondaryColor ?? AppColors.morningColor;
-    
+
     // Draw primary line (red)
     _drawCurveLine(canvas, size, primaryValues, primary);
-    
+
     // Draw secondary line (blue)
     _drawCurveLine(canvas, size, secondaryValues, secondary);
   }
@@ -64,7 +64,7 @@ class TrendChartPainter extends CustomPainter {
 
     final count = values.length;
     final points = <Offset>[];
-    
+
     for (int i = 0; i < count; i++) {
       final x = count == 1 ? size.width / 2 : (i / (count - 1)) * size.width;
       final y = size.height - ((values[i] / maxValue) * size.height * 0.9);
@@ -108,10 +108,7 @@ class TrendChartPainter extends CustomPainter {
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          color.withValues(alpha: 0.25),
-          color.withValues(alpha: 0.02),
-        ],
+        colors: [color.withValues(alpha: 0.25), color.withValues(alpha: 0.02)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height))
       ..style = PaintingStyle.fill;
 

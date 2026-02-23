@@ -80,10 +80,7 @@ class AvatarSelector extends StatelessWidget {
             decoration: BoxDecoration(
               color: selectedColor.color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: selectedColor.color,
-                width: 3,
-              ),
+              border: Border.all(color: selectedColor.color, width: 3),
               boxShadow: [
                 BoxShadow(
                   color: selectedColor.color.withValues(alpha: 0.3),
@@ -304,15 +301,15 @@ class _AvatarOptionState extends State<_AvatarOption> {
               color: widget.isSelected
                   ? accentColor.withValues(alpha: 0.2)
                   : isActive
-                      ? _cardVariant
-                      : _darkGlass,
+                  ? _cardVariant
+                  : _darkGlass,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
                 color: widget.isSelected
                     ? accentColor
                     : isActive
-                        ? _refinedRed.withValues(alpha: 0.3)
-                        : _cardVariant,
+                    ? _refinedRed.withValues(alpha: 0.3)
+                    : _cardVariant,
                 width: widget.isSelected ? 2.5 : 1,
               ),
               boxShadow: widget.isSelected
@@ -329,13 +326,13 @@ class _AvatarOptionState extends State<_AvatarOption> {
                       ),
                     ]
                   : isActive
-                      ? [
-                          BoxShadow(
-                            color: _refinedRed.withValues(alpha: 0.15),
-                            blurRadius: 12,
-                          ),
-                        ]
-                      : null,
+                  ? [
+                      BoxShadow(
+                        color: _refinedRed.withValues(alpha: 0.15),
+                        blurRadius: 12,
+                      ),
+                    ]
+                  : null,
             ),
             child: Icon(
               widget.avatar.icon,

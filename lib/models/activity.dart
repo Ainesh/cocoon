@@ -25,7 +25,7 @@ enum ActivityType {
   spaceCreated('space_created', 'created the space'),
   spaceJoined('space_joined', 'joined the space'),
   spaceRenamed('space_renamed', 'renamed the space'),
-  
+
   // Future activities
   inviteSent('invite_sent', 'sent an invite'),
   inviteAccepted('invite_accepted', 'accepted the invite');
@@ -48,20 +48,20 @@ enum ActivityType {
 
   /// Whether this activity is related to moments.
   bool get isMomentActivity => [
-        ActivityType.momentPlanned,
-        ActivityType.momentEdited,
-        ActivityType.momentDeleted,
-        ActivityType.momentCompleted,
-      ].contains(this);
+    ActivityType.momentPlanned,
+    ActivityType.momentEdited,
+    ActivityType.momentDeleted,
+    ActivityType.momentCompleted,
+  ].contains(this);
 
   /// Whether this activity is related to the space itself.
   bool get isSpaceActivity => [
-        ActivityType.spaceCreated,
-        ActivityType.spaceJoined,
-        ActivityType.spaceRenamed,
-        ActivityType.inviteSent,
-        ActivityType.inviteAccepted,
-      ].contains(this);
+    ActivityType.spaceCreated,
+    ActivityType.spaceJoined,
+    ActivityType.spaceRenamed,
+    ActivityType.inviteSent,
+    ActivityType.inviteAccepted,
+  ].contains(this);
 }
 
 /// Types of entities that activities can reference.
@@ -145,7 +145,7 @@ class Activity {
   final String? entityId;
 
   /// Additional metadata about the activity.
-  /// 
+  ///
   /// For moments: { momentName, momentType, momentDate }
   /// For check-ins: { connection, intimacy, peace }
   /// For space: { oldName, newName }
@@ -174,13 +174,15 @@ class Activity {
 
       case ActivityType.spaceRenamed:
         final newName = metadata?['newName'] as String?;
-        return newName != null ? 'renamed space to "$newName"' : type.actionText;
+        return newName != null
+            ? 'renamed space to "$newName"'
+            : type.actionText;
 
       default:
         return type.actionText;
     }
   }
-  
+
   /// Returns the list of changed fields for edited moments.
   List<String> get changedFields {
     if (type != ActivityType.momentEdited) return [];

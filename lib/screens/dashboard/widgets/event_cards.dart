@@ -22,10 +22,10 @@ class ComingUpCard extends StatelessWidget {
 
   /// Upcoming moments (shows up to 2).
   final List<Moment> moments;
-  
+
   /// Callback when card header is tapped.
   final VoidCallback? onTap;
-  
+
   /// Callback when a specific moment is tapped.
   final void Function(Moment moment)? onMomentTap;
 
@@ -33,7 +33,7 @@ class ComingUpCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final firstMoment = moments.isNotEmpty ? moments.first : null;
     final secondMoment = moments.length > 1 ? moments[1] : null;
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -69,17 +69,19 @@ class ComingUpCard extends StatelessWidget {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 14),
-          
+
           // Content - fixed sizes, extra space goes to bottom
           if (firstMoment != null) ...[
             // Featured moment (first/next up) - fixed size
             _FeaturedMomentPreview(
               moment: firstMoment,
-              onTap: onMomentTap != null ? () => onMomentTap!(firstMoment) : null,
+              onTap: onMomentTap != null
+                  ? () => onMomentTap!(firstMoment)
+                  : null,
             ),
-            
+
             // Second moment (compact)
             if (secondMoment != null) ...[
               const SizedBox(height: 20),
@@ -90,7 +92,9 @@ class ComingUpCard extends StatelessWidget {
               const SizedBox(height: 12),
               _CompactMomentPreview(
                 moment: secondMoment,
-                onTap: onMomentTap != null ? () => onMomentTap!(secondMoment) : null,
+                onTap: onMomentTap != null
+                    ? () => onMomentTap!(secondMoment)
+                    : null,
               ),
               // Show additional events count - pushed to bottom
               if (moments.length > 2) ...[
@@ -142,26 +146,31 @@ class ComingUpCard extends StatelessWidget {
 /// Featured moment preview - larger with more details.
 /// Layout: Name (full width) on top, then icon + date info below.
 class _FeaturedMomentPreview extends StatelessWidget {
-  const _FeaturedMomentPreview({
-    required this.moment,
-    this.onTap,
-  });
+  const _FeaturedMomentPreview({required this.moment, this.onTap});
 
   final Moment moment;
   final VoidCallback? onTap;
 
-  static const _dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  static const _dayNames = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
 
   /// Returns date info, potentially on two lines for escape moments
   List<String> get _dateInfoLines {
     final date = moment.startDate;
     final dayName = _dayNames[date.weekday - 1];
-    
+
     // For escape moments, just show date range (no day name)
     if (moment.type == MomentType.escape) {
       return [moment.dateDisplay]; // ["Feb 7 - Feb 9"]
     }
-    
+
     // Single line for other moments with day name
     return ['${moment.dateDisplay}, $dayName'];
   }
@@ -169,10 +178,12 @@ class _FeaturedMomentPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap != null ? () {
-        HapticFeedback.selectionClick();
-        onTap!();
-      } : null,
+      onTap: onTap != null
+          ? () {
+              HapticFeedback.selectionClick();
+              onTap!();
+            }
+          : null,
       behavior: HitTestBehavior.opaque,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -188,9 +199,9 @@ class _FeaturedMomentPreview extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          
+
           const SizedBox(height: 12),
-          
+
           // Icon + details row
           Row(
             children: [
@@ -211,7 +222,7 @@ class _FeaturedMomentPreview extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              
+
               // Date info - wrapped to take available space
               Expanded(
                 child: Column(
@@ -227,13 +238,15 @@ class _FeaturedMomentPreview extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     // Date info (may be multiple lines for escape moments)
-                    ..._dateInfoLines.map((line) => Text(
-                      line,
-                      style: GoogleFonts.inter(
-                        color: AppColors.warmDim,
-                        fontSize: 12,
+                    ..._dateInfoLines.map(
+                      (line) => Text(
+                        line,
+                        style: GoogleFonts.inter(
+                          color: AppColors.warmDim,
+                          fontSize: 12,
+                        ),
                       ),
-                    )),
+                    ),
                   ],
                 ),
               ),
@@ -247,10 +260,7 @@ class _FeaturedMomentPreview extends StatelessWidget {
 
 /// Compact moment preview - minimal details.
 class _CompactMomentPreview extends StatelessWidget {
-  const _CompactMomentPreview({
-    required this.moment,
-    this.onTap,
-  });
+  const _CompactMomentPreview({required this.moment, this.onTap});
 
   final Moment moment;
   final VoidCallback? onTap;
@@ -258,10 +268,12 @@ class _CompactMomentPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap != null ? () {
-        HapticFeedback.selectionClick();
-        onTap!();
-      } : null,
+      onTap: onTap != null
+          ? () {
+              HapticFeedback.selectionClick();
+              onTap!();
+            }
+          : null,
       behavior: HitTestBehavior.opaque,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -283,7 +295,7 @@ class _CompactMomentPreview extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          
+
           // Name and date
           Expanded(
             child: Column(
@@ -319,14 +331,10 @@ class _CompactMomentPreview extends StatelessWidget {
 /// Plan a Moment button card.
 /// Can expand to fill available space when [expanded] is true.
 class PlanMomentCard extends StatelessWidget {
-  const PlanMomentCard({
-    super.key,
-    required this.onTap,
-    this.expanded = false,
-  });
+  const PlanMomentCard({super.key, required this.onTap, this.expanded = false});
 
   final VoidCallback onTap;
-  
+
   /// Whether the button should expand to fill available height.
   final bool expanded;
 
@@ -335,7 +343,9 @@ class PlanMomentCard extends StatelessWidget {
     return ActionButton(
       label: 'Plan a moment',
       icon: Icons.add_circle_rounded,
-      layout: expanded ? ActionButtonLayout.vertical : ActionButtonLayout.horizontal,
+      layout: expanded
+          ? ActionButtonLayout.vertical
+          : ActionButtonLayout.horizontal,
       expanded: expanded,
       onTap: onTap,
     );
@@ -344,18 +354,12 @@ class PlanMomentCard extends StatelessWidget {
 
 /// Check-in button card.
 class CheckInCard extends StatelessWidget {
-  const CheckInCard({
-    super.key,
-    required this.onTap,
-  });
+  const CheckInCard({super.key, required this.onTap});
 
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return ActionButton(
-      label: 'Check in',
-      onTap: onTap,
-    );
+    return ActionButton(label: 'Check in', onTap: onTap);
   }
 }

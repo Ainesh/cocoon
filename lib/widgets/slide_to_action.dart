@@ -43,35 +43,35 @@ class SlideToAction extends StatefulWidget {
 
   /// Callback when slide is completed
   final VoidCallback onConfirm;
-  
+
   /// Label shown on the bar (default: 'Slide to confirm')
   final String label;
-  
+
   /// Label shown while loading (default: 'Processing...')
   final String loadingLabel;
-  
+
   /// Whether the action is in progress
   final bool isLoading;
-  
+
   /// Whether the slider is enabled (default: true)
   /// When disabled, slider is grayed out and non-interactive
   final bool enabled;
-  
+
   /// Height of the slider (default: 52)
   final double height;
-  
+
   /// Corner radius (default: 12)
   final double borderRadius;
-  
+
   /// Minimum width of the draggable bar (default: 160)
   final double minBarWidth;
-  
+
   /// Color of the draggable bar (default: accentRed)
   final Color? barColor;
-  
+
   /// Color of the bar when disabled (default: warmMuted)
   final Color? disabledBarColor;
-  
+
   /// Color of the background track (default: cardVariant at 50%)
   final Color? trackColor;
 
@@ -82,7 +82,7 @@ class SlideToAction extends StatefulWidget {
 class _SlideToActionState extends State<SlideToAction> {
   double _dragPosition = 0;
   bool _isDragging = false;
-  
+
   static const double _targetIconSize = 32.0;
   static const double _targetPadding = 10.0;
 
@@ -101,7 +101,7 @@ class _SlideToActionState extends State<SlideToAction> {
 
   void _onDragEnd(DragEndDetails details, double maxDrag) {
     if (widget.isLoading || !widget.enabled) return;
-    
+
     // Check if reached the target (within 95% of max - swipe all the way)
     if (_dragPosition >= maxDrag * 0.95) {
       HapticFeedback.heavyImpact();
@@ -126,9 +126,10 @@ class _SlideToActionState extends State<SlideToAction> {
     final activeBarColor = widget.barColor ?? AppColors.accentRed;
     final disabledBarColor = widget.disabledBarColor ?? AppColors.warmMuted;
     final barColor = widget.enabled ? activeBarColor : disabledBarColor;
-    final trackColor = widget.trackColor ?? AppColors.cardVariant.withValues(alpha: 0.5);
+    final trackColor =
+        widget.trackColor ?? AppColors.cardVariant.withValues(alpha: 0.5);
     final textColor = widget.enabled ? AppColors.pureBlack : AppColors.warmDim;
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final trackWidth = constraints.maxWidth;
@@ -136,7 +137,7 @@ class _SlideToActionState extends State<SlideToAction> {
         final maxDrag = trackWidth - widget.minBarWidth;
         final barWidth = widget.minBarWidth + _dragPosition;
         final progress = maxDrag > 0 ? _dragPosition / maxDrag : 0.0;
-        
+
         return SizedBox(
           width: trackWidth,
           height: widget.height,
@@ -152,7 +153,7 @@ class _SlideToActionState extends State<SlideToAction> {
                   borderRadius: BorderRadius.circular(widget.borderRadius),
                 ),
               ),
-              
+
               // Target play icon at the far right (behind the bar)
               Positioned(
                 right: _targetPadding,
@@ -167,14 +168,20 @@ class _SlideToActionState extends State<SlideToAction> {
                   ),
                 ),
               ),
-              
+
               // FOREGROUND: Draggable bar with glow - slides over the play button
               GestureDetector(
                 onHorizontalDragStart: widget.enabled ? _onDragStart : null,
-                onHorizontalDragUpdate: widget.enabled ? (d) => _onDragUpdate(d, maxDrag) : null,
-                onHorizontalDragEnd: widget.enabled ? (d) => _onDragEnd(d, maxDrag) : null,
+                onHorizontalDragUpdate: widget.enabled
+                    ? (d) => _onDragUpdate(d, maxDrag)
+                    : null,
+                onHorizontalDragEnd: widget.enabled
+                    ? (d) => _onDragEnd(d, maxDrag)
+                    : null,
                 child: AnimatedContainer(
-                  duration: _isDragging ? Duration.zero : const Duration(milliseconds: 200),
+                  duration: _isDragging
+                      ? Duration.zero
+                      : const Duration(milliseconds: 200),
                   width: barWidth,
                   height: widget.height,
                   decoration: BoxDecoration(
@@ -216,7 +223,9 @@ class _SlideToActionState extends State<SlideToAction> {
                           )
                         : AnimatedOpacity(
                             duration: const Duration(milliseconds: 100),
-                            opacity: _isDragging ? 0.0 : 1.0, // Hide text while dragging
+                            opacity: _isDragging
+                                ? 0.0
+                                : 1.0, // Hide text while dragging
                             child: Text(
                               widget.label,
                               style: GoogleFonts.outfit(

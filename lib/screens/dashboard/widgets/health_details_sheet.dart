@@ -19,10 +19,10 @@ void showHealthDetailsSheet({
   final connectionPct = checkInStats.avgConnection * 10;
   final intimacyPct = checkInStats.avgIntimacy * 10;
   final peacePct = checkInStats.avgPeace * 10;
-  
+
   final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
   final remark = _getHealthRemark(overallHealth);
-  
+
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
@@ -49,12 +49,16 @@ String _getHealthRemark(int score) {
 }
 
 /// Gets a single word summary of the relationship trend over the month.
-String _getMonthSummary(CheckInStats stats, List<Map<String, dynamic>>? dailyScores) {
+String _getMonthSummary(
+  CheckInStats stats,
+  List<Map<String, dynamic>>? dailyScores,
+) {
   if (stats.checkInCount < 2) return 'Starting';
-  
+
   // Calculate overall trend from the three dimensions
-  final overallTrend = (stats.connectionTrend + stats.intimacyTrend + stats.peaceTrend) / 3;
-  
+  final overallTrend =
+      (stats.connectionTrend + stats.intimacyTrend + stats.peaceTrend) / 3;
+
   // Calculate variance from daily scores if available
   double variance = 0;
   if (dailyScores != null && dailyScores.isNotEmpty) {
@@ -64,15 +68,19 @@ String _getMonthSummary(CheckInStats stats, List<Map<String, dynamic>>? dailySco
         .toList();
     if (scores.length >= 2) {
       final mean = scores.reduce((a, b) => a + b) / scores.length;
-      variance = scores.map((s) => (s - mean) * (s - mean)).reduce((a, b) => a + b) / scores.length;
+      variance =
+          scores.map((s) => (s - mean) * (s - mean)).reduce((a, b) => a + b) /
+          scores.length;
     }
   }
-  
+
   // Calculate average health
-  final avgHealth = ((stats.avgConnection * 10) + 
-                     (stats.avgIntimacy * 10) + 
-                     (stats.avgPeace * 10)) / 3;
-  
+  final avgHealth =
+      ((stats.avgConnection * 10) +
+          (stats.avgIntimacy * 10) +
+          (stats.avgPeace * 10)) /
+      3;
+
   // Determine summary based on trend, variance, and health
   if (variance > 400) {
     // High variance = turbulent
@@ -145,73 +153,73 @@ class _HealthDetailsContent extends StatelessWidget {
               ),
             ),
             Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Heading
-                  Text(
-                    'Relationship Health Score',
-                    style: GoogleFonts.outfit(
-                      color: AppColors.warmLight,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    // Heading
+                    Text(
+                      'Relationship Health Score',
+                      style: GoogleFonts.outfit(
+                        color: AppColors.warmLight,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Top: Centered score
-                  Text(
-                    overallHealth.toString(),
-                    style: GoogleFonts.outfit(
-                      color: AppColors.accentRed,
-                      fontSize: 96,
-                      fontWeight: FontWeight.w700,
-                      height: 1,
+                    const SizedBox(height: 16),
+                    // Top: Centered score
+                    Text(
+                      overallHealth.toString(),
+                      style: GoogleFonts.outfit(
+                        color: AppColors.accentRed,
+                        fontSize: 96,
+                        fontWeight: FontWeight.w700,
+                        height: 1,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    remark,
-                    style: GoogleFonts.cormorantGaramond(
-                      color: AppColors.warmLight,
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                      fontStyle: FontStyle.italic,
+                    const SizedBox(height: 8),
+                    Text(
+                      remark,
+                      style: GoogleFonts.cormorantGaramond(
+                        color: AppColors.warmLight,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Helper text
-                  Text(
-                    'The health card is a uniquely generated artifact using this data.',
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      color: AppColors.warmMuted.withValues(alpha: 0.7),
-                      fontSize: 12,
+                    const SizedBox(height: 16),
+                    // Helper text
+                    Text(
+                      'The health card is a uniquely generated artifact using this data.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(
+                        color: AppColors.warmMuted.withValues(alpha: 0.7),
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Insights + Pulse Score side by side
-                  IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: _buildInsightsCard(context)),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildAttributesColumn()),
-                      ],
+                    const SizedBox(height: 24),
+
+                    // Insights + Pulse Score side by side
+                    IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(child: _buildInsightsCard(context)),
+                          const SizedBox(width: 12),
+                          Expanded(child: _buildAttributesColumn()),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  
-                  // Trend chart card
-                  _buildMonthlyTrendChart(),
-                ],
+                    const SizedBox(height: 12),
+
+                    // Trend chart card
+                    _buildMonthlyTrendChart(),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
         ),
       ),
     );
@@ -219,7 +227,7 @@ class _HealthDetailsContent extends StatelessWidget {
 
   Widget _buildInsightsCard(BuildContext context) {
     final monthSummary = _getMonthSummary(checkInStats, dailyScores);
-    
+
     return GestureDetector(
       onTap: () => _showInsightsHelp(context),
       child: Container(
@@ -291,9 +299,17 @@ class _HealthDetailsContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _buildInsightRow('Your check-ins', checkInStats.userCheckInCount.toString(), ''),
+            _buildInsightRow(
+              'Your check-ins',
+              checkInStats.userCheckInCount.toString(),
+              '',
+            ),
             const SizedBox(height: 12),
-            _buildInsightRow('Partner check-ins', checkInStats.partnerCheckInCount.toString(), ''),
+            _buildInsightRow(
+              'Partner check-ins',
+              checkInStats.partnerCheckInCount.toString(),
+              '',
+            ),
             const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -304,7 +320,11 @@ class _HealthDetailsContent extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.local_fire_department_rounded, color: AppColors.accentRed, size: 16),
+                  Icon(
+                    Icons.local_fire_department_rounded,
+                    color: AppColors.accentRed,
+                    size: 16,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     '$streak day streak',
@@ -343,7 +363,11 @@ class _HealthDetailsContent extends StatelessWidget {
                       color: AppColors.accentRed.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.lightbulb_outline_rounded, color: AppColors.accentRed, size: 20),
+                    child: Icon(
+                      Icons.lightbulb_outline_rounded,
+                      color: AppColors.accentRed,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -382,9 +406,13 @@ class _HealthDetailsContent extends StatelessWidget {
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    backgroundColor: AppColors.accentRed.withValues(alpha: 0.15),
+                    backgroundColor: AppColors.accentRed.withValues(
+                      alpha: 0.15,
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: Text(
                     'Got it',
@@ -440,10 +468,7 @@ class _HealthDetailsContent extends StatelessWidget {
       children: [
         Text(
           label,
-          style: GoogleFonts.inter(
-            color: AppColors.warmDim,
-            fontSize: 13,
-          ),
+          style: GoogleFonts.inter(color: AppColors.warmDim, fontSize: 13),
         ),
         Row(
           children: [
@@ -473,8 +498,11 @@ class _HealthDetailsContent extends StatelessWidget {
 
   /// Score colour on the blue (low) → red (high) spectrum.
   Color _scoreColor(double pct) =>
-      Color.lerp(AppColors.morningColor, AppColors.nightColor,
-          (pct / 100).clamp(0.0, 1.0)) ??
+      Color.lerp(
+        AppColors.morningColor,
+        AppColors.nightColor,
+        (pct / 100).clamp(0.0, 1.0),
+      ) ??
       AppColors.nightColor;
 
   Widget _buildAttributesColumn() {
@@ -559,10 +587,7 @@ class _HealthDetailsContent extends StatelessWidget {
         Expanded(
           child: Text(
             label,
-            style: GoogleFonts.inter(
-              color: AppColors.warmDim,
-              fontSize: 11,
-            ),
+            style: GoogleFonts.inter(color: AppColors.warmDim, fontSize: 11),
           ),
         ),
         Text(
@@ -579,18 +604,19 @@ class _HealthDetailsContent extends StatelessWidget {
 
   Widget _buildMonthlyTrendChart() {
     final scores = dailyScores ?? [];
-    final hasData = scores.isNotEmpty && scores.any((d) => d['hasCheckIn'] == true);
-    
+    final hasData =
+        scores.isNotEmpty && scores.any((d) => d['hasCheckIn'] == true);
+
     // Calculate weekly averages (4 weeks from 30 days)
     // Week 1: days 0-6, Week 2: days 7-13, Week 3: days 14-20, Week 4: days 21-29
     final weeklyAverages = <double>[];
     final weekRanges = [
-      [0, 7],   // Week 1 (oldest)
-      [7, 14],  // Week 2
+      [0, 7], // Week 1 (oldest)
+      [7, 14], // Week 2
       [14, 21], // Week 3
       [21, 30], // Week 4 (most recent, includes today)
     ];
-    
+
     for (final range in weekRanges) {
       double sum = 0;
       int checkInCount = 0;
@@ -605,7 +631,7 @@ class _HealthDetailsContent extends StatelessWidget {
       // Average only from days with check-ins, 0 if no check-ins in week
       weeklyAverages.add(checkInCount > 0 ? sum / checkInCount : 0);
     }
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -626,7 +652,7 @@ class _HealthDetailsContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Chart area
           SizedBox(
             height: 80,
@@ -649,7 +675,7 @@ class _HealthDetailsContent extends StatelessWidget {
                     ),
                   ),
           ),
-          
+
           // X-axis labels
           const SizedBox(height: 8),
           Row(
@@ -694,10 +720,10 @@ class _WeeklyBarChartPainter extends CustomPainter {
     if (values.isEmpty) return;
 
     final pointCount = values.length;
-    
+
     // Calculate point heights (scaled to 0-100 -> 0-height)
     final heights = values.map((v) => (v / 100) * size.height).toList();
-    
+
     // Calculate evenly spaced x positions
     final points = <Offset>[];
     for (int i = 0; i < pointCount; i++) {
@@ -708,9 +734,9 @@ class _WeeklyBarChartPainter extends CustomPainter {
     // Draw smooth curve
     if (heights.any((h) => h > 0)) {
       final curvePath = Path();
-      
+
       curvePath.moveTo(points.first.dx, points.first.dy);
-      
+
       // Draw smooth bezier curves between points
       for (int i = 0; i < points.length - 1; i++) {
         final p0 = i > 0 ? points[i - 1] : points[i];
@@ -725,13 +751,13 @@ class _WeeklyBarChartPainter extends CustomPainter {
 
         curvePath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
       }
-      
+
       // Close path for fill
       final fillPath = Path.from(curvePath);
       fillPath.lineTo(size.width, size.height);
       fillPath.lineTo(0, size.height);
       fillPath.close();
-      
+
       // Draw gradient fill under curve
       final fillPaint = Paint()
         ..shader = LinearGradient(
@@ -755,7 +781,7 @@ class _WeeklyBarChartPainter extends CustomPainter {
         ..strokeJoin = StrokeJoin.round;
 
       canvas.drawPath(curvePath, curvePaint);
-      
+
       // Draw dot at the last point (this week)
       final dotPaint = Paint()
         ..color = curveColor

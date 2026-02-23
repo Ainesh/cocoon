@@ -107,10 +107,7 @@ class _PremiumCardState extends State<PremiumCard>
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(widget.borderRadius),
-                child: Padding(
-                  padding: widget.padding,
-                  child: widget.child,
-                ),
+                child: Padding(padding: widget.padding, child: widget.child),
               ),
             ),
           ),
@@ -163,11 +160,7 @@ TextStyle cardCaption(BuildContext context) {
 
 /// Card icon with red color and 20px size.
 Widget cardIcon(IconData icon, {double size = 20, Color? color}) {
-  return Icon(
-    icon,
-    size: size,
-    color: color ?? AppColors.refinedRed,
-  );
+  return Icon(icon, size: size, color: color ?? AppColors.refinedRed);
 }
 
 /// Red filled button for cards.
@@ -314,11 +307,7 @@ class MetricDisplay extends StatelessWidget {
 
 /// A compact score badge with emoji.
 class ScoreBadge extends StatelessWidget {
-  const ScoreBadge({
-    super.key,
-    required this.emoji,
-    required this.score,
-  });
+  const ScoreBadge({super.key, required this.emoji, required this.score});
 
   final String emoji;
   final int score;
@@ -384,7 +373,9 @@ class EventItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.cardVariant,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.1)),
+                border: Border.all(
+                  color: AppColors.refinedRed.withValues(alpha: 0.1),
+                ),
               ),
               child: Text(emoji, style: const TextStyle(fontSize: 20)),
             ),
@@ -519,10 +510,7 @@ class SectionHeader extends StatelessWidget {
             color: AppColors.lightText,
           ),
         ),
-        if (trailing != null) ...[
-          const Spacer(),
-          trailing!,
-        ],
+        if (trailing != null) ...[const Spacer(), trailing!],
       ],
     );
   }
@@ -559,7 +547,9 @@ class EmptyState extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppColors.cardVariant,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.2)),
+            border: Border.all(
+              color: AppColors.refinedRed.withValues(alpha: 0.2),
+            ),
           ),
           child: Icon(icon, size: 48, color: AppColors.mutedText),
         ),
@@ -577,10 +567,7 @@ class EmptyState extends StatelessWidget {
           Text(
             subtitle!,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.bodyGray,
-            ),
+            style: const TextStyle(fontSize: 16, color: AppColors.bodyGray),
           ),
         ],
         if (actionLabel != null && onAction != null) ...[

@@ -3,6 +3,7 @@ library;
 
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,6 +11,7 @@ import 'package:intl/intl.dart';
 
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
+import '../../utils/date_utils.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/moment_type_icon.dart';
@@ -17,7 +19,7 @@ import '../../widgets/painters/circle_progress_painters.dart';
 
 /// Which field triggered the edit action.
 enum MomentEditField {
-  general,  // Swipe up or general edit
+  general, // Swipe up or general edit
   date,
   time,
   notes,
@@ -61,15 +63,27 @@ class _MomentDetailsContent extends StatefulWidget {
   State<_MomentDetailsContent> createState() => _MomentDetailsContentState();
 }
 
-class _MomentDetailsContentState extends State<_MomentDetailsContent> {
+class _MomentDetailsContentState extends State<_MomentDetailsContent>
+    with SingleTickerProviderStateMixin {
   final _firestoreService = FirestoreService();
   final _authService = AuthService();
-  
+
+  // Shake animation for editing state
+  late final AnimationController _shakeController;
+  late final Animation<double> _shakeAnimation;
+
   bool _isHoldingDelete = false;
   int _activeDots = 24; // Total dots, counts down to 0
   Timer? _deleteTimer;
   OverlayEntry? _overlayEntry;
   String? _plannedByName;
+  String? _partnerEditingName;
+  String? _hintMessage;
+  Timer? _hintTimer;
+  Moment? _liveMoment; // Updated in real-time when partner edits
+  StreamSubscription<List<({String name, DateTime time})>>?
+  _presenceSubscription;
+  StreamSubscription<DocumentSnapshot>? _momentSubscription;
 
   String get _plannedBySubtitle {
     final name = _plannedByName ?? '';
@@ -88,7 +102,74 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   @override
   void initState() {
     super.initState();
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _shakeAnimation = Tween<double>(
+      begin: -0.012,
+      end: 0.012,
+    ).chain(CurveTween(curve: Curves.easeInOut)).animate(_shakeController);
+    // Sync haptic with each shake direction change
+    _shakeController.addStatusListener((status) {
+      if (status == AnimationStatus.forward ||
+          status == AnimationStatus.reverse) {
+        HapticFeedback.selectionClick();
+      }
+    });
     _loadPlannedByName();
+    _watchEditingPresence();
+  }
+
+  void _watchEditingPresence() {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+    // Need spaceId — extract from moment's Firestore path or pass it
+    // For now, we get it from the user's profile
+    _firestoreService.getUserSpaceId(userId).then((spaceId) {
+      if (!mounted || spaceId == null) return;
+      // Garbage-collect orphaned presence docs from crashed sessions
+      _firestoreService.cleanupStalePresence(
+        spaceId: spaceId,
+        momentId: widget.moment.id,
+      );
+      // Watch editing presence
+      _presenceSubscription = _firestoreService
+          .watchEditingPresence(
+            spaceId: spaceId,
+            momentId: widget.moment.id,
+            excludeUserId: userId,
+          )
+          .listen((editors) {
+            if (mounted) {
+              final wasEditing = _partnerEditingName != null;
+              final isEditing = editors.isNotEmpty;
+              setState(() {
+                _partnerEditingName = isEditing ? editors.first.name : null;
+              });
+              // Start/stop shake (haptic syncs via controller listener)
+              if (isEditing && !wasEditing) {
+                _shakeController.repeat(reverse: true);
+              } else if (!isEditing && wasEditing) {
+                _shakeController.stop();
+                _shakeController.reset();
+              }
+            }
+          });
+      // Watch moment document for live updates (partner edits)
+      _momentSubscription = _firestoreService
+          .watchMoment(spaceId: spaceId, momentId: widget.moment.id)
+          .listen((snapshot) {
+            if (!mounted || !snapshot.exists) return;
+            final data = snapshot.data() as Map<String, dynamic>?;
+            if (data == null) return;
+            final updated = Moment.fromJson(snapshot.id, data);
+            // Only update if version changed (partner saved)
+            if (updated.version != moment.version) {
+              setState(() => _liveMoment = updated);
+            }
+          });
+    });
   }
 
   Future<void> _loadPlannedByName() async {
@@ -98,7 +179,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
       if (mounted) setState(() => _plannedByName = 'You');
       return;
     }
-    final profile = await _firestoreService.getUserProfile(widget.moment.createdBy);
+    final profile = await _firestoreService.getUserProfile(
+      widget.moment.createdBy,
+    );
     if (mounted && profile != null) {
       setState(() => _plannedByName = profile['name'] as String?);
     }
@@ -106,9 +189,12 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   @override
   void dispose() {
+    _shakeController.dispose();
+    _presenceSubscription?.cancel();
+    _momentSubscription?.cancel();
+    _hintTimer?.cancel();
     _deleteTimer?.cancel();
     _deleteTimer = null;
-    // Remove overlay safely — may already be gone if widget disposed
     _overlayEntry?.remove();
     _overlayEntry = null;
     super.dispose();
@@ -121,7 +207,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     });
     HapticFeedback.mediumImpact();
     _showDeleteOverlay();
-    
+
     // Timer fires for each dot
     _deleteTimer = Timer.periodic(Duration(milliseconds: _msPerDot), (timer) {
       if (!mounted) {
@@ -175,14 +261,36 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     _overlayEntry = null;
   }
 
-  Moment get moment => widget.moment;
+  Moment get moment => _liveMoment ?? widget.moment;
   OnEditCallback? get onEdit => widget.onEdit;
   VoidCallback? get onDelete => widget.onDelete;
 
   void _goToEditScreen([MomentEditField field = MomentEditField.general]) {
     if (onEdit == null) return;
+    if (_partnerEditingName != null) {
+      _showHint('$_partnerEditingName is editing this moment, please wait');
+      return;
+    }
     Navigator.of(context).pop();
     onEdit!(field);
+  }
+
+  void _onDoubleTap() {
+    if (onEdit == null) return;
+    if (_partnerEditingName != null) {
+      _showHint('$_partnerEditingName is editing this moment, please wait');
+    } else {
+      _showHint('Hold to edit');
+    }
+  }
+
+  void _showHint(String message) {
+    HapticFeedback.lightImpact();
+    _hintTimer?.cancel();
+    setState(() => _hintMessage = message);
+    _hintTimer = Timer(const Duration(milliseconds: 2000), () {
+      if (mounted) setState(() => _hintMessage = null);
+    });
   }
 
   @override
@@ -230,7 +338,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                     // Type badge with icon
                     _buildTypeBadge(),
                     const SizedBox(height: 20),
-                    
+
                     // Moment name - large and prominent
                     Text(
                       moment.name,
@@ -254,26 +362,70 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                         textAlign: TextAlign.center,
                       ),
                     ],
-                    const SizedBox(height: 24),
-                    
+                    // Partner editing indicator — below subtitle
+                    if (_partnerEditingName != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        '$_partnerEditingName is currently editing',
+                        style: GoogleFonts.inter(
+                          color: AppColors.accentRed,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 20),
+
                     // Info cards row (long-press to edit)
-                    _buildInfoRow(),
-                    
+                    _buildShakeable(_buildInfoRow()),
+
                     // Notes section (always show, long-press to edit)
                     const SizedBox(height: 12),
-                    _buildNotesSection(),
-                    
-                    const SizedBox(height: 24),
-                    
+                    _buildShakeable(_buildNotesSection()),
+
+                    const SizedBox(height: 12),
+
                     // Action buttons
                     _buildActions(context),
                   ],
                 ),
               ),
             ),
+            // In-sheet hint message
+            if (_hintMessage != null)
+              AnimatedOpacity(
+                opacity: _hintMessage != null ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  color: AppColors.accentRed,
+                  child: Text(
+                    _hintMessage!,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.inter(
+                      color: AppColors.pureBlack,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
+    );
+  }
+
+  /// Wraps a widget in a subtle rotation wobble when partner is editing.
+  Widget _buildShakeable(Widget child) {
+    if (_partnerEditingName == null) return child;
+    return AnimatedBuilder(
+      animation: _shakeAnimation,
+      builder: (context, _) {
+        return Transform.rotate(angle: _shakeAnimation.value, child: child);
+      },
     );
   }
 
@@ -287,7 +439,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          getMomentTypeIconWidget(moment.type, size: 24, color: AppColors.pureBlack),
+          getMomentTypeIconWidget(
+            moment.type,
+            size: 24,
+            color: AppColors.pureBlack,
+          ),
           const SizedBox(height: 6),
           Text(
             moment.type.label,
@@ -306,6 +462,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     // Long-press any card to go to edit screen with that field focused
     Widget wrapWithLongPress(Widget child, MomentEditField field) {
       return GestureDetector(
+        onDoubleTap: _onDoubleTap,
         onLongPress: () {
           HapticFeedback.mediumImpact();
           _goToEditScreen(field);
@@ -318,30 +475,34 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     if (moment.type == MomentType.escape) {
       return wrapWithLongPress(_buildEscapeInfoCard(), MomentEditField.date);
     }
-    
+
     // Celebrate: just the date card (full width)
     if (moment.type == MomentType.celebrate) {
       return wrapWithLongPress(_buildDateCard(), MomentEditField.date);
     }
-    
+
     // Connect: two-card layout (date + time)
     return Row(
       children: [
-        Expanded(child: wrapWithLongPress(_buildDateCard(), MomentEditField.date)),
+        Expanded(
+          child: wrapWithLongPress(_buildDateCard(), MomentEditField.date),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: wrapWithLongPress(_buildTimeCard(), MomentEditField.time)),
+        Expanded(
+          child: wrapWithLongPress(_buildTimeCard(), MomentEditField.time),
+        ),
       ],
     );
   }
 
   Widget _buildEscapeInfoCard() {
-    final nights = moment.endDate != null 
-        ? moment.endDate!.difference(moment.startDate).inDays 
+    final nights = moment.endDate != null
+        ? moment.endDate!.difference(moment.startDate).inDays
         : 0;
     final nightsText = nights == 1 ? '1 night' : '$nights nights';
     final daysToGoInfo = _getEscapeDaysToGoInfo();
     final startDayName = _getDayName(moment.startDate);
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -393,7 +554,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
               // Two-line badge for days to go
               if (daysToGoInfo != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentRed.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -427,19 +591,25 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
       ),
     );
   }
-  
+
   String _getDayName(DateTime date) {
-    const daysFull = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const daysFull = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
     return daysFull[date.weekday - 1];
   }
-  
+
   /// Returns (line1, line2) for escape card days to go badge
   (String, String)? _getEscapeDaysToGoInfo() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final startDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
-    final diff = startDate.difference(today).inDays;
-    
+    final today = AppDateFormat.todayUtc();
+    final diff = moment.startDate.difference(today).inDays;
+
     if (diff < 0) return ('Started', '');
     if (diff == 0) return ('Today!', '');
     if (diff == 1) return ('Tomorrow', '');
@@ -449,7 +619,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   Widget _buildDateCard() {
     final relativeDateInfo = _getRelativeDateInfo();
     final dateParts = _getDateParts(moment.startDate); // ("Feb 12", "Thursday")
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -500,7 +670,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                 const Spacer(),
                 // Two-line badge - stretches to match text height
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentRed.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -535,20 +708,45 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
       ),
     );
   }
-  
+
   /// Returns (weekday+month, day) for two-line date display
   /// Returns (line1, line2) for date display: ("Feb 12", "Thursday")
   (String, String) _getDateParts(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const daysFull = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    return ('${months[date.month - 1]} ${date.day}', daysFull[date.weekday - 1]);
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const daysFull = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return (
+      '${months[date.month - 1]} ${date.day}',
+      daysFull[date.weekday - 1],
+    );
   }
 
   Color _getTimeSlotColor(TimeSlot? slot) {
     if (slot == null) return AppColors.warmMuted;
     final index = TimeSlot.values.indexOf(slot);
     final progress = index / (TimeSlot.values.length - 1);
-    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ?? AppColors.nightColor;
+    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ??
+        AppColors.nightColor;
   }
 
   IconData _getTimeSlotIcon(TimeSlot? slot) {
@@ -566,13 +764,13 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     // Handle formats like "6 AM - 12 PM", "5 PM - 9 PM"
     final parts = timeRange.split(' - ');
     if (parts.length != 2) return timeRange;
-    
+
     final start = parts[0].trim(); // e.g., "6 AM" or "5 PM"
-    final end = parts[1].trim();   // e.g., "12 PM" or "9 PM"
-    
+    final end = parts[1].trim(); // e.g., "12 PM" or "9 PM"
+
     // Extract the hour from start (remove AM/PM)
     final startHour = start.replaceAll(RegExp(r'\s*(AM|PM)'), '');
-    
+
     return '$startHour - $end';
   }
 
@@ -580,7 +778,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
     // Time card for Connect moments - matching date card structure
     final timeColor = _getTimeSlotColor(moment.timeSlot);
     final hasTimeSlot = moment.timeSlot != null;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -620,11 +818,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
                       ),
                     ),
                     Text(
-                      hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
-                      style: GoogleFonts.inter(
-                        color: timeColor,
-                        fontSize: 13,
-                      ),
+                      hasTimeSlot
+                          ? _simplifyTimeRange(moment.timeSlot!.timeRange)
+                          : 'Flexible',
+                      style: GoogleFonts.inter(color: timeColor, fontSize: 13),
                     ),
                   ],
                 ),
@@ -653,11 +850,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   /// Returns (line1, line2) for the date badge.
   /// e.g., ("13 days", "to go") or ("Today", "")
   (String, String) _getRelativeDateInfo() {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final momentDate = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
-    final diff = momentDate.difference(today).inDays;
-    
+    final today = AppDateFormat.todayUtc();
+    final diff = moment.startDate.difference(today).inDays;
+
     if (diff < 0) return ('Past', '');
     if (diff == 0) return ('Today', '');
     if (diff == 1) return ('Tomorrow', '');
@@ -666,8 +861,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
 
   Widget _buildNotesSection() {
     final hasNotes = moment.notes != null && moment.notes!.isNotEmpty;
-    
+
     return GestureDetector(
+      onDoubleTap: _onDoubleTap,
       onLongPress: () {
         HapticFeedback.mediumImpact();
         _goToEditScreen(MomentEditField.notes);
@@ -712,11 +908,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   Widget _buildHoldToDeleteButton() {
     // Use accentRed to match ActionButton (Plan a moment, Check in)
     const buttonColor = AppColors.accentRed;
-    
+
     // When held: bg = buttonColor, text/icon = black (matching ActionButton pattern)
     final bgColor = _isHoldingDelete ? buttonColor : AppColors.darkCardLight;
     final fgColor = _isHoldingDelete ? AppColors.pureBlack : buttonColor;
-    
+
     return GestureDetector(
       onLongPressStart: (_) => _startDelete(),
       onLongPressEnd: (_) => _cancelDelete(),
@@ -749,7 +945,20 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent> {
   }
 
   String _formatDateShort(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[date.month - 1]} ${date.day}';
   }
 }
@@ -785,7 +994,7 @@ class _DeleteCountdownOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _currentColor;
-    
+
     return Material(
       color: Colors.black.withValues(alpha: 0.8),
       child: Center(

@@ -77,7 +77,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   bool _canProceedFromPage(int page) {
     return switch (page) {
       0 => _spaceNameController.text.trim().isNotEmpty,
-      1 => _partnerNameController.text.trim().isNotEmpty && _selectedAvatar != null,
+      1 =>
+        _partnerNameController.text.trim().isNotEmpty &&
+            _selectedAvatar != null,
       _ => true,
     };
   }
@@ -288,7 +290,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             decoration: InputDecoration(
               hintText: 'Us ❤️',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(20)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               filled: true,
               fillColor: theme.colorScheme.surfaceContainerLowest,
             ),
@@ -318,7 +322,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             onPressed: _canProceedFromPage(0) ? _nextPage : null,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             child: const Text(
               'Continue',
@@ -370,7 +376,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             decoration: InputDecoration(
               hintText: 'Enter your name',
               prefixIcon: const Icon(Icons.person_outline),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               filled: true,
               fillColor: theme.colorScheme.surfaceContainerLowest,
             ),
@@ -380,15 +388,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           AvatarSelector(
             selectedAvatar: _selectedAvatar,
             selectedColor: _selectedColor,
-            onAvatarSelected: (avatar) => setState(() => _selectedAvatar = avatar),
+            onAvatarSelected: (avatar) =>
+                setState(() => _selectedAvatar = avatar),
             onColorSelected: (color) => setState(() => _selectedColor = color),
           ),
           const SizedBox(height: 32),
           FilledButton(
-            onPressed: _canProceedFromPage(1) && !_isLoading ? _createSpace : null,
+            onPressed: _canProceedFromPage(1) && !_isLoading
+                ? _createSpace
+                : null,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             child: _isLoading
                 ? SizedBox(
@@ -486,7 +499,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             label: const Text('Copy Code'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -496,7 +511,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             label: const Text('Share via Messages'),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
           ),
           const SizedBox(height: 32),
@@ -504,7 +521,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             onPressed: _goToDashboard,
             style: FilledButton.styleFrom(
               minimumSize: const Size.fromHeight(56),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
             ),
             child: const Text(
               'Continue to Dashboard',

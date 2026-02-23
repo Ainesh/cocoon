@@ -6,15 +6,36 @@ void main() {
   group('ActivityType', () {
     test('fromValue returns correct type for all values', () {
       expect(ActivityType.fromValue('checkin'), ActivityType.checkin);
-      expect(ActivityType.fromValue('moment_planned'), ActivityType.momentPlanned);
-      expect(ActivityType.fromValue('moment_edited'), ActivityType.momentEdited);
-      expect(ActivityType.fromValue('moment_deleted'), ActivityType.momentDeleted);
-      expect(ActivityType.fromValue('moment_completed'), ActivityType.momentCompleted);
-      expect(ActivityType.fromValue('space_created'), ActivityType.spaceCreated);
+      expect(
+        ActivityType.fromValue('moment_planned'),
+        ActivityType.momentPlanned,
+      );
+      expect(
+        ActivityType.fromValue('moment_edited'),
+        ActivityType.momentEdited,
+      );
+      expect(
+        ActivityType.fromValue('moment_deleted'),
+        ActivityType.momentDeleted,
+      );
+      expect(
+        ActivityType.fromValue('moment_completed'),
+        ActivityType.momentCompleted,
+      );
+      expect(
+        ActivityType.fromValue('space_created'),
+        ActivityType.spaceCreated,
+      );
       expect(ActivityType.fromValue('space_joined'), ActivityType.spaceJoined);
-      expect(ActivityType.fromValue('space_renamed'), ActivityType.spaceRenamed);
+      expect(
+        ActivityType.fromValue('space_renamed'),
+        ActivityType.spaceRenamed,
+      );
       expect(ActivityType.fromValue('invite_sent'), ActivityType.inviteSent);
-      expect(ActivityType.fromValue('invite_accepted'), ActivityType.inviteAccepted);
+      expect(
+        ActivityType.fromValue('invite_accepted'),
+        ActivityType.inviteAccepted,
+      );
     });
 
     test('fromValue defaults to checkin for unknown values', () {
@@ -53,7 +74,7 @@ void main() {
   });
 
   group('Activity.isNavigable', () {
-    Activity _makeActivity({
+    Activity makeActivity({
       ActivityType type = ActivityType.momentPlanned,
       String? entityId,
     }) {
@@ -69,48 +90,60 @@ void main() {
     }
 
     test('returns true for moment_planned with entityId', () {
-      expect(_makeActivity(entityId: 'mom123').isNavigable, true);
+      expect(makeActivity(entityId: 'mom123').isNavigable, true);
     });
 
     test('returns true for moment_edited with entityId', () {
       expect(
-        _makeActivity(type: ActivityType.momentEdited, entityId: 'mom123').isNavigable,
+        makeActivity(
+          type: ActivityType.momentEdited,
+          entityId: 'mom123',
+        ).isNavigable,
         true,
       );
     });
 
     test('returns false for moment_deleted even with entityId', () {
       expect(
-        _makeActivity(type: ActivityType.momentDeleted, entityId: 'mom123').isNavigable,
+        makeActivity(
+          type: ActivityType.momentDeleted,
+          entityId: 'mom123',
+        ).isNavigable,
         false,
       );
     });
 
     test('returns false when entityId is null', () {
-      expect(_makeActivity(entityId: null).isNavigable, false);
+      expect(makeActivity(entityId: null).isNavigable, false);
     });
 
     test('returns false when entityId is empty string', () {
-      expect(_makeActivity(entityId: '').isNavigable, false);
+      expect(makeActivity(entityId: '').isNavigable, false);
     });
 
     test('returns true for checkin with entityId', () {
       expect(
-        _makeActivity(type: ActivityType.checkin, entityId: 'chk123').isNavigable,
+        makeActivity(
+          type: ActivityType.checkin,
+          entityId: 'chk123',
+        ).isNavigable,
         true,
       );
     });
 
     test('returns true for space_joined with entityId', () {
       expect(
-        _makeActivity(type: ActivityType.spaceJoined, entityId: 'space1').isNavigable,
+        makeActivity(
+          type: ActivityType.spaceJoined,
+          entityId: 'space1',
+        ).isNavigable,
         true,
       );
     });
   });
 
   group('Activity.description', () {
-    Activity _makeActivity({
+    Activity makeActivity({
       required ActivityType type,
       Map<String, dynamic>? metadata,
     }) {
@@ -125,11 +158,14 @@ void main() {
     }
 
     test('checkin returns "checked in"', () {
-      expect(_makeActivity(type: ActivityType.checkin).description, 'checked in');
+      expect(
+        makeActivity(type: ActivityType.checkin).description,
+        'checked in',
+      );
     });
 
     test('moment_planned with name includes quoted name', () {
-      final activity = _makeActivity(
+      final activity = makeActivity(
         type: ActivityType.momentPlanned,
         metadata: {'momentName': 'Date Night'},
       );
@@ -137,12 +173,12 @@ void main() {
     });
 
     test('moment_planned without name uses action text', () {
-      final activity = _makeActivity(type: ActivityType.momentPlanned);
+      final activity = makeActivity(type: ActivityType.momentPlanned);
       expect(activity.description, ActivityType.momentPlanned.actionText);
     });
 
     test('moment_edited with name says "updated"', () {
-      final activity = _makeActivity(
+      final activity = makeActivity(
         type: ActivityType.momentEdited,
         metadata: {'momentName': 'Dinner'},
       );
@@ -150,7 +186,7 @@ void main() {
     });
 
     test('space_renamed with newName includes name', () {
-      final activity = _makeActivity(
+      final activity = makeActivity(
         type: ActivityType.spaceRenamed,
         metadata: {'newName': 'Our Space'},
       );

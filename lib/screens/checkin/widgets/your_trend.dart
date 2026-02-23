@@ -16,15 +16,11 @@ import '../../../widgets/neumorphic_container.dart';
 
 /// Displays a trend chart for the user's recent check-ins.
 class YourTrendChart extends StatelessWidget {
-  const YourTrendChart({
-    super.key,
-    required this.checkIns,
-    this.maxItems = 8,
-  });
+  const YourTrendChart({super.key, required this.checkIns, this.maxItems = 8});
 
   /// User's check-ins (will be limited to [maxItems])
   final List<UserCheckIn> checkIns;
-  
+
   /// Maximum number of check-ins to display (default: 8)
   final int maxItems;
 
@@ -36,8 +32,12 @@ class YourTrendChart extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final connectionValues = displayCheckIns.map((c) => c.connection.toDouble()).toList();
-    final intimacyValues = displayCheckIns.map((c) => c.intimacy.toDouble()).toList();
+    final connectionValues = displayCheckIns
+        .map((c) => c.connection.toDouble())
+        .toList();
+    final intimacyValues = displayCheckIns
+        .map((c) => c.intimacy.toDouble())
+        .toList();
 
     return PremiumCard(
       child: Column(
@@ -69,7 +69,11 @@ class YourTrendChart extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _LegendItem(
-                icon: const Icon(Icons.favorite_rounded, color: AppColors.accentRed, size: 14),
+                icon: const Icon(
+                  Icons.favorite_rounded,
+                  color: AppColors.accentRed,
+                  size: 14,
+                ),
                 label: 'Connection',
                 color: AppColors.accentRed,
               ),
@@ -79,7 +83,10 @@ class YourTrendChart extends StatelessWidget {
                   'assets/icons/flame.svg',
                   width: 14,
                   height: 14,
-                  colorFilter: ColorFilter.mode(AppColors.morningColor, BlendMode.srcIn),
+                  colorFilter: ColorFilter.mode(
+                    AppColors.morningColor,
+                    BlendMode.srcIn,
+                  ),
                 ),
                 label: 'Intimacy',
                 color: AppColors.morningColor,

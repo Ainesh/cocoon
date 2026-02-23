@@ -92,7 +92,7 @@ class _JoinScreenState extends State<JoinScreen> {
       if (result == JoinResult.success) {
         final profile = await _firestoreService.getUserProfile(userId);
         final spaceId = profile?['spaceId'] as String?;
-        
+
         // Log space joined activity
         if (spaceId != null) {
           await _firestoreService.logSpaceJoinedActivity(
@@ -101,7 +101,7 @@ class _JoinScreenState extends State<JoinScreen> {
             userName: userName,
           );
         }
-        
+
         if (mounted && spaceId != null) {
           context.go('/dashboard/$spaceId');
         }
@@ -119,7 +119,9 @@ class _JoinScreenState extends State<JoinScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -286,9 +288,17 @@ class _JoinScreenState extends State<JoinScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        _SocialButton(isGoogle: true, isLoading: _isLoading, onPressed: _handleGoogleSignIn),
+        _SocialButton(
+          isGoogle: true,
+          isLoading: _isLoading,
+          onPressed: _handleGoogleSignIn,
+        ),
         const SizedBox(width: 24),
-        _SocialButton(isGoogle: false, isLoading: false, onPressed: _handleAppleSignIn),
+        _SocialButton(
+          isGoogle: false,
+          isLoading: false,
+          onPressed: _handleAppleSignIn,
+        ),
       ],
     );
   }
@@ -296,7 +306,10 @@ class _JoinScreenState extends State<JoinScreen> {
   Widget _buildBackLink() {
     return TextButton(
       onPressed: () => context.go('/login'),
-      child: Text('Cancel', style: TextStyle(color: AppColors.dimText, fontSize: 16)),
+      child: Text(
+        'Cancel',
+        style: TextStyle(color: AppColors.dimText, fontSize: 16),
+      ),
     );
   }
 
@@ -306,7 +319,11 @@ class _JoinScreenState extends State<JoinScreen> {
       children: [
         Text(
           'Your Name',
-          style: TextStyle(color: AppColors.lightText, fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(
+            color: AppColors.lightText,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         const SizedBox(height: 12),
         TextFormField(
@@ -315,7 +332,9 @@ class _JoinScreenState extends State<JoinScreen> {
           style: TextStyle(color: AppColors.lightText, fontSize: 16),
           decoration: InputDecoration(
             hintText: 'Enter your name',
-            hintStyle: TextStyle(color: AppColors.dimText.withValues(alpha: 0.5)),
+            hintStyle: TextStyle(
+              color: AppColors.dimText.withValues(alpha: 0.5),
+            ),
             prefixIcon: Icon(Icons.person_outline, color: AppColors.dimText),
           ),
           validator: (value) {
@@ -350,7 +369,10 @@ class _JoinScreenState extends State<JoinScreen> {
           ? const SizedBox(
               width: 24,
               height: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.black),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.5,
+                color: Colors.black,
+              ),
             )
           : const Text('Join Space →'),
     );
@@ -362,13 +384,20 @@ class _JoinScreenState extends State<JoinScreen> {
         await _authService.signOut();
         if (mounted) setState(() {});
       },
-      child: Text('Use a different account', style: TextStyle(color: AppColors.dimText, fontSize: 14)),
+      child: Text(
+        'Use a different account',
+        style: TextStyle(color: AppColors.dimText, fontSize: 14),
+      ),
     );
   }
 }
 
 class _SocialButton extends StatefulWidget {
-  const _SocialButton({required this.isGoogle, required this.isLoading, required this.onPressed});
+  const _SocialButton({
+    required this.isGoogle,
+    required this.isLoading,
+    required this.onPressed,
+  });
 
   final bool isGoogle;
   final bool isLoading;
@@ -399,7 +428,10 @@ class _SocialButtonState extends State<_SocialButton> {
           decoration: BoxDecoration(
             color: AppColors.darkGlass,
             shape: BoxShape.circle,
-            border: Border.all(color: AppColors.refinedRed.withValues(alpha: 0.15), width: 1),
+            border: Border.all(
+              color: AppColors.refinedRed.withValues(alpha: 0.15),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: AppColors.refinedRed.withValues(alpha: 0.1),
@@ -413,10 +445,15 @@ class _SocialButtonState extends State<_SocialButton> {
                 ? SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.refinedRed),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.refinedRed,
+                    ),
                   )
                 : SvgPicture.asset(
-                    widget.isGoogle ? 'assets/icons/google_logo.svg' : 'assets/icons/apple_logo.svg',
+                    widget.isGoogle
+                        ? 'assets/icons/google_logo.svg'
+                        : 'assets/icons/apple_logo.svg',
                     width: 26,
                     height: 26,
                   ),

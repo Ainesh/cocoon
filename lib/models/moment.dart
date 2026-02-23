@@ -145,6 +145,7 @@ class Moment {
     this.notes,
     this.createdAt,
     this.updatedAt,
+    this.version = 1,
   });
 
   /// Unique identifier (Firestore document ID).
@@ -180,6 +181,9 @@ class Moment {
   /// When the moment was last updated.
   final DateTime? updatedAt;
 
+  /// Optimistic lock version — incremented on each update.
+  final int version;
+
   // ---------------------------------------------------------------------------
   // Factory Constructors
   // ---------------------------------------------------------------------------
@@ -197,10 +201,10 @@ class Moment {
       name: json['name'] as String? ?? '',
       type: MomentType.fromValue(json['type'] as String? ?? 'connect'),
       startDate: json['startDate'] != null
-          ? (json['startDate'] as Timestamp).toDate()
-          : DateTime.now(),
+          ? _toUtcDate((json['startDate'] as Timestamp).toDate())
+          : DateTime.now().toUtc(),
       endDate: json['endDate'] != null
-          ? (json['endDate'] as Timestamp).toDate()
+          ? _toUtcDate((json['endDate'] as Timestamp).toDate())
           : null,
       timeSlot: json['timeSlot'] != null
           ? TimeSlot.fromValue(json['timeSlot'] as String)
@@ -216,6 +220,7 @@ class Moment {
       updatedAt: json['updatedAt'] != null
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
+      version: json['version'] as int? ?? 1,
     );
   }
 
@@ -238,6 +243,7 @@ class Moment {
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
+      'version': version,
     };
   }
 
@@ -248,28 +254,30 @@ class Moment {
   /// Returns the display title with emoji.
   String get displayTitle => '${type.emoji} $name';
 
-  /// Returns true if this moment is today.
+  /// Returns true if this moment is today (UTC comparison).
   bool get isToday {
-    final now = DateTime.now();
-    return startDate.year == now.year &&
-        startDate.month == now.month &&
-        startDate.day == now.day;
+    final today = _todayUtc();
+    return startDate.year == today.year &&
+        startDate.month == today.month &&
+        startDate.day == today.day;
   }
 
   /// Returns true if this moment spans today (for multi-day escapes).
   bool get spansToday {
     if (endDate == null) return isToday;
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final start = DateTime(startDate.year, startDate.month, startDate.day);
-    final end = DateTime(endDate!.year, endDate!.month, endDate!.day);
-    return !today.isBefore(start) && !today.isAfter(end);
+    final today = _todayUtc();
+    return !today.isBefore(startDate) && !today.isAfter(endDate!);
   }
 
-  /// Returns true if this moment is in the past.
+  /// Returns true if this moment is in the past (UTC comparison).
   bool get isPast {
     final compareDate = endDate ?? startDate;
-    return compareDate.isBefore(DateTime.now());
+    return compareDate.isBefore(_todayUtc());
+  }
+
+  static DateTime _todayUtc() {
+    final now = DateTime.now();
+    return DateTime.utc(now.year, now.month, now.day);
   }
 
   /// Returns true if this moment is upcoming (in the future).
@@ -303,9 +311,8 @@ class Moment {
 
   /// Returns relative time description (Tomorrow, In 3 days, Next week, etc.)
   String get relativeDate {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final momentDate = DateTime(startDate.year, startDate.month, startDate.day);
+    final today = _todayUtc();
+    final momentDate = _toUtcDate(startDate);
     final diff = momentDate.difference(today).inDays;
 
     // Past dates
@@ -342,8 +349,18 @@ class Moment {
 
   String _formatDate(DateTime date) {
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${months[date.month - 1]} ${date.day}';
   }
@@ -364,6 +381,7 @@ class Moment {
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
+    int? version,
   }) {
     return Moment(
       id: id ?? this.id,
@@ -376,9 +394,19 @@ class Moment {
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      version: version ?? this.version,
     );
   }
 
   @override
   String toString() => 'Moment($name, $type, $startDate)';
+
+  /// Normalizes any DateTime to UTC midnight.
+  ///
+  /// All moment dates are stored and compared as UTC midnight.
+  /// Uses UTC components to avoid timezone day-shift.
+  static DateTime _toUtcDate(DateTime dt) {
+    final utc = dt.toUtc();
+    return DateTime.utc(utc.year, utc.month, utc.day);
+  }
 }

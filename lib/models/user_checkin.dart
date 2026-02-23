@@ -57,7 +57,7 @@ class UserCheckIn {
     } else {
       peaceValue = 5;
     }
-    
+
     return UserCheckIn(
       id: id,
       userId: json['userId'] as String? ?? '',
@@ -151,10 +151,10 @@ class CheckInStats {
 
   /// Number of check-ins included in stats.
   final int checkInCount;
-  
+
   /// Number of check-ins from the current user.
   final int userCheckInCount;
-  
+
   /// Number of check-ins from the partner.
   final int partnerCheckInCount;
 
@@ -163,7 +163,7 @@ class CheckInStats {
 
   /// Intimacy trend (-1 to 1, positive = improving).
   final double intimacyTrend;
-  
+
   /// Peace trend (-1 to 1, positive = more peaceful).
   final double peaceTrend;
 
@@ -177,14 +177,19 @@ class CheckInStats {
 
   /// Calculates stats from a list of check-ins.
   /// [currentUserId] is used to separate user vs partner check-in counts.
-  factory CheckInStats.fromCheckIns(List<UserCheckIn> checkIns, {String? currentUserId}) {
+  factory CheckInStats.fromCheckIns(
+    List<UserCheckIn> checkIns, {
+    String? currentUserId,
+  }) {
     if (checkIns.isEmpty) return empty;
 
-    final connection = checkIns.map((c) => c.connection).reduce((a, b) => a + b);
+    final connection = checkIns
+        .map((c) => c.connection)
+        .reduce((a, b) => a + b);
     final intimacy = checkIns.map((c) => c.intimacy).reduce((a, b) => a + b);
     final peace = checkIns.map((c) => c.peace).reduce((a, b) => a + b);
     final count = checkIns.length;
-    
+
     // Count user vs partner check-ins
     int userCount = 0;
     int partnerCount = 0;
@@ -203,16 +208,23 @@ class CheckInStats {
       final older = checkIns.sublist(mid);
       final newer = checkIns.sublist(0, mid);
 
-      final olderConnAvg = older.map((c) => c.connection).reduce((a, b) => a + b) / older.length;
-      final newerConnAvg = newer.map((c) => c.connection).reduce((a, b) => a + b) / newer.length;
-      connectionTrend = (newerConnAvg - olderConnAvg) / 10; // Normalize to -1 to 1
+      final olderConnAvg =
+          older.map((c) => c.connection).reduce((a, b) => a + b) / older.length;
+      final newerConnAvg =
+          newer.map((c) => c.connection).reduce((a, b) => a + b) / newer.length;
+      connectionTrend =
+          (newerConnAvg - olderConnAvg) / 10; // Normalize to -1 to 1
 
-      final olderIntAvg = older.map((c) => c.intimacy).reduce((a, b) => a + b) / older.length;
-      final newerIntAvg = newer.map((c) => c.intimacy).reduce((a, b) => a + b) / newer.length;
+      final olderIntAvg =
+          older.map((c) => c.intimacy).reduce((a, b) => a + b) / older.length;
+      final newerIntAvg =
+          newer.map((c) => c.intimacy).reduce((a, b) => a + b) / newer.length;
       intimacyTrend = (newerIntAvg - olderIntAvg) / 10;
-      
-      final olderPeaceAvg = older.map((c) => c.peace).reduce((a, b) => a + b) / older.length;
-      final newerPeaceAvg = newer.map((c) => c.peace).reduce((a, b) => a + b) / newer.length;
+
+      final olderPeaceAvg =
+          older.map((c) => c.peace).reduce((a, b) => a + b) / older.length;
+      final newerPeaceAvg =
+          newer.map((c) => c.peace).reduce((a, b) => a + b) / newer.length;
       peaceTrend = (newerPeaceAvg - olderPeaceAvg) / 10;
     }
 

@@ -33,8 +33,10 @@ class DottedCircleProgressPainter extends CustomPainter {
       final angle = (2 * math.pi / dotCount) * i - math.pi / 2;
       paint.color = i < activeDots ? activeColor : inactiveColor;
       canvas.drawCircle(
-        Offset(center.dx + radius * math.cos(angle),
-            center.dy + radius * math.sin(angle)),
+        Offset(
+          center.dx + radius * math.cos(angle),
+          center.dy + radius * math.sin(angle),
+        ),
         dotRadius,
         paint,
       );
@@ -44,8 +46,8 @@ class DottedCircleProgressPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant DottedCircleProgressPainter oldDelegate) =>
       progress != oldDelegate.progress ||
-        activeColor != oldDelegate.activeColor ||
-        inactiveColor != oldDelegate.inactiveColor;
+      activeColor != oldDelegate.activeColor ||
+      inactiveColor != oldDelegate.inactiveColor;
 }
 
 /// Continuous arc progress painter for small metric indicators.
@@ -93,6 +95,6 @@ class ContinuousCircleProgressPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant ContinuousCircleProgressPainter oldDelegate) =>
       progress != oldDelegate.progress ||
-        activeColor != oldDelegate.activeColor ||
-        inactiveColor != oldDelegate.inactiveColor;
+      activeColor != oldDelegate.activeColor ||
+      inactiveColor != oldDelegate.inactiveColor;
 }
