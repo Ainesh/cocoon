@@ -119,21 +119,12 @@ void main() {
       expect(AppSpacing.durationFast.inMilliseconds, greaterThan(0));
       expect(AppSpacing.durationMedium.inMilliseconds, greaterThan(0));
       expect(AppSpacing.durationSlow.inMilliseconds, greaterThan(0));
-      expect(
-        AppSpacing.durationHealthAnimation.inMilliseconds,
-        greaterThan(0),
-      );
+      expect(AppSpacing.durationHealthAnimation.inMilliseconds, greaterThan(0));
     });
 
     test('durations are in ascending order', () {
-      expect(
-        AppSpacing.durationFast < AppSpacing.durationMedium,
-        isTrue,
-      );
-      expect(
-        AppSpacing.durationMedium < AppSpacing.durationSlow,
-        isTrue,
-      );
+      expect(AppSpacing.durationFast < AppSpacing.durationMedium, isTrue);
+      expect(AppSpacing.durationMedium < AppSpacing.durationSlow, isTrue);
       expect(
         AppSpacing.durationSlow < AppSpacing.durationHealthAnimation,
         isTrue,

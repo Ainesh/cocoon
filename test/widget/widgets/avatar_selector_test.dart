@@ -89,10 +89,7 @@ void main() {
   // WW-02
   testWidgets('AvatarSelector shows all predefined avatars', (tester) async {
     await tester.pumpApp(
-      TestAvatarSelector(
-        onAvatarSelected: (_) {},
-        onColorSelected: (_) {},
-      ),
+      TestAvatarSelector(onAvatarSelected: (_) {}, onColorSelected: (_) {}),
     );
 
     for (final avatar in PredefinedAvatars.all) {
@@ -101,8 +98,9 @@ void main() {
   });
 
   // WW-03
-  testWidgets('AvatarSelector fires callback on avatar selection',
-      (tester) async {
+  testWidgets('AvatarSelector fires callback on avatar selection', (
+    tester,
+  ) async {
     AvatarData? selectedAvatar;
 
     await tester.pumpApp(
@@ -120,8 +118,9 @@ void main() {
   });
 
   // WW-04
-  testWidgets('AvatarSelector fires callback on color selection',
-      (tester) async {
+  testWidgets('AvatarSelector fires callback on color selection', (
+    tester,
+  ) async {
     AvatarColor? selectedColor;
 
     await tester.pumpApp(

@@ -54,10 +54,8 @@ abstract final class AppRouter {
     GoRoute(
       path: '/',
       name: 'splash',
-      pageBuilder: (context, state) => _fadeTransition(
-        state,
-        const SplashScreen(),
-      ),
+      pageBuilder: (context, state) =>
+          _fadeTransition(state, const SplashScreen()),
     ),
 
     // Login - Welcome screen with social login
@@ -66,10 +64,7 @@ abstract final class AppRouter {
       name: 'login',
       pageBuilder: (context, state) {
         final inviteCode = state.uri.queryParameters['code'];
-        return _fadeTransition(
-          state,
-          LoginScreen(inviteCode: inviteCode),
-        );
+        return _fadeTransition(state, LoginScreen(inviteCode: inviteCode));
       },
     ),
 
@@ -79,10 +74,7 @@ abstract final class AppRouter {
       name: 'join',
       pageBuilder: (context, state) {
         final code = state.uri.queryParameters['code'] ?? '';
-        return _fadeTransition(
-          state,
-          JoinScreen(inviteCode: code),
-        );
+        return _fadeTransition(state, JoinScreen(inviteCode: code));
       },
     ),
 
@@ -90,10 +82,8 @@ abstract final class AppRouter {
     GoRoute(
       path: '/onboarding',
       name: 'onboarding',
-      pageBuilder: (context, state) => _fadeSlideTransition(
-        state,
-        const OnboardingScreen(),
-      ),
+      pageBuilder: (context, state) =>
+          _fadeSlideTransition(state, const OnboardingScreen()),
     ),
 
     // Dashboard - Main app screen (with bottom navigation)
@@ -102,10 +92,7 @@ abstract final class AppRouter {
       name: 'dashboard',
       pageBuilder: (context, state) {
         final spaceId = state.pathParameters['spaceId'] ?? '';
-        return _fadeTransition(
-          state,
-          MainShell(spaceId: spaceId),
-        );
+        return _fadeTransition(state, MainShell(spaceId: spaceId));
       },
     ),
 
@@ -115,10 +102,7 @@ abstract final class AppRouter {
       name: 'checkin',
       pageBuilder: (context, state) {
         final spaceId = state.pathParameters['spaceId'] ?? '';
-        return _slideTransition(
-          state,
-          CheckInScreen(spaceId: spaceId),
-        );
+        return _slideTransition(state, CheckInScreen(spaceId: spaceId));
       },
     ),
 
@@ -128,10 +112,7 @@ abstract final class AppRouter {
       name: 'moment',
       pageBuilder: (context, state) {
         final spaceId = state.pathParameters['spaceId'] ?? '';
-        return _slideTransition(
-          state,
-          PlanMomentScreen(spaceId: spaceId),
-        );
+        return _slideTransition(state, PlanMomentScreen(spaceId: spaceId));
       },
     ),
 
@@ -255,13 +236,13 @@ abstract final class AppRouter {
       child: child,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(1.0, 0.0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeInOut,
-          )),
+          position:
+              Tween<Offset>(
+                begin: const Offset(1.0, 0.0),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeInOut),
+              ),
           child: child,
         );
       },
@@ -280,13 +261,13 @@ abstract final class AppRouter {
         return FadeTransition(
           opacity: animation,
           child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0.0, 0.1),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOut,
-            )),
+            position:
+                Tween<Offset>(
+                  begin: const Offset(0.0, 0.1),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                ),
             child: child,
           ),
         );
@@ -304,13 +285,13 @@ abstract final class AppRouter {
       child: child,
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
         return SlideTransition(
-          position: Tween<Offset>(
-            begin: const Offset(0.0, 1.0),
-            end: Offset.zero,
-          ).animate(CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-          )),
+          position:
+              Tween<Offset>(
+                begin: const Offset(0.0, 1.0),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              ),
           child: child,
         );
       },
@@ -341,16 +322,16 @@ abstract final class AppRouter {
               const SizedBox(height: 16),
               Text(
                 '404',
-                style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
               Text(
                 'Page not found',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 24),
               FilledButton.icon(

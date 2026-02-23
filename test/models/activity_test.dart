@@ -6,15 +6,36 @@ void main() {
   group('ActivityType', () {
     test('fromValue returns correct type for all values', () {
       expect(ActivityType.fromValue('checkin'), ActivityType.checkin);
-      expect(ActivityType.fromValue('moment_planned'), ActivityType.momentPlanned);
-      expect(ActivityType.fromValue('moment_edited'), ActivityType.momentEdited);
-      expect(ActivityType.fromValue('moment_deleted'), ActivityType.momentDeleted);
-      expect(ActivityType.fromValue('moment_completed'), ActivityType.momentCompleted);
-      expect(ActivityType.fromValue('space_created'), ActivityType.spaceCreated);
+      expect(
+        ActivityType.fromValue('moment_planned'),
+        ActivityType.momentPlanned,
+      );
+      expect(
+        ActivityType.fromValue('moment_edited'),
+        ActivityType.momentEdited,
+      );
+      expect(
+        ActivityType.fromValue('moment_deleted'),
+        ActivityType.momentDeleted,
+      );
+      expect(
+        ActivityType.fromValue('moment_completed'),
+        ActivityType.momentCompleted,
+      );
+      expect(
+        ActivityType.fromValue('space_created'),
+        ActivityType.spaceCreated,
+      );
       expect(ActivityType.fromValue('space_joined'), ActivityType.spaceJoined);
-      expect(ActivityType.fromValue('space_renamed'), ActivityType.spaceRenamed);
+      expect(
+        ActivityType.fromValue('space_renamed'),
+        ActivityType.spaceRenamed,
+      );
       expect(ActivityType.fromValue('invite_sent'), ActivityType.inviteSent);
-      expect(ActivityType.fromValue('invite_accepted'), ActivityType.inviteAccepted);
+      expect(
+        ActivityType.fromValue('invite_accepted'),
+        ActivityType.inviteAccepted,
+      );
     });
 
     test('fromValue defaults to checkin for unknown values', () {
@@ -74,14 +95,20 @@ void main() {
 
     test('returns true for moment_edited with entityId', () {
       expect(
-        makeActivity(type: ActivityType.momentEdited, entityId: 'mom123').isNavigable,
+        makeActivity(
+          type: ActivityType.momentEdited,
+          entityId: 'mom123',
+        ).isNavigable,
         true,
       );
     });
 
     test('returns false for moment_deleted even with entityId', () {
       expect(
-        makeActivity(type: ActivityType.momentDeleted, entityId: 'mom123').isNavigable,
+        makeActivity(
+          type: ActivityType.momentDeleted,
+          entityId: 'mom123',
+        ).isNavigable,
         false,
       );
     });
@@ -96,14 +123,20 @@ void main() {
 
     test('returns true for checkin with entityId', () {
       expect(
-        makeActivity(type: ActivityType.checkin, entityId: 'chk123').isNavigable,
+        makeActivity(
+          type: ActivityType.checkin,
+          entityId: 'chk123',
+        ).isNavigable,
         true,
       );
     });
 
     test('returns true for space_joined with entityId', () {
       expect(
-        makeActivity(type: ActivityType.spaceJoined, entityId: 'space1').isNavigable,
+        makeActivity(
+          type: ActivityType.spaceJoined,
+          entityId: 'space1',
+        ).isNavigable,
         true,
       );
     });
@@ -125,7 +158,10 @@ void main() {
     }
 
     test('checkin returns "checked in"', () {
-      expect(makeActivity(type: ActivityType.checkin).description, 'checked in');
+      expect(
+        makeActivity(type: ActivityType.checkin).description,
+        'checked in',
+      );
     });
 
     test('moment_planned with name includes quoted name', () {

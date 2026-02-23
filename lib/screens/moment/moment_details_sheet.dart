@@ -19,7 +19,7 @@ import '../../widgets/painters/circle_progress_painters.dart';
 
 /// Which field triggered the edit action.
 enum MomentEditField {
-  general,  // Swipe up or general edit
+  general, // Swipe up or general edit
   date,
   time,
   notes,
@@ -67,11 +67,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     with SingleTickerProviderStateMixin {
   final _firestoreService = FirestoreService();
   final _authService = AuthService();
-  
+
   // Shake animation for editing state
   late final AnimationController _shakeController;
   late final Animation<double> _shakeAnimation;
-  
+
   bool _isHoldingDelete = false;
   int _activeDots = 24; // Total dots, counts down to 0
   Timer? _deleteTimer;
@@ -81,7 +81,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   String? _hintMessage;
   Timer? _hintTimer;
   Moment? _liveMoment; // Updated in real-time when partner edits
-  StreamSubscription<List<({String name, DateTime time})>>? _presenceSubscription;
+  StreamSubscription<List<({String name, DateTime time})>>?
+  _presenceSubscription;
   StreamSubscription<DocumentSnapshot>? _momentSubscription;
 
   String get _plannedBySubtitle {
@@ -105,9 +106,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       vsync: this,
       duration: const Duration(milliseconds: 400),
     );
-    _shakeAnimation = Tween<double>(begin: -0.012, end: 0.012)
-        .chain(CurveTween(curve: Curves.easeInOut))
-        .animate(_shakeController);
+    _shakeAnimation = Tween<double>(
+      begin: -0.012,
+      end: 0.012,
+    ).chain(CurveTween(curve: Curves.easeInOut)).animate(_shakeController);
     // Sync haptic with each shake direction change
     _shakeController.addStatusListener((status) {
       if (status == AnimationStatus.forward ||
@@ -139,34 +141,34 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
             excludeUserId: userId,
           )
           .listen((editors) {
-        if (mounted) {
-          final wasEditing = _partnerEditingName != null;
-          final isEditing = editors.isNotEmpty;
-          setState(() {
-            _partnerEditingName = isEditing ? editors.first.name : null;
+            if (mounted) {
+              final wasEditing = _partnerEditingName != null;
+              final isEditing = editors.isNotEmpty;
+              setState(() {
+                _partnerEditingName = isEditing ? editors.first.name : null;
+              });
+              // Start/stop shake (haptic syncs via controller listener)
+              if (isEditing && !wasEditing) {
+                _shakeController.repeat(reverse: true);
+              } else if (!isEditing && wasEditing) {
+                _shakeController.stop();
+                _shakeController.reset();
+              }
+            }
           });
-          // Start/stop shake (haptic syncs via controller listener)
-          if (isEditing && !wasEditing) {
-            _shakeController.repeat(reverse: true);
-          } else if (!isEditing && wasEditing) {
-            _shakeController.stop();
-            _shakeController.reset();
-          }
-        }
-      });
       // Watch moment document for live updates (partner edits)
       _momentSubscription = _firestoreService
           .watchMoment(spaceId: spaceId, momentId: widget.moment.id)
           .listen((snapshot) {
-        if (!mounted || !snapshot.exists) return;
-        final data = snapshot.data() as Map<String, dynamic>?;
-        if (data == null) return;
-        final updated = Moment.fromJson(snapshot.id, data);
-        // Only update if version changed (partner saved)
-        if (updated.version != moment.version) {
-          setState(() => _liveMoment = updated);
-        }
-      });
+            if (!mounted || !snapshot.exists) return;
+            final data = snapshot.data() as Map<String, dynamic>?;
+            if (data == null) return;
+            final updated = Moment.fromJson(snapshot.id, data);
+            // Only update if version changed (partner saved)
+            if (updated.version != moment.version) {
+              setState(() => _liveMoment = updated);
+            }
+          });
     });
   }
 
@@ -177,7 +179,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       if (mounted) setState(() => _plannedByName = 'You');
       return;
     }
-    final profile = await _firestoreService.getUserProfile(widget.moment.createdBy);
+    final profile = await _firestoreService.getUserProfile(
+      widget.moment.createdBy,
+    );
     if (mounted && profile != null) {
       setState(() => _plannedByName = profile['name'] as String?);
     }
@@ -203,7 +207,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     });
     HapticFeedback.mediumImpact();
     _showDeleteOverlay();
-    
+
     // Timer fires for each dot
     _deleteTimer = Timer.periodic(Duration(milliseconds: _msPerDot), (timer) {
       if (!mounted) {
@@ -334,7 +338,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                     // Type badge with icon
                     _buildTypeBadge(),
                     const SizedBox(height: 20),
-                    
+
                     // Moment name - large and prominent
                     Text(
                       moment.name,
@@ -372,16 +376,16 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                       ),
                     ],
                     const SizedBox(height: 20),
-                    
+
                     // Info cards row (long-press to edit)
                     _buildShakeable(_buildInfoRow()),
-                    
+
                     // Notes section (always show, long-press to edit)
                     const SizedBox(height: 12),
                     _buildShakeable(_buildNotesSection()),
-                    
+
                     const SizedBox(height: 12),
-                    
+
                     // Action buttons
                     _buildActions(context),
                   ],
@@ -420,10 +424,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     return AnimatedBuilder(
       animation: _shakeAnimation,
       builder: (context, _) {
-        return Transform.rotate(
-          angle: _shakeAnimation.value,
-          child: child,
-        );
+        return Transform.rotate(angle: _shakeAnimation.value, child: child);
       },
     );
   }
@@ -438,7 +439,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          getMomentTypeIconWidget(moment.type, size: 24, color: AppColors.pureBlack),
+          getMomentTypeIconWidget(
+            moment.type,
+            size: 24,
+            color: AppColors.pureBlack,
+          ),
           const SizedBox(height: 6),
           Text(
             moment.type.label,
@@ -470,30 +475,34 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     if (moment.type == MomentType.escape) {
       return wrapWithLongPress(_buildEscapeInfoCard(), MomentEditField.date);
     }
-    
+
     // Celebrate: just the date card (full width)
     if (moment.type == MomentType.celebrate) {
       return wrapWithLongPress(_buildDateCard(), MomentEditField.date);
     }
-    
+
     // Connect: two-card layout (date + time)
     return Row(
       children: [
-        Expanded(child: wrapWithLongPress(_buildDateCard(), MomentEditField.date)),
+        Expanded(
+          child: wrapWithLongPress(_buildDateCard(), MomentEditField.date),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: wrapWithLongPress(_buildTimeCard(), MomentEditField.time)),
+        Expanded(
+          child: wrapWithLongPress(_buildTimeCard(), MomentEditField.time),
+        ),
       ],
     );
   }
 
   Widget _buildEscapeInfoCard() {
-    final nights = moment.endDate != null 
-        ? moment.endDate!.difference(moment.startDate).inDays 
+    final nights = moment.endDate != null
+        ? moment.endDate!.difference(moment.startDate).inDays
         : 0;
     final nightsText = nights == 1 ? '1 night' : '$nights nights';
     final daysToGoInfo = _getEscapeDaysToGoInfo();
     final startDayName = _getDayName(moment.startDate);
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -545,7 +554,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
               // Two-line badge for days to go
               if (daysToGoInfo != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentRed.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -579,17 +591,25 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       ),
     );
   }
-  
+
   String _getDayName(DateTime date) {
-    const daysFull = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const daysFull = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
     return daysFull[date.weekday - 1];
   }
-  
+
   /// Returns (line1, line2) for escape card days to go badge
   (String, String)? _getEscapeDaysToGoInfo() {
     final today = AppDateFormat.todayUtc();
     final diff = moment.startDate.difference(today).inDays;
-    
+
     if (diff < 0) return ('Started', '');
     if (diff == 0) return ('Today!', '');
     if (diff == 1) return ('Tomorrow', '');
@@ -599,7 +619,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   Widget _buildDateCard() {
     final relativeDateInfo = _getRelativeDateInfo();
     final dateParts = _getDateParts(moment.startDate); // ("Feb 12", "Thursday")
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -650,7 +670,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                 const Spacer(),
                 // Two-line badge - stretches to match text height
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentRed.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -685,20 +708,45 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       ),
     );
   }
-  
+
   /// Returns (weekday+month, day) for two-line date display
   /// Returns (line1, line2) for date display: ("Feb 12", "Thursday")
   (String, String) _getDateParts(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const daysFull = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    return ('${months[date.month - 1]} ${date.day}', daysFull[date.weekday - 1]);
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    const daysFull = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    return (
+      '${months[date.month - 1]} ${date.day}',
+      daysFull[date.weekday - 1],
+    );
   }
 
   Color _getTimeSlotColor(TimeSlot? slot) {
     if (slot == null) return AppColors.warmMuted;
     final index = TimeSlot.values.indexOf(slot);
     final progress = index / (TimeSlot.values.length - 1);
-    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ?? AppColors.nightColor;
+    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ??
+        AppColors.nightColor;
   }
 
   IconData _getTimeSlotIcon(TimeSlot? slot) {
@@ -716,13 +764,13 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     // Handle formats like "6 AM - 12 PM", "5 PM - 9 PM"
     final parts = timeRange.split(' - ');
     if (parts.length != 2) return timeRange;
-    
+
     final start = parts[0].trim(); // e.g., "6 AM" or "5 PM"
-    final end = parts[1].trim();   // e.g., "12 PM" or "9 PM"
-    
+    final end = parts[1].trim(); // e.g., "12 PM" or "9 PM"
+
     // Extract the hour from start (remove AM/PM)
     final startHour = start.replaceAll(RegExp(r'\s*(AM|PM)'), '');
-    
+
     return '$startHour - $end';
   }
 
@@ -730,7 +778,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     // Time card for Connect moments - matching date card structure
     final timeColor = _getTimeSlotColor(moment.timeSlot);
     final hasTimeSlot = moment.timeSlot != null;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -770,11 +818,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                       ),
                     ),
                     Text(
-                      hasTimeSlot ? _simplifyTimeRange(moment.timeSlot!.timeRange) : 'Flexible',
-                      style: GoogleFonts.inter(
-                        color: timeColor,
-                        fontSize: 13,
-                      ),
+                      hasTimeSlot
+                          ? _simplifyTimeRange(moment.timeSlot!.timeRange)
+                          : 'Flexible',
+                      style: GoogleFonts.inter(color: timeColor, fontSize: 13),
                     ),
                   ],
                 ),
@@ -805,7 +852,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   (String, String) _getRelativeDateInfo() {
     final today = AppDateFormat.todayUtc();
     final diff = moment.startDate.difference(today).inDays;
-    
+
     if (diff < 0) return ('Past', '');
     if (diff == 0) return ('Today', '');
     if (diff == 1) return ('Tomorrow', '');
@@ -814,7 +861,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
 
   Widget _buildNotesSection() {
     final hasNotes = moment.notes != null && moment.notes!.isNotEmpty;
-    
+
     return GestureDetector(
       onDoubleTap: _onDoubleTap,
       onLongPress: () {
@@ -861,11 +908,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   Widget _buildHoldToDeleteButton() {
     // Use accentRed to match ActionButton (Plan a moment, Check in)
     const buttonColor = AppColors.accentRed;
-    
+
     // When held: bg = buttonColor, text/icon = black (matching ActionButton pattern)
     final bgColor = _isHoldingDelete ? buttonColor : AppColors.darkCardLight;
     final fgColor = _isHoldingDelete ? AppColors.pureBlack : buttonColor;
-    
+
     return GestureDetector(
       onLongPressStart: (_) => _startDelete(),
       onLongPressEnd: (_) => _cancelDelete(),
@@ -898,7 +945,20 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   String _formatDateShort(DateTime date) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[date.month - 1]} ${date.day}';
   }
 }
@@ -934,7 +994,7 @@ class _DeleteCountdownOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _currentColor;
-    
+
     return Material(
       color: Colors.black.withValues(alpha: 0.8),
       child: Center(

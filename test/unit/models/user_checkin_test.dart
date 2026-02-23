@@ -158,11 +158,7 @@ void main() {
 
     // CHK-11
     test('copyWith creates correct copy', () {
-      final original = createTestCheckIn(
-        connection: 5,
-        intimacy: 6,
-        peace: 7,
-      );
+      final original = createTestCheckIn(connection: 5, intimacy: 6, peace: 7);
 
       final copy = original.copyWith(connection: 9, notes: 'Updated');
 

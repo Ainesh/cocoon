@@ -90,8 +90,9 @@ class _TestLoginScreenState extends State<TestLoginScreen> {
                                 ? Icons.visibility_off
                                 : Icons.visibility,
                           ),
-                          onPressed: () =>
-                              setState(() => _obscurePassword = !_obscurePassword),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
                         ),
                       ),
                       validator: (value) {
@@ -113,7 +114,9 @@ class _TestLoginScreenState extends State<TestLoginScreen> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
                               )
                             : Text(_isSignUp ? 'Create Account' : 'Sign In'),
                       ),
@@ -172,8 +175,9 @@ void main() {
   });
 
   // WS-03
-  testWidgets('LoginScreen shows validation errors for empty email',
-      (tester) async {
+  testWidgets('LoginScreen shows validation errors for empty email', (
+    tester,
+  ) async {
     await tester.pumpScreen(const TestLoginScreen());
 
     // Tap Sign In without entering anything
@@ -184,8 +188,9 @@ void main() {
   });
 
   // WS-04
-  testWidgets('LoginScreen shows validation error for invalid email (no @)',
-      (tester) async {
+  testWidgets('LoginScreen shows validation error for invalid email (no @)', (
+    tester,
+  ) async {
     await tester.pumpScreen(const TestLoginScreen());
 
     await tester.enterText(find.byType(TextFormField).first, 'invalid-email');
@@ -197,25 +202,31 @@ void main() {
   });
 
   // WS-05
-  testWidgets('LoginScreen shows validation error for short password on signup',
-      (tester) async {
-    await tester.pumpScreen(const TestLoginScreen());
+  testWidgets(
+    'LoginScreen shows validation error for short password on signup',
+    (tester) async {
+      await tester.pumpScreen(const TestLoginScreen());
 
-    // Switch to Sign Up mode
-    await tester.tap(find.text('Sign Up'));
-    await tester.pumpAndSettle();
+      // Switch to Sign Up mode
+      await tester.tap(find.text('Sign Up'));
+      await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).first, 'test@test.com');
-    await tester.enterText(find.byType(TextFormField).last, '123');
-    await tester.tap(find.text('Create Account'));
-    await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, 'test@test.com');
+      await tester.enterText(find.byType(TextFormField).last, '123');
+      await tester.tap(find.text('Create Account'));
+      await tester.pumpAndSettle();
 
-    expect(find.text('Password must be at least 6 characters'), findsOneWidget);
-  });
+      expect(
+        find.text('Password must be at least 6 characters'),
+        findsOneWidget,
+      );
+    },
+  );
 
   // WS-06
-  testWidgets('LoginScreen toggles between Sign In and Sign Up modes',
-      (tester) async {
+  testWidgets('LoginScreen toggles between Sign In and Sign Up modes', (
+    tester,
+  ) async {
     await tester.pumpScreen(const TestLoginScreen());
 
     expect(find.text('Sign In'), findsWidgets); // button + toggle
@@ -230,24 +241,27 @@ void main() {
   });
 
   // WS-07
-  testWidgets('LoginScreen shows invite badge when inviteCode is provided',
-      (tester) async {
+  testWidgets('LoginScreen shows invite badge when inviteCode is provided', (
+    tester,
+  ) async {
     await tester.pumpScreen(const TestLoginScreen(inviteCode: 'ABC123'));
 
     expect(find.text("You've been invited to a space"), findsOneWidget);
   });
 
   // WS-08
-  testWidgets('LoginScreen hides invite badge when no inviteCode',
-      (tester) async {
+  testWidgets('LoginScreen hides invite badge when no inviteCode', (
+    tester,
+  ) async {
     await tester.pumpScreen(const TestLoginScreen());
 
     expect(find.text("You've been invited to a space"), findsNothing);
   });
 
   // WS-09
-  testWidgets('LoginScreen shows loading indicator during auth',
-      (tester) async {
+  testWidgets('LoginScreen shows loading indicator during auth', (
+    tester,
+  ) async {
     await tester.pumpScreen(const TestLoginScreen());
 
     await tester.enterText(find.byType(TextFormField).first, 'test@test.com');
@@ -273,8 +287,9 @@ void main() {
   });
 
   // WS-11
-  testWidgets('LoginScreen shows Google and Apple social buttons',
-      (tester) async {
+  testWidgets('LoginScreen shows Google and Apple social buttons', (
+    tester,
+  ) async {
     await tester.pumpScreen(const TestLoginScreen());
 
     expect(find.byKey(const Key('google_btn')), findsOneWidget);

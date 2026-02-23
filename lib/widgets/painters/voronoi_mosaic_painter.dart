@@ -112,10 +112,14 @@ List<Offset> _gridSeeds(
   for (int r = 0; r < rows; r++) {
     for (int c = 0; c < cols; c++) {
       final candidate = Offset(
-        ((c + 0.5) * xStep + (rng.nextDouble() - 0.5) * jitterX)
-            .clamp(0.0, width),
-        ((r + 0.5) * yStep + (rng.nextDouble() - 0.5) * jitterY)
-            .clamp(0.0, height),
+        ((c + 0.5) * xStep + (rng.nextDouble() - 0.5) * jitterX).clamp(
+          0.0,
+          width,
+        ),
+        ((r + 0.5) * yStep + (rng.nextDouble() - 0.5) * jitterY).clamp(
+          0.0,
+          height,
+        ),
       );
       if (!_tooClose(candidate, seeds, minDist2)) seeds.add(candidate);
     }
@@ -221,10 +225,11 @@ List<Offset> _chaikinSmooth(List<Offset> points, int passes) {
     for (int i = 0; i < n; i++) {
       final a = pts[i];
       final b = pts[(i + 1) % n];
-      out[i * 2] =
-          Offset(a.dx * 0.75 + b.dx * 0.25, a.dy * 0.75 + b.dy * 0.25);
-      out[i * 2 + 1] =
-          Offset(a.dx * 0.25 + b.dx * 0.75, a.dy * 0.25 + b.dy * 0.75);
+      out[i * 2] = Offset(a.dx * 0.75 + b.dx * 0.25, a.dy * 0.75 + b.dy * 0.25);
+      out[i * 2 + 1] = Offset(
+        a.dx * 0.25 + b.dx * 0.75,
+        a.dy * 0.25 + b.dy * 0.75,
+      );
     }
     pts = out;
   }
@@ -272,8 +277,10 @@ List<Path> _buildVoronoiCells({
       }
 
       minDist = math.max(minDist - grout, 0.5);
-      boundary[r] = Offset(seed.dx + minDist * dir.dx,
-          seed.dy + minDist * dir.dy);
+      boundary[r] = Offset(
+        seed.dx + minDist * dir.dx,
+        seed.dy + minDist * dir.dy,
+      );
     }
 
     final smoothed = _chaikinSmooth(boundary, _Config.chaikinPasses);
@@ -302,11 +309,7 @@ List<Path> _buildVoronoiCells({
       opacity: e,
     );
   } else if (localT < 0.5) {
-    return (
-      scale: _Config.peakScale,
-      glow: _Config.peakGlow,
-      opacity: 1.0,
-    );
+    return (scale: _Config.peakScale, glow: _Config.peakGlow, opacity: 1.0);
   } else if (localT < 0.8) {
     final t = (localT - 0.5) / 0.3;
     final e = t * t * t; // easeInCubic
@@ -413,8 +416,10 @@ class VoronoiMosaicPainter extends CustomPainter {
     final order = List<int>.generate(interiorCount, (i) => i)..shuffle(rng);
 
     // Pre-compute deterministic random values for tile colours
-    final randoms =
-        List<double>.generate(interiorCount, (_) => rng.nextDouble());
+    final randoms = List<double>.generate(
+      interiorCount,
+      (_) => rng.nextDouble(),
+    );
 
     _cache = _CachedMosaic(
       key: seed,
@@ -440,12 +445,14 @@ class VoronoiMosaicPainter extends CustomPainter {
     // matching the grout thickness between tiles.
     final grout = math.max(size.width, size.height) * _Config.groutFactor;
     canvas.save();
-    canvas.clipRect(Rect.fromLTWH(
-      grout,
-      grout,
-      size.width - 2 * grout,
-      size.height - 2 * grout,
-    ));
+    canvas.clipRect(
+      Rect.fromLTWH(
+        grout,
+        grout,
+        size.width - 2 * grout,
+        size.height - 2 * grout,
+      ),
+    );
 
     final s = targetScore.clamp(0.0, 1.0);
 
@@ -466,10 +473,11 @@ class VoronoiMosaicPainter extends CustomPainter {
 
     for (int i = 0; i < n; i++) {
       final orderIdx = tileOrder[i];
-      final startT =
-          (orderIdx / n) * (1.0 - _Config.cycleLength);
-      final localT =
-          ((animationProgress - startT) / _Config.cycleLength).clamp(0.0, 1.0);
+      final startT = (orderIdx / n) * (1.0 - _Config.cycleLength);
+      final localT = ((animationProgress - startT) / _Config.cycleLength).clamp(
+        0.0,
+        1.0,
+      );
       if (localT <= 0) continue;
 
       // Tile colour (fixed by targetScore, not animated progress)
@@ -614,12 +622,14 @@ class VoronoiSolidPainter extends CustomPainter {
 
     final grout = math.max(size.width, size.height) * _Config.groutFactor;
     canvas.save();
-    canvas.clipRect(Rect.fromLTWH(
-      grout,
-      grout,
-      size.width - 2 * grout,
-      size.height - 2 * grout,
-    ));
+    canvas.clipRect(
+      Rect.fromLTWH(
+        grout,
+        grout,
+        size.width - 2 * grout,
+        size.height - 2 * grout,
+      ),
+    );
 
     final paint = Paint()
       ..style = PaintingStyle.fill
@@ -779,12 +789,14 @@ class VoronoiGroupedPainter extends CustomPainter {
 
     final grout = math.max(size.width, size.height) * _Config.groutFactor;
     canvas.save();
-    canvas.clipRect(Rect.fromLTWH(
-      grout,
-      grout,
-      size.width - 2 * grout,
-      size.height - 2 * grout,
-    ));
+    canvas.clipRect(
+      Rect.fromLTWH(
+        grout,
+        grout,
+        size.width - 2 * grout,
+        size.height - 2 * grout,
+      ),
+    );
 
     // Reverse mapping: tile index → appearance order position
     final tileOrder = List<int>.filled(n, 0);
@@ -812,8 +824,7 @@ class VoronoiGroupedPainter extends CustomPainter {
       final orderIdx = tileOrder[i];
       final cycleFrac = 1.0 - staggerSpread; // fraction of timeline per tile
       final startT = (orderIdx / n) * staggerSpread;
-      final localT =
-          ((animationProgress - startT) / cycleFrac).clamp(0.0, 1.0);
+      final localT = ((animationProgress - startT) / cycleFrac).clamp(0.0, 1.0);
       if (localT <= 0) continue;
 
       final anim = _tileAnimation(localT);

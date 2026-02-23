@@ -34,9 +34,7 @@ extension PumpApp on WidgetTester {
           scaffoldBackgroundColor: AppColors.pureBlack,
           brightness: Brightness.dark,
         ),
-        navigatorObservers: [
-          if (navigatorObserver != null) navigatorObserver,
-        ],
+        navigatorObservers: [if (navigatorObserver != null) navigatorObserver],
         home: Scaffold(body: widget),
       ),
     );

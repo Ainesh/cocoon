@@ -17,14 +17,8 @@ void main() {
         getMomentTypeIcon(MomentType.celebrate),
         Icons.auto_awesome_rounded,
       );
-      expect(
-        getMomentTypeIcon(MomentType.connect),
-        Icons.power_rounded,
-      );
-      expect(
-        getMomentTypeIcon(MomentType.escape),
-        Icons.flight_rounded,
-      );
+      expect(getMomentTypeIcon(MomentType.connect), Icons.power_rounded);
+      expect(getMomentTypeIcon(MomentType.escape), Icons.flight_rounded);
     });
   });
 
@@ -32,9 +26,7 @@ void main() {
     testWidgets('returns Icon widget for celebrate', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: getMomentTypeIconWidget(MomentType.celebrate),
-          ),
+          home: Scaffold(body: getMomentTypeIconWidget(MomentType.celebrate)),
         ),
       );
 
@@ -44,9 +36,7 @@ void main() {
     testWidgets('returns Icon widget for escape', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: getMomentTypeIconWidget(MomentType.escape),
-          ),
+          home: Scaffold(body: getMomentTypeIconWidget(MomentType.escape)),
         ),
       );
 

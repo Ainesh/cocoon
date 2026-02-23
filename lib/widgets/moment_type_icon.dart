@@ -45,9 +45,5 @@ Widget getMomentTypeIconWidget(
     );
   }
 
-  return Icon(
-    getMomentTypeIcon(type),
-    size: size,
-    color: iconColor,
-  );
+  return Icon(getMomentTypeIcon(type), size: size, color: iconColor);
 }

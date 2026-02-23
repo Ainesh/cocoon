@@ -94,7 +94,7 @@ class InlineRangeCalendar extends StatelessWidget {
   final DateTime? rangeStartDay;
   final DateTime? rangeEndDay;
   final void Function(DateTime? start, DateTime? end, DateTime focusedDay)
-      onRangeSelected;
+  onRangeSelected;
   final void Function(DateTime focusedDay)? onPageChanged;
 
   @override
@@ -163,10 +163,16 @@ final _headerStyle = HeaderStyle(
     fontSize: 14,
     fontWeight: FontWeight.w600,
   ),
-  leftChevronIcon:
-      Icon(Icons.chevron_left_rounded, color: AppColors.warmMuted, size: 20),
-  rightChevronIcon:
-      Icon(Icons.chevron_right_rounded, color: AppColors.warmMuted, size: 20),
+  leftChevronIcon: Icon(
+    Icons.chevron_left_rounded,
+    color: AppColors.warmMuted,
+    size: 20,
+  ),
+  rightChevronIcon: Icon(
+    Icons.chevron_right_rounded,
+    color: AppColors.warmMuted,
+    size: 20,
+  ),
   headerPadding: const EdgeInsets.only(bottom: 8),
 );
 

@@ -69,14 +69,16 @@ class NotificationService {
   String? _fcmToken;
 
   /// Stream controller for notification navigation events.
-  final _navigationController = StreamController<NotificationNavigation>.broadcast();
+  final _navigationController =
+      StreamController<NotificationNavigation>.broadcast();
 
   /// Pending navigation from app launch via notification (terminated state).
   NotificationNavigation? _pendingNavigation;
 
   /// Stream of navigation events triggered by notification taps.
   /// Listen to this in your shell/root widget to handle navigation.
-  Stream<NotificationNavigation> get onNotificationTap => _navigationController.stream;
+  Stream<NotificationNavigation> get onNotificationTap =>
+      _navigationController.stream;
 
   /// Consumes and returns any pending navigation from app launch.
   /// Returns null if there is no pending navigation.
@@ -158,7 +160,9 @@ class NotificationService {
     if (kIsWeb) return;
 
     // Android settings
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
 
     // iOS settings
     const iosSettings = DarwinInitializationSettings(
@@ -185,9 +189,10 @@ class NotificationService {
 
   /// Create Android notification channels for different priorities.
   Future<void> _createNotificationChannels() async {
-    final androidPlugin =
-        _localNotifications.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
 
     if (androidPlugin == null) return;
 
@@ -368,14 +373,25 @@ class NotificationService {
 
     final androidDetails = AndroidNotificationDetails(
       channelId,
-      channelId == 'high' ? 'Important' : 
-        channelId == 'low' ? 'Updates' : 
-        channelId == 'silent' ? 'Silent' : 'Default',
-      importance: channelId == 'high' ? Importance.high :
-        channelId == 'low' ? Importance.low :
-        channelId == 'silent' ? Importance.min : Importance.defaultImportance,
-      priority: channelId == 'high' ? Priority.high :
-        channelId == 'low' ? Priority.low : Priority.defaultPriority,
+      channelId == 'high'
+          ? 'Important'
+          : channelId == 'low'
+          ? 'Updates'
+          : channelId == 'silent'
+          ? 'Silent'
+          : 'Default',
+      importance: channelId == 'high'
+          ? Importance.high
+          : channelId == 'low'
+          ? Importance.low
+          : channelId == 'silent'
+          ? Importance.min
+          : Importance.defaultImportance,
+      priority: channelId == 'high'
+          ? Priority.high
+          : channelId == 'low'
+          ? Priority.low
+          : Priority.defaultPriority,
       icon: '@mipmap/ic_launcher',
     );
 
@@ -407,7 +423,7 @@ class NotificationService {
   Map<String, dynamic> getDeviceInfo() {
     String platform;
     String device;
-    
+
     if (kIsWeb) {
       platform = 'web';
       device = 'Web Browser';
@@ -418,7 +434,7 @@ class NotificationService {
       platform = 'android';
       device = 'Android Device';
     }
-    
+
     return {
       'platform': platform,
       'device': device,
@@ -484,11 +500,11 @@ class NotificationNavigation {
 
   /// Whether this is a moment-related notification.
   bool get isMoment => const [
-        'moment_planned',
-        'moment_edited',
-        'moment_deleted',
-        'moment_completed',
-      ].contains(type);
+    'moment_planned',
+    'moment_edited',
+    'moment_deleted',
+    'moment_completed',
+  ].contains(type);
 
   /// Whether this is a check-in notification.
   bool get isCheckIn => type == 'checkin';

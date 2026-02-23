@@ -44,22 +44,10 @@ class MockGoogleSignInAuthentication extends Mock
 
 class MockFirebaseFirestore extends Mock implements FirebaseFirestore {}
 
-class MockCollectionReference extends Mock
-    implements CollectionReference<Map<String, dynamic>> {}
-
-class MockDocumentReference extends Mock
-    implements DocumentReference<Map<String, dynamic>> {}
-
-class MockDocumentSnapshot extends Mock
-    implements DocumentSnapshot<Map<String, dynamic>> {}
-
-class MockQuerySnapshot extends Mock
-    implements QuerySnapshot<Map<String, dynamic>> {}
-
-class MockQueryDocumentSnapshot extends Mock
-    implements QueryDocumentSnapshot<Map<String, dynamic>> {}
-
-class MockQuery extends Mock implements Query<Map<String, dynamic>> {}
+// Note: CollectionReference, DocumentReference, DocumentSnapshot,
+// QueryDocumentSnapshot, and Query are sealed classes in cloud_firestore
+// and cannot be mocked via `implements`. Use Firestore emulator for tests
+// that need these.
 
 // =============================================================================
 // SharedPreferences

@@ -11,11 +11,7 @@ import 'package:flutter/material.dart';
 /// The [id] is used for persistence and the [icon] for display.
 @immutable
 class AvatarData {
-  const AvatarData({
-    required this.id,
-    required this.name,
-    required this.icon,
-  });
+  const AvatarData({required this.id, required this.name, required this.icon});
 
   /// Unique identifier for persistence (e.g., "avatar_1").
   final String id;
@@ -54,10 +50,7 @@ enum AvatarColor {
 /// Represents a user's complete avatar selection (avatar + color).
 @immutable
 class AvatarSelection {
-  const AvatarSelection({
-    required this.avatar,
-    required this.color,
-  });
+  const AvatarSelection({required this.avatar, required this.color});
 
   final AvatarData avatar;
   final AvatarColor color;
@@ -72,9 +65,21 @@ class AvatarSelection {
 abstract final class PredefinedAvatars {
   /// All available avatars for user selection.
   static const List<AvatarData> all = [
-    AvatarData(id: 'avatar_1', name: 'Happy', icon: Icons.sentiment_very_satisfied),
-    AvatarData(id: 'avatar_2', name: 'Cool', icon: Icons.face_retouching_natural),
-    AvatarData(id: 'avatar_3', name: 'Smile', icon: Icons.sentiment_satisfied_alt),
+    AvatarData(
+      id: 'avatar_1',
+      name: 'Happy',
+      icon: Icons.sentiment_very_satisfied,
+    ),
+    AvatarData(
+      id: 'avatar_2',
+      name: 'Cool',
+      icon: Icons.face_retouching_natural,
+    ),
+    AvatarData(
+      id: 'avatar_3',
+      name: 'Smile',
+      icon: Icons.sentiment_satisfied_alt,
+    ),
     AvatarData(id: 'avatar_4', name: 'Star', icon: Icons.star_outline),
     AvatarData(id: 'avatar_5', name: 'Heart', icon: Icons.favorite_outline),
     AvatarData(id: 'avatar_6', name: 'Sunny', icon: Icons.wb_sunny_outlined),
@@ -82,7 +87,11 @@ abstract final class PredefinedAvatars {
     AvatarData(id: 'avatar_8', name: 'Music', icon: Icons.music_note_outlined),
     AvatarData(id: 'avatar_9', name: 'Spark', icon: Icons.auto_awesome),
     AvatarData(id: 'avatar_10', name: 'Cozy', icon: Icons.local_cafe_outlined),
-    AvatarData(id: 'avatar_11', name: 'Adventure', icon: Icons.explore_outlined),
+    AvatarData(
+      id: 'avatar_11',
+      name: 'Adventure',
+      icon: Icons.explore_outlined,
+    ),
     AvatarData(id: 'avatar_12', name: 'Creative', icon: Icons.palette_outlined),
   ];
 

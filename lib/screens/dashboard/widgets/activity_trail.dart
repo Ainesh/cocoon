@@ -55,7 +55,7 @@ class ActivityTrail extends StatefulWidget {
 class _ActivityTrailState extends State<ActivityTrail> {
   final _firestoreService = FirestoreService();
   final _currentUserId = AuthService().currentUser?.uid;
-  
+
   StreamSubscription<List<Activity>>? _subscription;
   List<Activity> _activities = [];
   bool _isLoading = true;
@@ -79,24 +79,27 @@ class _ActivityTrailState extends State<ActivityTrail> {
   void _subscribeToActivities() {
     _subscription?.cancel();
     _subscription = _firestoreService
-        .watchActivities(widget.spaceId, limit: _currentLimit + 1) // +1 to check if there's more
+        .watchActivities(
+          widget.spaceId,
+          limit: _currentLimit + 1,
+        ) // +1 to check if there's more
         .listen((activities) {
-      if (mounted) {
-        setState(() {
-          // Check if there are more activities than the current limit
-          _hasMore = activities.length > _currentLimit;
-          // Only show up to current limit
-          _activities = activities.take(_currentLimit).toList();
-          _isLoading = false;
-          _isLoadingMore = false;
+          if (mounted) {
+            setState(() {
+              // Check if there are more activities than the current limit
+              _hasMore = activities.length > _currentLimit;
+              // Only show up to current limit
+              _activities = activities.take(_currentLimit).toList();
+              _isLoading = false;
+              _isLoadingMore = false;
+            });
+          }
         });
-      }
-    });
   }
 
   void _loadMore() {
     if (_isLoadingMore || !_hasMore) return;
-    
+
     HapticFeedback.selectionClick();
     setState(() {
       _isLoadingMore = true;
@@ -146,7 +149,7 @@ class _ActivityTrailState extends State<ActivityTrail> {
             ),
           ),
           const SizedBox(height: 14),
-          
+
           // Content
           if (_isLoading)
             _buildLoadingContent()
@@ -168,7 +171,7 @@ class _ActivityTrailState extends State<ActivityTrail> {
           final index = entry.key;
           final activity = entry.value;
           final isLast = index == _activities.length - 1 && !_hasMore;
-          
+
           return _ActivityItem(
             activity: activity,
             isLast: isLast,
@@ -176,84 +179,87 @@ class _ActivityTrailState extends State<ActivityTrail> {
             onTap: () => _handleTap(activity),
           );
         })),
-        
+
         // Load more text
         if (_hasMore) ...[
           const SizedBox(height: 10),
           GestureDetector(
-      onTap: _isLoadingMore ? null : _loadMore,
-      behavior: HitTestBehavior.opaque,
+            onTap: _isLoadingMore ? null : _loadMore,
+            behavior: HitTestBehavior.opaque,
             child: _isLoadingMore
                 ? Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-              SizedBox(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
                         width: 12,
                         height: 12,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.warmMuted,
-                ),
-              ),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.warmMuted,
+                        ),
+                      ),
                     ],
                   )
                 : Text(
                     '+ more activity',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmMuted,
                       fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-                ),
-              ),
-            ],
-          ],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+          ),
+        ],
+      ],
     );
   }
 
   Widget _buildLoadingContent() {
     return Column(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(3, (i) => Padding(
-        padding: EdgeInsets.only(bottom: i < 2 ? 12 : 0),
-        child: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: AppColors.cardVariant,
-                borderRadius: BorderRadius.circular(8),
+      children: List.generate(
+        3,
+        (i) => Padding(
+          padding: EdgeInsets.only(bottom: i < 2 ? 12 : 0),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppColors.cardVariant,
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 12,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: AppColors.cardVariant,
-                      borderRadius: BorderRadius.circular(4),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 12,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: AppColors.cardVariant,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    height: 10,
-                    width: 50,
-                    decoration: BoxDecoration(
-                      color: AppColors.cardVariant,
-                      borderRadius: BorderRadius.circular(4),
+                    const SizedBox(height: 4),
+                    Container(
+                      height: 10,
+                      width: 50,
+                      decoration: BoxDecoration(
+                        color: AppColors.cardVariant,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      )),
+      ),
     );
   }
 
@@ -276,10 +282,7 @@ class _ActivityTrailState extends State<ActivityTrail> {
         const SizedBox(width: 12),
         Text(
           'No activity yet',
-          style: GoogleFonts.inter(
-            color: AppColors.warmDim,
-            fontSize: 13,
-          ),
+          style: GoogleFonts.inter(color: AppColors.warmDim, fontSize: 13),
         ),
       ],
     );
@@ -303,14 +306,16 @@ class _ActivityItem extends StatelessWidget {
   /// "You" for the current user, otherwise the actor's name.
   String get _displayName =>
       (currentUserId != null && activity.actorId == currentUserId)
-          ? 'You'
-          : activity.actorName;
+      ? 'You'
+      : activity.actorName;
 
   // Slider-based colors for moment activities
   // Red (warm/high) for creation, Blue (cool/low) for deletion, Middle for edit
-  static const Color _createColor = AppColors.accentRed;      // Red - warm/new
-  static const Color _deleteColor = AppColors.morningColor;   // Blue - cool/removed
-  static Color get _editColor => Color.lerp(_deleteColor, _createColor, 0.5)!; // Purple-ish middle
+  static const Color _createColor = AppColors.accentRed; // Red - warm/new
+  static const Color _deleteColor =
+      AppColors.morningColor; // Blue - cool/removed
+  static Color get _editColor =>
+      Color.lerp(_deleteColor, _createColor, 0.5)!; // Purple-ish middle
 
   @override
   Widget build(BuildContext context) {
@@ -327,10 +332,10 @@ class _ActivityItem extends StatelessWidget {
                 // Icon
                 _buildIcon(),
                 const SizedBox(width: 12),
-                
+
                 // Content
                 Expanded(child: _buildContent()),
-                
+
                 // Time on the right
                 Padding(
                   padding: const EdgeInsets.only(top: 2),
@@ -364,15 +369,15 @@ class _ActivityItem extends StatelessWidget {
     if (activity.type == ActivityType.checkin) {
       return _buildCheckinMosaicIcon();
     }
-    
+
     // For moment activities, always use the moment type icon
     if (activity.type.isMomentActivity) {
       final momentTypeStr = activity.metadata?['momentType'] as String?;
       // Default to 'connect' if no moment type in metadata
-      final momentType = momentTypeStr != null 
-          ? MomentType.fromValue(momentTypeStr) 
+      final momentType = momentTypeStr != null
+          ? MomentType.fromValue(momentTypeStr)
           : MomentType.connect;
-      
+
       return Container(
         width: 28,
         height: 28,
@@ -381,15 +386,11 @@ class _ActivityItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
-          child: getMomentTypeIconWidget(
-            momentType,
-            size: 14,
-            color: color,
-          ),
+          child: getMomentTypeIconWidget(momentType, size: 14, color: color),
         ),
       );
     }
-    
+
     // For other activities, use the default icon
     return Container(
       width: 28,
@@ -398,13 +399,7 @@ class _ActivityItem extends StatelessWidget {
         color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Center(
-        child: Icon(
-          _getActivityIcon(),
-          color: color,
-          size: 14,
-        ),
-      ),
+      child: Center(child: Icon(_getActivityIcon(), color: color, size: 14)),
     );
   }
 
@@ -431,25 +426,26 @@ class _ActivityItem extends StatelessWidget {
 
   Widget _buildContent() {
     // Check if this is a check-in with scores (multiline display)
-    final isCheckinWithScores = activity.type == ActivityType.checkin &&
+    final isCheckinWithScores =
+        activity.type == ActivityType.checkin &&
         activity.metadata?['connection'] != null;
-    
+
     if (isCheckinWithScores) {
       return _buildCheckinContent();
     }
-    
+
     // Check if this is a moment planned activity with date
-    if (activity.type == ActivityType.momentPlanned && 
+    if (activity.type == ActivityType.momentPlanned &&
         activity.metadata?['startDate'] != null) {
       return _buildMomentPlannedContent();
     }
-    
+
     // Check if this is a moment edited activity with changed fields
     if (activity.type == ActivityType.momentEdited &&
         activity.changedFields.isNotEmpty) {
       return _buildMomentEditedContent();
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -487,18 +483,19 @@ class _ActivityItem extends StatelessWidget {
     final momentName = activity.metadata?['momentName'] as String? ?? '';
     final startDateStr = activity.metadata?['startDate'] as String?;
     final endDateStr = activity.metadata?['endDate'] as String?;
-    
+
     String dateText = '';
     if (startDateStr != null) {
       final startDate = DateTime.parse(startDateStr);
       if (endDateStr != null) {
         final endDate = DateTime.parse(endDateStr);
-        dateText = '${_formatShortDate(startDate)} - ${_formatShortDate(endDate)}';
+        dateText =
+            '${_formatShortDate(startDate)} - ${_formatShortDate(endDate)}';
       } else {
         dateText = _formatShortDate(startDate);
       }
     }
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -531,10 +528,7 @@ class _ActivityItem extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             dateText,
-            style: GoogleFonts.inter(
-              color: AppColors.warmMuted,
-              fontSize: 12,
-            ),
+            style: GoogleFonts.inter(color: AppColors.warmMuted, fontSize: 12),
           ),
         ],
       ],
@@ -542,8 +536,20 @@ class _ActivityItem extends StatelessWidget {
   }
 
   String _formatShortDate(DateTime date) {
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[date.month - 1]} ${date.day}';
   }
 
@@ -551,7 +557,7 @@ class _ActivityItem extends StatelessWidget {
   Widget _buildMomentEditedContent() {
     final momentName = activity.metadata?['momentName'] as String? ?? '';
     final changedFields = activity.changedFields;
-    
+
     final formattedFields = changedFields.map((field) {
       switch (field) {
         case 'date':
@@ -565,7 +571,7 @@ class _ActivityItem extends StatelessWidget {
       }
     }).toList();
     final changesText = formattedFields.join(', ');
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -597,10 +603,7 @@ class _ActivityItem extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           changesText,
-          style: GoogleFonts.inter(
-            color: AppColors.warmMuted,
-            fontSize: 12,
-          ),
+          style: GoogleFonts.inter(color: AppColors.warmMuted, fontSize: 12),
         ),
       ],
     );
@@ -611,7 +614,7 @@ class _ActivityItem extends StatelessWidget {
     final connection = activity.metadata?['connection'] as int? ?? 0;
     final intimacy = activity.metadata?['intimacy'] as int? ?? 0;
     final peace = activity.metadata?['peace'] as int? ?? 0;
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -619,14 +622,14 @@ class _ActivityItem extends StatelessWidget {
         // "You checked in"
         Text(
           '$_displayName checked in',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmDim,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
+          style: GoogleFonts.inter(
+            color: AppColors.warmDim,
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
           ),
         ),
         const SizedBox(height: 4),
-        
+
         // Score icons coloured by value (blue→red spectrum)
         Row(
           children: [
@@ -643,8 +646,11 @@ class _ActivityItem extends StatelessWidget {
 
   /// Score colour on the blue (low) → red (high) spectrum.
   Color _scoreColor(int score) =>
-      Color.lerp(AppColors.morningColor, AppColors.nightColor,
-          ((score - 1) / 9).clamp(0.0, 1.0)) ??
+      Color.lerp(
+        AppColors.morningColor,
+        AppColors.nightColor,
+        ((score - 1) / 9).clamp(0.0, 1.0),
+      ) ??
       AppColors.nightColor;
 
   Widget _buildIconScore(IconData icon, int score) {
@@ -653,7 +659,7 @@ class _ActivityItem extends StatelessWidget {
 
   Widget _buildSvgScore(String svgPath, int score) {
     return SvgPicture.asset(
-          svgPath,
+      svgPath,
       width: 16,
       height: 16,
       colorFilter: ColorFilter.mode(_scoreColor(score), BlendMode.srcIn),
@@ -663,7 +669,8 @@ class _ActivityItem extends StatelessWidget {
   IconData _getActivityIcon() {
     switch (activity.type) {
       case ActivityType.checkin:
-        return Icons.donut_large_rounded; // Dotted circle style for health check-in
+        return Icons
+            .donut_large_rounded; // Dotted circle style for health check-in
       case ActivityType.momentPlanned:
       case ActivityType.momentEdited:
       case ActivityType.momentDeleted:
@@ -687,18 +694,18 @@ class _ActivityItem extends StatelessWidget {
     switch (activity.type) {
       // Moment activities - slider color scheme
       case ActivityType.momentPlanned:
-        return _createColor;  // Red - warm/new
+        return _createColor; // Red - warm/new
       case ActivityType.momentDeleted:
-        return _deleteColor;  // Blue - cool/removed
+        return _deleteColor; // Blue - cool/removed
       case ActivityType.momentEdited:
-        return _editColor;    // Purple - middle
+        return _editColor; // Purple - middle
       case ActivityType.momentCompleted:
-        return _createColor;  // Red - warm/success
-        
+        return _createColor; // Red - warm/success
+
       // Check-in - theme red
       case ActivityType.checkin:
         return AppColors.accentRed;
-        
+
       // Space activities - purple accent
       case ActivityType.spaceCreated:
       case ActivityType.spaceJoined:
@@ -709,4 +716,3 @@ class _ActivityItem extends StatelessWidget {
     }
   }
 }
-

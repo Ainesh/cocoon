@@ -28,22 +28,22 @@ class ActiveCard extends StatelessWidget {
 
   /// The heading text (displayed in UPPERCASE with letter spacing)
   final String heading;
-  
+
   /// Whether the card is in active/modified state (controls heading color & helper visibility)
   final bool isActive;
-  
+
   /// The main content of the card
   final Widget child;
-  
+
   /// Optional helper text shown below the heading
   final String? helperText;
-  
+
   /// If true, helper text is hidden when active (default: true)
   final bool hideHelperWhenActive;
-  
+
   /// If true, card shrinks when helper is hidden. If false, helper fades but keeps space.
   final bool shrinkWhenActive;
-  
+
   /// If true, shows a red border (can be controlled separately from isActive)
   final bool showBorder;
 
@@ -53,8 +53,9 @@ class ActiveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hideHelper = hideHelperWhenActive && isActive;
-    final showHelperSpace = helperText != null && (!hideHelper || !shrinkWhenActive);
-    
+    final showHelperSpace =
+        helperText != null && (!hideHelper || !shrinkWhenActive);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       width: double.infinity,

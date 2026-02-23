@@ -64,8 +64,9 @@ class _TestSlideToActionState extends State<TestSlideToAction> {
 
 void main() {
   // WW-05
-  testWidgets('SlideToAction triggers onComplete when fully swiped',
-      (tester) async {
+  testWidgets('SlideToAction triggers onComplete when fully swiped', (
+    tester,
+  ) async {
     bool completed = false;
 
     await tester.pumpApp(
@@ -87,10 +88,7 @@ void main() {
 
   testWidgets('SlideToAction shows label text', (tester) async {
     await tester.pumpApp(
-      TestSlideToAction(
-        label: 'Slide to check in',
-        onComplete: () {},
-      ),
+      TestSlideToAction(label: 'Slide to check in', onComplete: () {}),
     );
 
     expect(find.text('Slide to check in'), findsOneWidget);

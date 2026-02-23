@@ -24,10 +24,10 @@ class PartnerCheckIns extends StatelessWidget {
 
   /// List of partner's check-ins to display
   final List<UserCheckIn> checkIns;
-  
+
   /// Partner's display name
   final String? partnerName;
-  
+
   /// Whether data is still loading
   final bool isLoading;
 
@@ -38,7 +38,10 @@ class PartnerCheckIns extends StatelessWidget {
         child: const Center(
           child: Padding(
             padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(color: AppColors.accentRed, strokeWidth: 2),
+            child: CircularProgressIndicator(
+              color: AppColors.accentRed,
+              strokeWidth: 2,
+            ),
           ),
         ),
       );
@@ -49,7 +52,11 @@ class PartnerCheckIns extends StatelessWidget {
         child: Column(
           children: [
             const SizedBox(height: 16),
-            Icon(Icons.people_outline_rounded, color: AppColors.warmMuted, size: 48),
+            Icon(
+              Icons.people_outline_rounded,
+              color: AppColors.warmMuted,
+              size: 48,
+            ),
             const SizedBox(height: 16),
             Text(
               'No partner check-ins yet',
@@ -97,7 +104,7 @@ class PartnerCheckIns extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Simple timeline list
           ...checkIns.asMap().entries.map((entry) {
             final index = entry.key;
@@ -112,10 +119,7 @@ class PartnerCheckIns extends StatelessWidget {
 }
 
 class _TimelineItem extends StatelessWidget {
-  const _TimelineItem({
-    required this.checkIn,
-    this.isLast = false,
-  });
+  const _TimelineItem({required this.checkIn, this.isLast = false});
 
   final UserCheckIn checkIn;
   final bool isLast;
@@ -141,15 +145,11 @@ class _TimelineItem extends StatelessWidget {
               ),
             ),
             if (!isLast)
-              Container(
-                width: 1,
-                height: 52,
-                color: AppColors.cardVariant,
-              ),
+              Container(width: 1, height: 52, color: AppColors.cardVariant),
           ],
         ),
         const SizedBox(width: 16),
-        
+
         // Content
         Expanded(
           child: Padding(
@@ -166,11 +166,20 @@ class _TimelineItem extends StatelessWidget {
                 // Scores inline
                 Row(
                   children: [
-                    _InlineScore(icon: Icons.favorite_rounded, value: connectionPct.round()),
+                    _InlineScore(
+                      icon: Icons.favorite_rounded,
+                      value: connectionPct.round(),
+                    ),
                     const SizedBox(width: 16),
-                    _InlineScoreSvg(svgPath: 'assets/icons/flame.svg', value: intimacyPct.round()),
+                    _InlineScoreSvg(
+                      svgPath: 'assets/icons/flame.svg',
+                      value: intimacyPct.round(),
+                    ),
                     const SizedBox(width: 16),
-                    _InlineScoreSvg(svgPath: 'assets/icons/peace.svg', value: peacePct.round()),
+                    _InlineScoreSvg(
+                      svgPath: 'assets/icons/peace.svg',
+                      value: peacePct.round(),
+                    ),
                   ],
                 ),
               ],
@@ -223,7 +232,10 @@ class _InlineScoreSvg extends StatelessWidget {
           svgPath,
           width: 16,
           height: 16,
-          colorFilter: const ColorFilter.mode(AppColors.accentRed, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.accentRed,
+            BlendMode.srcIn,
+          ),
         ),
         const SizedBox(width: 4),
         Text(

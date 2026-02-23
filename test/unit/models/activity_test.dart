@@ -17,15 +17,36 @@ void main() {
     // ACT-01
     test('fromValue returns correct type for each known value', () {
       expect(ActivityType.fromValue('checkin'), ActivityType.checkin);
-      expect(ActivityType.fromValue('moment_planned'), ActivityType.momentPlanned);
-      expect(ActivityType.fromValue('moment_edited'), ActivityType.momentEdited);
-      expect(ActivityType.fromValue('moment_deleted'), ActivityType.momentDeleted);
-      expect(ActivityType.fromValue('moment_completed'), ActivityType.momentCompleted);
-      expect(ActivityType.fromValue('space_created'), ActivityType.spaceCreated);
+      expect(
+        ActivityType.fromValue('moment_planned'),
+        ActivityType.momentPlanned,
+      );
+      expect(
+        ActivityType.fromValue('moment_edited'),
+        ActivityType.momentEdited,
+      );
+      expect(
+        ActivityType.fromValue('moment_deleted'),
+        ActivityType.momentDeleted,
+      );
+      expect(
+        ActivityType.fromValue('moment_completed'),
+        ActivityType.momentCompleted,
+      );
+      expect(
+        ActivityType.fromValue('space_created'),
+        ActivityType.spaceCreated,
+      );
       expect(ActivityType.fromValue('space_joined'), ActivityType.spaceJoined);
-      expect(ActivityType.fromValue('space_renamed'), ActivityType.spaceRenamed);
+      expect(
+        ActivityType.fromValue('space_renamed'),
+        ActivityType.spaceRenamed,
+      );
       expect(ActivityType.fromValue('invite_sent'), ActivityType.inviteSent);
-      expect(ActivityType.fromValue('invite_accepted'), ActivityType.inviteAccepted);
+      expect(
+        ActivityType.fromValue('invite_accepted'),
+        ActivityType.inviteAccepted,
+      );
     });
 
     // ACT-02
@@ -122,32 +143,35 @@ void main() {
     });
 
     // ACT-12
-    test('relativeTime returns correct format for hours, days, weeks, months', () {
-      final hoursAgo = createTestActivity(
-        timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-      );
-      expect(hoursAgo.relativeTime, '3h ago');
+    test(
+      'relativeTime returns correct format for hours, days, weeks, months',
+      () {
+        final hoursAgo = createTestActivity(
+          timestamp: DateTime.now().subtract(const Duration(hours: 3)),
+        );
+        expect(hoursAgo.relativeTime, '3h ago');
 
-      final daysAgo = createTestActivity(
-        timestamp: DateTime.now().subtract(const Duration(days: 2)),
-      );
-      expect(daysAgo.relativeTime, '2d ago');
+        final daysAgo = createTestActivity(
+          timestamp: DateTime.now().subtract(const Duration(days: 2)),
+        );
+        expect(daysAgo.relativeTime, '2d ago');
 
-      final yesterday = createTestActivity(
-        timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      );
-      expect(yesterday.relativeTime, 'Yesterday');
+        final yesterday = createTestActivity(
+          timestamp: DateTime.now().subtract(const Duration(days: 1)),
+        );
+        expect(yesterday.relativeTime, 'Yesterday');
 
-      final weeksAgo = createTestActivity(
-        timestamp: DateTime.now().subtract(const Duration(days: 14)),
-      );
-      expect(weeksAgo.relativeTime, '2w ago');
+        final weeksAgo = createTestActivity(
+          timestamp: DateTime.now().subtract(const Duration(days: 14)),
+        );
+        expect(weeksAgo.relativeTime, '2w ago');
 
-      final monthsAgo = createTestActivity(
-        timestamp: DateTime.now().subtract(const Duration(days: 60)),
-      );
-      expect(monthsAgo.relativeTime, '2mo ago');
-    });
+        final monthsAgo = createTestActivity(
+          timestamp: DateTime.now().subtract(const Duration(days: 60)),
+        );
+        expect(monthsAgo.relativeTime, '2mo ago');
+      },
+    );
 
     // ACT-13
     test('isNavigable returns true when entityId present and not deleted', () {

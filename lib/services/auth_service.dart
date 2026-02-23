@@ -30,18 +30,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// await authService.signOut();
 /// ```
 class AuthService {
-  AuthService({
-    FirebaseAuth? auth,
-    GoogleSignIn? googleSignIn,
-  })  : _auth = auth ?? FirebaseAuth.instance,
-        _googleSignIn = googleSignIn ?? _sharedGoogleSignIn;
+  AuthService({FirebaseAuth? auth, GoogleSignIn? googleSignIn})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _googleSignIn = googleSignIn ?? _sharedGoogleSignIn;
 
   final FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
-  
+
   // Singleton GoogleSignIn to prevent "Future already completed" error on web
   static final GoogleSignIn _sharedGoogleSignIn = GoogleSignIn();
-  
+
   // Flag to prevent multiple simultaneous sign-in attempts
   static bool _isSigningIn = false;
 
@@ -115,13 +113,13 @@ class AuthService {
     if (_isSigningIn) {
       return null;
     }
-    
+
     _isSigningIn = true;
-    
+
     try {
       // Sign out first to ensure clean state (prevents web issues)
       await _googleSignIn.signOut();
-      
+
       // Trigger the Google Sign-In flow
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
@@ -181,10 +179,7 @@ class AuthService {
   /// Clears all auth-related local data (token and space ID).
   Future<void> _clearAllLocalData() async {
     final prefs = await SharedPreferences.getInstance();
-    await Future.wait([
-      prefs.remove(_tokenKey),
-      prefs.remove(_spaceIdKey),
-    ]);
+    await Future.wait([prefs.remove(_tokenKey), prefs.remove(_spaceIdKey)]);
   }
 
   /// Returns `true` if a stored token exists in local storage.
@@ -216,8 +211,7 @@ class AuthService {
       'user-disabled' => 'This account has been disabled.',
       'too-many-requests' => 'Too many attempts. Please try again later.',
       'invalid-credential' => 'Invalid email or password.',
-      'operation-not-allowed' ||
-      'admin-restricted-operation' =>
+      'operation-not-allowed' || 'admin-restricted-operation' =>
         'This sign-in method is not enabled. Enable it in Firebase Console.',
       'account-exists-with-different-credential' =>
         'An account already exists with the same email but different sign-in credentials.',

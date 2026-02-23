@@ -150,9 +150,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _showError(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   // ---------------------------------------------------------------------------
@@ -269,7 +269,8 @@ class _LoginScreenState extends State<LoginScreen> {
               prefixIcon: Icon(Icons.email_outlined, color: AppColors.dimText),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter your email';
+              if (value == null || value.isEmpty)
+                return 'Please enter your email';
               if (!value.contains('@')) return 'Please enter a valid email';
               return null;
             },
@@ -288,12 +289,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   _obscurePassword ? Icons.visibility_off : Icons.visibility,
                   color: AppColors.dimText,
                 ),
-                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                onPressed: () =>
+                    setState(() => _obscurePassword = !_obscurePassword),
               ),
             ),
             validator: (value) {
-              if (value == null || value.isEmpty) return 'Please enter your password';
-              if (_isSignUp && value.length < 6) return 'Password must be at least 6 characters';
+              if (value == null || value.isEmpty)
+                return 'Please enter your password';
+              if (_isSignUp && value.length < 6)
+                return 'Password must be at least 6 characters';
               return null;
             },
           ),
@@ -323,7 +327,9 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildDivider() {
     return Row(
       children: [
-        Expanded(child: Divider(color: AppColors.dimText.withValues(alpha: 0.3))),
+        Expanded(
+          child: Divider(color: AppColors.dimText.withValues(alpha: 0.3)),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Text(
@@ -331,7 +337,9 @@ class _LoginScreenState extends State<LoginScreen> {
             style: TextStyle(color: AppColors.dimText, fontSize: 13),
           ),
         ),
-        Expanded(child: Divider(color: AppColors.dimText.withValues(alpha: 0.3))),
+        Expanded(
+          child: Divider(color: AppColors.dimText.withValues(alpha: 0.3)),
+        ),
       ],
     );
   }

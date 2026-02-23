@@ -24,12 +24,7 @@ import '../../widgets/painters/circle_progress_painters.dart';
 import '../../widgets/slide_to_action.dart';
 
 /// Which field to auto-focus when entering edit mode.
-enum EditMomentFocus {
-  none,
-  date,
-  time,
-  notes,
-}
+enum EditMomentFocus { none, date, time, notes }
 
 /// Edit Moment screen for modifying existing moments.
 class EditMomentScreen extends StatefulWidget {
@@ -68,9 +63,10 @@ class _EditMomentScreenState extends State<EditMomentScreen>
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   double? _dragPosition; // For time slider stretchy effect
-  
+
   // Editing presence
-  StreamSubscription<List<({String name, DateTime time})>>? _presenceSubscription;
+  StreamSubscription<List<({String name, DateTime time})>>?
+  _presenceSubscription;
   Timer? _presenceRefreshTimer;
   String? _partnerEditingName;
 
@@ -79,7 +75,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
   int _activeDots = 24;
   Timer? _deleteTimer;
   OverlayEntry? _overlayEntry;
-  
+
   static const _totalDots = 24;
   static const _totalDurationMs = 3000;
   static const _msPerDot = _totalDurationMs ~/ _totalDots;
@@ -94,9 +90,9 @@ class _EditMomentScreenState extends State<EditMomentScreen>
     _selectedTimeSlot = widget.moment.timeSlot;
     _notesController = TextEditingController(text: widget.moment.notes ?? '');
     _notesFocusNode.addListener(() => setState(() {}));
-    
+
     _setupEditingPresence();
-    
+
     // Handle initial focus after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _handleInitialFocus();
@@ -130,12 +126,14 @@ class _EditMomentScreenState extends State<EditMomentScreen>
           excludeUserId: userId,
         )
         .listen((editors) {
-      if (mounted) {
-        setState(() {
-          _partnerEditingName = editors.isNotEmpty ? editors.first.name : null;
+          if (mounted) {
+            setState(() {
+              _partnerEditingName = editors.isNotEmpty
+                  ? editors.first.name
+                  : null;
+            });
+          }
         });
-      }
-    });
   }
 
   Future<void> _refreshPresence() async {
@@ -164,7 +162,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
       );
     } catch (_) {}
   }
-  
+
   void _handleInitialFocus() {
     switch (widget.initialFocus) {
       case EditMomentFocus.date:
@@ -217,7 +215,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
   // ---------------------------------------------------------------------------
 
   Moment get moment => widget.moment;
-  
+
   bool get _hasChanges {
     if (_startDate != moment.startDate) return true;
     if (_endDate != moment.endDate) return true;
@@ -225,7 +223,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
     if (_notesController.text.trim() != (moment.notes ?? '')) return true;
     return false;
   }
-  
+
   /// Returns a list of field names that were changed.
   List<String> get _changedFields {
     final changes = <String>[];
@@ -245,7 +243,8 @@ class _EditMomentScreenState extends State<EditMomentScreen>
     if (!_hasChanges) return false;
     if (_startDate == null) return false;
     if (moment.type == MomentType.escape && _endDate == null) return false;
-    if (moment.type == MomentType.connect && _selectedTimeSlot == null) return false;
+    if (moment.type == MomentType.connect && _selectedTimeSlot == null)
+      return false;
     return true;
   }
 
@@ -261,7 +260,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
     });
     HapticFeedback.mediumImpact();
     _showDeleteOverlay();
-    
+
     _deleteTimer = Timer.periodic(Duration(milliseconds: _msPerDot), (timer) {
       if (_activeDots > 1) {
         setState(() => _activeDots--);
@@ -315,7 +314,10 @@ class _EditMomentScreenState extends State<EditMomentScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -333,7 +335,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
     }
     if (mounted) context.pop(moment);
   }
-  
+
   /// Shows a confirmation dialog when user has unsaved changes
   Future<bool?> _showDiscardChangesDialog() {
     return showDialog<bool>(
@@ -351,10 +353,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         ),
         content: Text(
           'You have unsaved changes that will be lost.',
-          style: GoogleFonts.inter(
-            color: AppColors.warmDim,
-            fontSize: 14,
-          ),
+          style: GoogleFonts.inter(color: AppColors.warmDim, fontSize: 14),
         ),
         actions: [
           TextButton(
@@ -433,9 +432,9 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   Future<void> _submit() async {
     if (!_canSubmit || _isSubmitting) return;
-    
+
     setState(() => _isSubmitting = true);
-    
+
     try {
       await _firestoreService.updateMoment(
         spaceId: widget.spaceId,
@@ -444,15 +443,17 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         startDate: _startDate!,
         endDate: _endDate,
         timeSlot: _selectedTimeSlot,
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
       );
-      
+
       // Log activity
       final userId = _authService.currentUser?.uid;
       if (userId != null) {
         final profile = await _firestoreService.getUserProfile(userId);
         final userName = profile?['name'] as String? ?? 'Someone';
-        
+
         await _firestoreService.logMomentEditedActivity(
           spaceId: widget.spaceId,
           userId: userId,
@@ -466,7 +467,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
       // Clear editing presence before leaving
       await _clearPresence();
-      
+
       // Create updated moment to return
       final updatedMoment = Moment(
         id: moment.id,
@@ -477,12 +478,14 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         endDate: _endDate,
         timeSlot: _selectedTimeSlot,
         repeatSchedule: moment.repeatSchedule,
-        notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+        notes: _notesController.text.trim().isEmpty
+            ? null
+            : _notesController.text.trim(),
         createdAt: moment.createdAt,
         updatedAt: DateTime.now().toUtc(),
         version: moment.version + 1,
       );
-      
+
       HapticFeedback.heavyImpact();
       if (mounted) context.pop(updatedMoment);
     } on MomentConflictException catch (e) {
@@ -493,7 +496,10 @@ class _EditMomentScreenState extends State<EditMomentScreen>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     } finally {
@@ -517,10 +523,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         ),
         content: Text(
           message,
-          style: GoogleFonts.inter(
-            color: AppColors.warmDim,
-            fontSize: 14,
-          ),
+          style: GoogleFonts.inter(color: AppColors.warmDim, fontSize: 14),
         ),
         actions: [
           TextButton(
@@ -558,7 +561,8 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         onTap: _dismissKeyboard,
         // Only horizontal swipe (left to right) should close
         onHorizontalDragEnd: (details) {
-          if (details.primaryVelocity != null && details.primaryVelocity! > 300) {
+          if (details.primaryVelocity != null &&
+              details.primaryVelocity! > 300) {
             HapticFeedback.lightImpact();
             _handleBack();
           }
@@ -572,113 +576,120 @@ class _EditMomentScreenState extends State<EditMomentScreen>
               icon: const Icon(Icons.arrow_back, color: AppColors.warmLight),
               onPressed: _handleBack,
             ),
-          title: Text(
-            'Edit Moment',
-            style: GoogleFonts.outfit(
-              color: AppColors.warmLight,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+            title: Text(
+              'Edit Moment',
+              style: GoogleFonts.outfit(
+                color: AppColors.warmLight,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
+            centerTitle: true,
           ),
-          centerTitle: true,
-        ),
-        body: SingleChildScrollView(
-          physics: const ClampingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Partner editing indicator
-              if (_partnerEditingName != null) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentRed.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: AppColors.accentRed.withValues(alpha: 0.3),
+          body: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Partner editing indicator
+                if (_partnerEditingName != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.edit_rounded, color: AppColors.accentRed, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '$_partnerEditingName is also editing this moment',
-                          style: GoogleFonts.inter(
-                            color: AppColors.accentRed,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentRed.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.accentRed.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.edit_rounded,
+                          color: AppColors.accentRed,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '$_partnerEditingName is also editing this moment',
+                            style: GoogleFonts.inter(
+                              color: AppColors.accentRed,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 12),
+                ],
+                // Moment Type Badge (non-editable)
+                _buildTypeBadge(),
                 const SizedBox(height: 12),
-              ],
-              // Moment Type Badge (non-editable)
-              _buildTypeBadge(),
-              const SizedBox(height: 12),
-              
-              // Moment Name (non-editable)
-              Text(
-                moment.name,
-                style: GoogleFonts.outfit(
-                  color: AppColors.warmLight,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+
+                // Moment Name (non-editable)
+                Text(
+                  moment.name,
+                  style: GoogleFonts.outfit(
+                    color: AppColors.warmLight,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 4),
-              
-              // Helper text - cannot change type/name
-              Text(
-                'Type and name cannot be changed.\nCancel this moment and plan a new one.',
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
-                  fontSize: 12,
+                const SizedBox(height: 4),
+
+                // Helper text - cannot change type/name
+                Text(
+                  'Type and name cannot be changed.\nCancel this moment and plan a new one.',
+                  style: GoogleFonts.inter(
+                    color: AppColors.warmMuted,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              
-              // Date Card
-              _buildDateCard(),
-              
-              // Time Card (Connect only)
-              if (moment.type == MomentType.connect) ...[
+                const SizedBox(height: 32),
+
+                // Date Card
+                _buildDateCard(),
+
+                // Time Card (Connect only)
+                if (moment.type == MomentType.connect) ...[
+                  const SizedBox(height: 12),
+                  _buildTimeCard(),
+                ],
+
+                // Notes Card
                 const SizedBox(height: 12),
-                _buildTimeCard(),
+                _buildNotesCard(),
+
+                // Hold to cancel
+                const SizedBox(height: 12),
+                _buildHoldToDeleteButton(),
               ],
-              
-              // Notes Card
-              const SizedBox(height: 12),
-              _buildNotesCard(),
-              
-              // Hold to cancel
-              const SizedBox(height: 12),
-              _buildHoldToDeleteButton(),
-            ],
+            ),
           ),
-        ),
-        bottomNavigationBar: _canSubmit
-            ? SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-                  child: SlideToAction(
-                    label: 'Slide to save',
-                    loadingLabel: 'Saving...',
-                    onConfirm: _submit,
-                    isLoading: _isSubmitting,
-                    enabled: _canSubmit && !_isSubmitting,
+          bottomNavigationBar: _canSubmit
+              ? SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+                    child: SlideToAction(
+                      label: 'Slide to save',
+                      loadingLabel: 'Saving...',
+                      onConfirm: _submit,
+                      isLoading: _isSubmitting,
+                      enabled: _canSubmit && !_isSubmitting,
+                    ),
                   ),
-                ),
-              )
-            : null,
+                )
+              : null,
         ),
       ),
     );
@@ -694,7 +705,11 @@ class _EditMomentScreenState extends State<EditMomentScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          getMomentTypeIconWidget(moment.type, size: 24, color: AppColors.pureBlack),
+          getMomentTypeIconWidget(
+            moment.type,
+            size: 24,
+            color: AppColors.pureBlack,
+          ),
           const SizedBox(height: 6),
           Text(
             moment.type.label,
@@ -711,7 +726,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   Widget _buildDateCard() {
     final isEscape = moment.type == MomentType.escape;
-    
+
     if (isEscape) {
       return _buildEscapeDateCard();
     }
@@ -775,11 +790,11 @@ class _EditMomentScreenState extends State<EditMomentScreen>
   }
 
   Widget _buildEscapeDateDisplay() {
-    final nights = _endDate != null 
-        ? _endDate!.difference(_startDate!).inDays 
+    final nights = _endDate != null
+        ? _endDate!.difference(_startDate!).inDays
         : 0;
     final nightsText = nights == 1 ? '1 night' : '$nights nights';
-    
+
     return Row(
       children: [
         Expanded(
@@ -809,16 +824,22 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   Color _getTimeSlotColor(int index) {
     final progress = index / (TimeSlot.values.length - 1);
-    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ?? AppColors.nightColor;
+    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress) ??
+        AppColors.nightColor;
   }
-  
+
   Color _getTimeSlotColorFromProgress(double progress) {
-    return Color.lerp(AppColors.morningColor, AppColors.nightColor, progress.clamp(0.0, 1.0)) ?? AppColors.nightColor;
+    return Color.lerp(
+          AppColors.morningColor,
+          AppColors.nightColor,
+          progress.clamp(0.0, 1.0),
+        ) ??
+        AppColors.nightColor;
   }
 
   Widget _buildTimeCard() {
     final hasTime = _selectedTimeSlot != null;
-    
+
     return ActiveCard(
       heading: 'Time',
       isActive: true,
@@ -845,26 +866,26 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   Widget _buildTimeSlotSlider() {
     final slots = TimeSlot.values;
-    final selectedIndex = _selectedTimeSlot != null 
-        ? slots.indexOf(_selectedTimeSlot!) 
+    final selectedIndex = _selectedTimeSlot != null
+        ? slots.indexOf(_selectedTimeSlot!)
         : 0;
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final slotWidth = constraints.maxWidth / slots.length;
         final totalWidth = constraints.maxWidth;
         final padding = 4.0;
         final baseWidth = slotWidth - (padding * 2);
-        
+
         // Selected slot center position
         final selectedCenter = (selectedIndex + 0.5) * slotWidth;
         final isDragging = _dragPosition != null;
-        
+
         // Calculate stretchy highlight bounds
         double highlightLeft;
         double highlightWidth;
         double colorProgress;
-        
+
         if (isDragging) {
           final dragX = _dragPosition!;
           // Stretch from selected slot toward drag position.
@@ -885,15 +906,18 @@ class _EditMomentScreenState extends State<EditMomentScreen>
           highlightWidth = baseWidth;
           colorProgress = selectedIndex / (slots.length - 1);
         }
-        
+
         return GestureDetector(
           onHorizontalDragStart: (details) {
-            setState(() => _dragPosition = details.localPosition.dx.clamp(0, totalWidth));
+            setState(
+              () =>
+                  _dragPosition = details.localPosition.dx.clamp(0, totalWidth),
+            );
           },
           onHorizontalDragUpdate: (details) {
             final pos = details.localPosition.dx.clamp(0.0, totalWidth);
             setState(() => _dragPosition = pos);
-            
+
             // Snap selection at slot centers
             final index = (pos / slotWidth).floor().clamp(0, slots.length - 1);
             if (_selectedTimeSlot != slots[index]) {
@@ -933,7 +957,9 @@ class _EditMomentScreenState extends State<EditMomentScreen>
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: _getTimeSlotColorFromProgress(colorProgress).withValues(alpha: 0.4),
+                          color: _getTimeSlotColorFromProgress(
+                            colorProgress,
+                          ).withValues(alpha: 0.4),
                           blurRadius: 12,
                           spreadRadius: 0,
                         ),
@@ -947,7 +973,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
                     final index = entry.key;
                     final slot = entry.value;
                     final isSelected = _selectedTimeSlot == slot;
-                    
+
                     return Expanded(
                       child: GestureDetector(
                         onTap: () {
@@ -964,9 +990,11 @@ class _EditMomentScreenState extends State<EditMomentScreen>
                           child: Icon(
                             _getTimeSlotIcon(slot),
                             size: 22,
-                            color: isSelected 
-                                ? AppColors.pureBlack 
-                                : _getTimeSlotColor(index).withValues(alpha: 0.5),
+                            color: isSelected
+                                ? AppColors.pureBlack
+                                : _getTimeSlotColor(
+                                    index,
+                                  ).withValues(alpha: 0.5),
                           ),
                         ),
                       ),
@@ -980,7 +1008,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
       },
     );
   }
-  
+
   IconData _getTimeSlotIcon(TimeSlot slot) {
     return switch (slot) {
       TimeSlot.morning => Icons.wb_sunny_rounded,
@@ -991,8 +1019,9 @@ class _EditMomentScreenState extends State<EditMomentScreen>
   }
 
   Widget _buildNotesCard() {
-    final hasContent = _notesController.text.trim().isNotEmpty || _notesFocusNode.hasFocus;
-    
+    final hasContent =
+        _notesController.text.trim().isNotEmpty || _notesFocusNode.hasFocus;
+
     return GestureDetector(
       onTap: () => _notesFocusNode.requestFocus(),
       behavior: HitTestBehavior.opaque,
@@ -1026,11 +1055,11 @@ class _EditMomentScreenState extends State<EditMomentScreen>
   Widget _buildHoldToDeleteButton() {
     // Use accentRed to match ActionButton (Plan a moment, Check in)
     const buttonColor = AppColors.accentRed;
-    
+
     // When held: bg = buttonColor, text/icon = black (matching ActionButton pattern)
     final bgColor = _isHoldingDelete ? buttonColor : AppColors.darkCardLight;
     final fgColor = _isHoldingDelete ? AppColors.pureBlack : buttonColor;
-    
+
     return GestureDetector(
       onLongPressStart: (_) => _startDelete(),
       onLongPressEnd: (_) => _cancelDelete(),
@@ -1084,12 +1113,13 @@ class _DeleteCountdownOverlay extends StatelessWidget {
 
   double get _progress => activeDots / totalDots;
 
-  int get _displayCountdown => ((activeDots / totalDots) * 3).ceil().clamp(1, 3);
+  int get _displayCountdown =>
+      ((activeDots / totalDots) * 3).ceil().clamp(1, 3);
 
   @override
   Widget build(BuildContext context) {
     final color = _currentColor;
-    
+
     return Material(
       color: Colors.black.withValues(alpha: 0.8),
       child: Center(

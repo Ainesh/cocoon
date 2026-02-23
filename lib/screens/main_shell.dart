@@ -24,10 +24,7 @@ const _pureBlack = Color(0xFF0A0A0A);
 
 /// Main shell with bottom navigation.
 class MainShell extends StatefulWidget {
-  const MainShell({
-    super.key,
-    required this.spaceId,
-  });
+  const MainShell({super.key, required this.spaceId});
 
   final String spaceId;
 
@@ -72,7 +69,7 @@ class _MainShellState extends State<MainShell> {
 
       final notificationService = NotificationService.instance;
       final token = notificationService.fcmToken;
-      
+
       if (token != null) {
         await _firestoreService.storeFcmToken(
           userId: userId,
@@ -91,15 +88,13 @@ class _MainShellState extends State<MainShell> {
     final notifService = NotificationService.instance;
 
     // Listen for live notification taps (foreground + some background cases)
-    _notificationSub = notifService.onNotificationTap.listen(
-      (nav) {
-        if (!mounted) return;
-        debugPrint('Notification navigation (stream): $nav');
-        // Consume pending to prevent double navigation
-        notifService.consumePendingNavigation();
-        _handleNotificationNavigation(nav);
-      },
-    );
+    _notificationSub = notifService.onNotificationTap.listen((nav) {
+      if (!mounted) return;
+      debugPrint('Notification navigation (stream): $nav');
+      // Consume pending to prevent double navigation
+      notifService.consumePendingNavigation();
+      _handleNotificationNavigation(nav);
+    });
 
     // Check for pending navigation (background resume / terminated launch)
     // Delayed to ensure widget tree + GoRouter are fully ready
@@ -116,7 +111,9 @@ class _MainShellState extends State<MainShell> {
   /// Navigate based on notification data.
   void _handleNotificationNavigation(NotificationNavigation nav) {
     final spaceId = nav.spaceId.isNotEmpty ? nav.spaceId : widget.spaceId;
-    debugPrint('Navigating for notification: type=${nav.type}, spaceId=$spaceId');
+    debugPrint(
+      'Navigating for notification: type=${nav.type}, spaceId=$spaceId',
+    );
 
     if (nav.isCheckIn) {
       // Check-in notification → open check-in screen
@@ -188,10 +185,7 @@ class _MainShellState extends State<MainShell> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _selectedTab,
-        children: _tabs,
-      ),
+      body: IndexedStack(index: _selectedTab, children: _tabs),
       bottomNavigationBar: _buildNavBar(),
     );
   }
@@ -229,8 +223,10 @@ class _MainShellState extends State<MainShell> {
                 highlightWidth += (highlightLeft - newLeft);
                 highlightLeft = newLeft;
               } else {
-                final newRight =
-                    dragX.clamp(highlightLeft + highlightWidth, totalWidth);
+                final newRight = dragX.clamp(
+                  highlightLeft + highlightWidth,
+                  totalWidth,
+                );
                 highlightWidth = newRight - highlightLeft;
               }
             } else {
@@ -245,8 +241,9 @@ class _MainShellState extends State<MainShell> {
 
             return GestureDetector(
               onHorizontalDragStart: (d) {
-                setState(() =>
-                    _dragPosition = d.localPosition.dx.clamp(0, totalWidth));
+                setState(
+                  () => _dragPosition = d.localPosition.dx.clamp(0, totalWidth),
+                );
               },
               onHorizontalDragUpdate: (d) {
                 final pos = d.localPosition.dx.clamp(0.0, totalWidth);
@@ -274,18 +271,14 @@ class _MainShellState extends State<MainShell> {
                   children: [
                     // Stretchy highlight — solid red, same as time selector
                     AnimatedPositioned(
-                      duration: Duration(
-                          milliseconds: isDragging ? 80 : 350),
-                      curve: isDragging
-                          ? Curves.easeOut
-                          : Curves.easeOutCubic,
+                      duration: Duration(milliseconds: isDragging ? 80 : 350),
+                      curve: isDragging ? Curves.easeOut : Curves.easeOutCubic,
                       left: highlightLeft,
                       top: 0,
                       bottom: 0,
                       width: highlightWidth,
                       child: AnimatedContainer(
-                        duration: Duration(
-                            milliseconds: isDragging ? 80 : 300),
+                        duration: Duration(milliseconds: isDragging ? 80 : 300),
                         curve: isDragging
                             ? Curves.easeOut
                             : Curves.easeOutCubic,
@@ -310,9 +303,7 @@ class _MainShellState extends State<MainShell> {
                           child: Center(
                             child: Icon(
                               Icons.space_dashboard_rounded,
-                              color: _selectedTab == 0
-                                  ? _pureBlack
-                                  : _dimText,
+                              color: _selectedTab == 0 ? _pureBlack : _dimText,
                               size: 22,
                             ),
                           ),
@@ -323,9 +314,7 @@ class _MainShellState extends State<MainShell> {
                           child: Center(
                             child: Icon(
                               Icons.hardware_rounded,
-                              color: _selectedTab == 1
-                                  ? _pureBlack
-                                  : _dimText,
+                              color: _selectedTab == 1 ? _pureBlack : _dimText,
                               size: 22,
                             ),
                           ),
@@ -400,7 +389,7 @@ class _MainShellState extends State<MainShell> {
       ),
     );
   }
-  
+
   Widget _buildSettingsItem({
     required IconData icon,
     required String title,
@@ -409,7 +398,7 @@ class _MainShellState extends State<MainShell> {
   }) {
     final color = isDestructive ? Colors.red.shade400 : _lightText;
     final iconColor = isDestructive ? Colors.red.shade400 : _refinedRed;
-    
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -438,10 +427,10 @@ class _MainShellState extends State<MainShell> {
       ),
     );
   }
-  
+
   void _showChangeSpaceNameDialog(BuildContext context) {
     final controller = TextEditingController(text: _spaceName ?? '');
-    
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -467,7 +456,10 @@ class _MainShellState extends State<MainShell> {
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
             ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
           ),
         ),
         actions: [
@@ -479,7 +471,10 @@ class _MainShellState extends State<MainShell> {
             onPressed: () async {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
-                await _firestoreService.updateSpaceName(widget.spaceId, newName);
+                await _firestoreService.updateSpaceName(
+                  widget.spaceId,
+                  newName,
+                );
                 if (mounted) {
                   setState(() => _spaceName = newName);
                 }
@@ -489,7 +484,9 @@ class _MainShellState extends State<MainShell> {
             style: FilledButton.styleFrom(
               backgroundColor: _refinedRed,
               foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
             child: const Text('Save'),
           ),
@@ -548,4 +545,3 @@ class _ComingSoonPage extends StatelessWidget {
     );
   }
 }
-

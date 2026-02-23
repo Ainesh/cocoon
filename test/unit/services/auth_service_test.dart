@@ -13,8 +13,7 @@ import 'package:couple_space/services/auth_service.dart';
 import '../../helpers/mock_services.dart';
 
 /// Mock for FirebaseAuthException (constructor is @protected).
-class MockFirebaseAuthException extends Mock
-    implements FirebaseAuthException {}
+class MockFirebaseAuthException extends Mock implements FirebaseAuthException {}
 
 void main() {
   late MockFirebaseAuth mockAuth;
@@ -73,10 +72,12 @@ void main() {
       final mockCredential = MockUserCredential();
       final mockUser = MockUser();
 
-      when(() => mockAuth.createUserWithEmailAndPassword(
-            email: any(named: 'email'),
-            password: any(named: 'password'),
-          )).thenAnswer((_) async => mockCredential);
+      when(
+        () => mockAuth.createUserWithEmailAndPassword(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenAnswer((_) async => mockCredential);
       when(() => mockCredential.user).thenReturn(mockUser);
       when(() => mockUser.getIdToken()).thenAnswer((_) async => 'test_token');
 
@@ -86,10 +87,12 @@ void main() {
       );
 
       expect(result, mockCredential);
-      verify(() => mockAuth.createUserWithEmailAndPassword(
-            email: 'test@example.com',
-            password: 'password123',
-          )).called(1);
+      verify(
+        () => mockAuth.createUserWithEmailAndPassword(
+          email: 'test@example.com',
+          password: 'password123',
+        ),
+      ).called(1);
     });
 
     // AUTH-02
@@ -97,10 +100,12 @@ void main() {
       final mockCredential = MockUserCredential();
       final mockUser = MockUser();
 
-      when(() => mockAuth.signInWithEmailAndPassword(
-            email: any(named: 'email'),
-            password: any(named: 'password'),
-          )).thenAnswer((_) async => mockCredential);
+      when(
+        () => mockAuth.signInWithEmailAndPassword(
+          email: any(named: 'email'),
+          password: any(named: 'password'),
+        ),
+      ).thenAnswer((_) async => mockCredential);
       when(() => mockCredential.user).thenReturn(mockUser);
       when(() => mockUser.getIdToken()).thenAnswer((_) async => 'test_token');
 
@@ -111,10 +116,12 @@ void main() {
 
       expect(result, mockCredential);
       // Verify email is trimmed
-      verify(() => mockAuth.signInWithEmailAndPassword(
-            email: 'test@example.com',
-            password: 'password123',
-          )).called(1);
+      verify(
+        () => mockAuth.signInWithEmailAndPassword(
+          email: 'test@example.com',
+          password: 'password123',
+        ),
+      ).called(1);
     });
   });
 
@@ -140,8 +147,7 @@ void main() {
   group('Sign Out', () {
     // AUTH-06
     test('signOut clears local storage and signs out', () async {
-      when(() => mockGoogleSignIn.isSignedIn())
-          .thenAnswer((_) async => true);
+      when(() => mockGoogleSignIn.isSignedIn()).thenAnswer((_) async => true);
       when(() => mockGoogleSignIn.signOut()).thenAnswer((_) async => null);
       when(() => mockAuth.signOut()).thenAnswer((_) async {});
 
@@ -151,17 +157,20 @@ void main() {
       verify(() => mockGoogleSignIn.signOut()).called(1);
     });
 
-    test('signOut skips Google sign out when not signed in with Google',
-        () async {
-      when(() => mockGoogleSignIn.isSignedIn())
-          .thenAnswer((_) async => false);
-      when(() => mockAuth.signOut()).thenAnswer((_) async {});
+    test(
+      'signOut skips Google sign out when not signed in with Google',
+      () async {
+        when(
+          () => mockGoogleSignIn.isSignedIn(),
+        ).thenAnswer((_) async => false);
+        when(() => mockAuth.signOut()).thenAnswer((_) async {});
 
-      await authService.signOut();
+        await authService.signOut();
 
-      verify(() => mockAuth.signOut()).called(1);
-      verifyNever(() => mockGoogleSignIn.signOut());
-    });
+        verify(() => mockAuth.signOut()).called(1);
+        verifyNever(() => mockGoogleSignIn.signOut());
+      },
+    );
   });
 
   // ===========================================================================
@@ -233,29 +242,25 @@ void main() {
 
     test('getErrorMessage handles operation-not-allowed code', () {
       final error = createAuthException('operation-not-allowed');
-      expect(
-        authService.getErrorMessage(error),
-        contains('not enabled'),
-      );
+      expect(authService.getErrorMessage(error), contains('not enabled'));
     });
 
     test('getErrorMessage handles admin-restricted-operation code', () {
       final error = createAuthException('admin-restricted-operation');
-      expect(
-        authService.getErrorMessage(error),
-        contains('not enabled'),
-      );
+      expect(authService.getErrorMessage(error), contains('not enabled'));
     });
 
     test(
-        'getErrorMessage handles account-exists-with-different-credential code',
-        () {
-      final error =
-          createAuthException('account-exists-with-different-credential');
-      expect(
-        authService.getErrorMessage(error),
-        contains('different sign-in credentials'),
-      );
-    });
+      'getErrorMessage handles account-exists-with-different-credential code',
+      () {
+        final error = createAuthException(
+          'account-exists-with-different-credential',
+        );
+        expect(
+          authService.getErrorMessage(error),
+          contains('different sign-in credentials'),
+        );
+      },
+    );
   });
 }

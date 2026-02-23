@@ -15,6 +15,7 @@ import '../theme/app_spacing.dart';
 enum ActionButtonLayout {
   /// Icon on the right, horizontal layout (default).
   horizontal,
+
   /// Icon on top, vertical layout for expanded buttons.
   vertical,
 }
@@ -96,7 +97,7 @@ class _ActionButtonState extends State<ActionButton> {
   Widget build(BuildContext context) {
     final color = widget.color ?? AppColors.accentRed;
     final activeColor = widget.activeColor ?? AppColors.accentRed;
-    
+
     // Colors change based on pressed state
     final bgColor = _isPressed ? activeColor : AppColors.darkCardLight;
     final fgColor = _isPressed ? AppColors.pureBlack : color;
@@ -142,11 +143,7 @@ class _ActionButtonState extends State<ActionButton> {
           ),
         ),
         if (widget.showIcon)
-          Icon(
-            widget.icon,
-            color: fgColor,
-            size: AppSpacing.iconMedium,
-          ),
+          Icon(widget.icon, color: fgColor, size: AppSpacing.iconMedium),
       ],
     );
   }
@@ -157,11 +154,7 @@ class _ActionButtonState extends State<ActionButton> {
       mainAxisSize: widget.expanded ? MainAxisSize.max : MainAxisSize.min,
       children: [
         if (widget.showIcon) ...[
-          Icon(
-            widget.icon,
-            color: fgColor,
-            size: AppSpacing.iconMedium,
-          ),
+          Icon(widget.icon, color: fgColor, size: AppSpacing.iconMedium),
           const SizedBox(height: 8),
         ],
         Text(
@@ -234,7 +227,7 @@ class HoldToActionButtonState extends State<HoldToActionButton> {
     // Use accentRed by default to match ActionButton
     final color = widget.color ?? AppColors.accentRed;
     final activeColor = widget.activeColor ?? AppColors.accentRed;
-    
+
     // Colors change based on holding state
     final bgColor = _isHolding ? activeColor : AppColors.darkCardLight;
     final fgColor = _isHolding ? AppColors.pureBlack : color;

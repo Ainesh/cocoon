@@ -19,10 +19,7 @@ enum EventViewMode { week, month }
 
 /// Events tab with week and month views.
 class CalendarTab extends StatefulWidget {
-  const CalendarTab({
-    super.key,
-    required this.spaceId,
-  });
+  const CalendarTab({super.key, required this.spaceId});
 
   final String spaceId;
 
@@ -69,17 +66,17 @@ class _CalendarTabState extends State<CalendarTab> {
     _momentsSubscription = _firestoreService
         .watchUpcomingMoments(widget.spaceId, daysAhead: 60)
         .listen(
-      (moments) {
-        setState(() {
-          _moments = moments;
-          _isLoading = false;
-        });
-      },
-      onError: (error) {
-        debugPrint('Error loading moments: $error');
-        setState(() => _isLoading = false);
-      },
-    );
+          (moments) {
+            setState(() {
+              _moments = moments;
+              _isLoading = false;
+            });
+          },
+          onError: (error) {
+            debugPrint('Error loading moments: $error');
+            setState(() => _isLoading = false);
+          },
+        );
   }
 
   // ---------------------------------------------------------------------------
@@ -127,18 +124,26 @@ class _CalendarTabState extends State<CalendarTab> {
 
   List<Moment> _getMomentsForDay(DateTime day) {
     return _moments.where((moment) {
-      final startDay = DateTime(moment.startDate.year, moment.startDate.month, moment.startDate.day);
+      final startDay = DateTime(
+        moment.startDate.year,
+        moment.startDate.month,
+        moment.startDate.day,
+      );
       final targetDay = DateTime(day.year, day.month, day.day);
-      
+
       // Check if moment starts on this day
       if (startDay == targetDay) return true;
-      
+
       // Check if multi-day moment spans this day
       if (moment.endDate != null) {
-        final endDay = DateTime(moment.endDate!.year, moment.endDate!.month, moment.endDate!.day);
+        final endDay = DateTime(
+          moment.endDate!.year,
+          moment.endDate!.month,
+          moment.endDate!.day,
+        );
         return !targetDay.isBefore(startDay) && !targetDay.isAfter(endDay);
       }
-      
+
       return false;
     }).toList();
   }
@@ -159,7 +164,10 @@ class _CalendarTabState extends State<CalendarTab> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Center(
-        child: CircularProgressIndicator(color: AppColors.accentRed, strokeWidth: 2),
+        child: CircularProgressIndicator(
+          color: AppColors.accentRed,
+          strokeWidth: 2,
+        ),
       );
     }
 
@@ -240,7 +248,11 @@ class _CalendarTabState extends State<CalendarTab> {
 
     return Row(
       children: [
-        _buildNavButton(Icons.chevron_left_rounded, _previousWeek, 'Previous week'),
+        _buildNavButton(
+          Icons.chevron_left_rounded,
+          _previousWeek,
+          'Previous week',
+        ),
         Expanded(
           child: Column(
             children: [
@@ -257,7 +269,10 @@ class _CalendarTabState extends State<CalendarTab> {
                   onPressed: _goToToday,
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.accentRed,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                   ),
                   child: const Text('Go to today'),
                 ),
@@ -271,12 +286,17 @@ class _CalendarTabState extends State<CalendarTab> {
 
   Widget _buildMonthNavigation() {
     final monthFormat = DateFormat('MMMM yyyy');
-    final isCurrentMonth = _currentMonth.year == DateTime.now().year &&
+    final isCurrentMonth =
+        _currentMonth.year == DateTime.now().year &&
         _currentMonth.month == DateTime.now().month;
 
     return Row(
       children: [
-        _buildNavButton(Icons.chevron_left_rounded, _previousMonth, 'Previous month'),
+        _buildNavButton(
+          Icons.chevron_left_rounded,
+          _previousMonth,
+          'Previous month',
+        ),
         Expanded(
           child: Column(
             children: [
@@ -293,7 +313,10 @@ class _CalendarTabState extends State<CalendarTab> {
                   onPressed: _goToToday,
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.accentRed,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                   ),
                   child: const Text('Go to today'),
                 ),
@@ -305,7 +328,11 @@ class _CalendarTabState extends State<CalendarTab> {
     );
   }
 
-  Widget _buildNavButton(IconData icon, VoidCallback onPressed, String tooltip) {
+  Widget _buildNavButton(
+    IconData icon,
+    VoidCallback onPressed,
+    String tooltip,
+  ) {
     return IconButton(
       icon: Icon(icon, color: AppColors.accentRed),
       onPressed: onPressed,
@@ -336,7 +363,8 @@ class _CalendarTabState extends State<CalendarTab> {
 
   Widget _buildDayCard(DateTime day, List<Moment> moments) {
     final now = DateTime.now();
-    final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
+    final isToday =
+        day.year == now.year && day.month == now.month && day.day == now.day;
     final isPast = day.isBefore(DateTime(now.year, now.month, now.day));
     final dayFormat = DateFormat('EEEE');
     final dateFormat = DateFormat('MMM d');
@@ -350,17 +378,25 @@ class _CalendarTabState extends State<CalendarTab> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: isToday ? AppColors.accentRed.withValues(alpha: 0.15) : AppColors.cardVariant,
+              color: isToday
+                  ? AppColors.accentRed.withValues(alpha: 0.15)
+                  : AppColors.cardVariant,
               borderRadius: BorderRadius.circular(12),
               border: isToday
-                  ? Border.all(color: AppColors.accentRed.withValues(alpha: 0.3), width: 1)
+                  ? Border.all(
+                      color: AppColors.accentRed.withValues(alpha: 0.3),
+                      width: 1,
+                    )
                   : null,
             ),
             child: Row(
               children: [
                 if (isToday)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     margin: const EdgeInsets.only(right: 8),
                     decoration: BoxDecoration(
                       color: AppColors.accentRed,
@@ -381,7 +417,9 @@ class _CalendarTabState extends State<CalendarTab> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: isPast && !isToday ? AppColors.warmDim : AppColors.warmLight,
+                    color: isPast && !isToday
+                        ? AppColors.warmDim
+                        : AppColors.warmLight,
                   ),
                 ),
                 const Spacer(),
@@ -447,7 +485,11 @@ class _CalendarTabState extends State<CalendarTab> {
               if (dayOffset < 1 || dayOffset > daysInMonth) {
                 return const SizedBox.shrink();
               }
-              final day = DateTime(_currentMonth.year, _currentMonth.month, dayOffset);
+              final day = DateTime(
+                _currentMonth.year,
+                _currentMonth.month,
+                dayOffset,
+              );
               final dayMoments = _getMomentsForDay(day);
               return _buildMonthDayCell(day, dayMoments);
             },
@@ -482,28 +524,27 @@ class _CalendarTabState extends State<CalendarTab> {
 
   Widget _buildMonthDayCell(DateTime day, List<Moment> moments) {
     final now = DateTime.now();
-    final isToday = day.year == now.year && day.month == now.month && day.day == now.day;
+    final isToday =
+        day.year == now.year && day.month == now.month && day.day == now.day;
     final isPast = day.isBefore(DateTime(now.year, now.month, now.day));
     final hasMoments = moments.isNotEmpty;
 
     return GestureDetector(
-      onTap: hasMoments
-          ? () => _showDayMomentsSheet(day, moments)
-          : null,
+      onTap: hasMoments ? () => _showDayMomentsSheet(day, moments) : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
           color: isToday
               ? AppColors.accentRed.withValues(alpha: 0.2)
               : hasMoments
-                  ? AppColors.cardVariant
-                  : Colors.transparent,
+              ? AppColors.cardVariant
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: isToday
               ? Border.all(color: AppColors.accentRed, width: 2)
               : hasMoments
-                  ? Border.all(color: AppColors.accentRed.withValues(alpha: 0.3))
-                  : null,
+              ? Border.all(color: AppColors.accentRed.withValues(alpha: 0.3))
+              : null,
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -516,8 +557,8 @@ class _CalendarTabState extends State<CalendarTab> {
                 color: isPast && !isToday
                     ? AppColors.warmDim
                     : isToday
-                        ? AppColors.accentRed
-                        : AppColors.warmLight,
+                    ? AppColors.accentRed
+                    : AppColors.warmLight,
               ),
             ),
             if (hasMoments) ...[
@@ -555,7 +596,7 @@ class _CalendarTabState extends State<CalendarTab> {
 
   void _showDayMomentsSheet(DateTime day, List<Moment> moments) {
     final dateFormat = DateFormat('EEEE, MMMM d');
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.darkCardLight,
@@ -601,8 +642,7 @@ class _CalendarTabState extends State<CalendarTab> {
     final monthMoments = _moments.where((moment) {
       return moment.startDate.year == _currentMonth.year &&
           moment.startDate.month == _currentMonth.month;
-    }).toList()
-      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+    }).toList()..sort((a, b) => a.startDate.compareTo(b.startDate));
 
     if (monthMoments.isEmpty) {
       return PremiumCard(
@@ -628,10 +668,9 @@ class _CalendarTabState extends State<CalendarTab> {
             ),
           ),
           const SizedBox(height: 12),
-          ...monthMoments.map((moment) => _TappableMomentTile(
-                moment: moment,
-                showDate: true,
-              )),
+          ...monthMoments.map(
+            (moment) => _TappableMomentTile(moment: moment, showDate: true),
+          ),
         ],
       ),
     );
@@ -692,15 +731,21 @@ class _ViewModeButtonState extends State<_ViewModeButton> {
               Icon(
                 widget.icon,
                 size: 18,
-                color: widget.isSelected ? AppColors.accentRed : AppColors.warmDim,
+                color: widget.isSelected
+                    ? AppColors.accentRed
+                    : AppColors.warmDim,
               ),
               const SizedBox(width: 8),
               Text(
                 widget.label,
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: widget.isSelected ? FontWeight.w600 : FontWeight.w500,
-                  color: widget.isSelected ? AppColors.accentRed : AppColors.warmDim,
+                  fontWeight: widget.isSelected
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                  color: widget.isSelected
+                      ? AppColors.accentRed
+                      : AppColors.warmDim,
                 ),
               ),
             ],
@@ -716,10 +761,7 @@ class _ViewModeButtonState extends State<_ViewModeButton> {
 // ---------------------------------------------------------------------------
 
 class _TappableMomentTile extends StatefulWidget {
-  const _TappableMomentTile({
-    required this.moment,
-    this.showDate = false,
-  });
+  const _TappableMomentTile({required this.moment, this.showDate = false});
 
   final Moment moment;
   final bool showDate;
@@ -774,9 +816,14 @@ class _TappableMomentTileState extends State<_TappableMomentTile> {
                 decoration: BoxDecoration(
                   color: AppColors.cardVariant,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.accentRed.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: AppColors.accentRed.withValues(alpha: 0.2),
+                  ),
                 ),
-                child: Text(widget.moment.type.emoji, style: const TextStyle(fontSize: 20)),
+                child: Text(
+                  widget.moment.type.emoji,
+                  style: const TextStyle(fontSize: 20),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

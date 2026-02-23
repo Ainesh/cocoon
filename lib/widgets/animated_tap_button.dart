@@ -62,13 +62,7 @@ class AnimatedTapButton extends StatefulWidget {
 }
 
 /// Type of haptic feedback.
-enum HapticType {
-  light,
-  medium,
-  heavy,
-  selection,
-  none,
-}
+enum HapticType { light, medium, heavy, selection, none }
 
 class _AnimatedTapButtonState extends State<AnimatedTapButton> {
   bool _isPressed = false;

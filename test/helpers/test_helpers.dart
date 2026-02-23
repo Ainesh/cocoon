@@ -106,10 +106,7 @@ Activity createTestMomentPlannedActivity({
     type: ActivityType.momentPlanned,
     entityType: EntityType.moment,
     entityId: 'moment_1',
-    metadata: {
-      'momentName': momentName,
-      'momentType': momentType,
-    },
+    metadata: {'momentName': momentName, 'momentType': momentType},
   );
 }
 

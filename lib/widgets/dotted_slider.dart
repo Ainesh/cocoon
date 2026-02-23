@@ -47,7 +47,7 @@ class _ScoreSelectorState extends State<ScoreSelector> {
   // ---------------------------------------------------------------------------
 
   static const double _barHeight = 44.0;
-  
+
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
@@ -60,7 +60,7 @@ class _ScoreSelectorState extends State<ScoreSelector> {
 
   double get _progress =>
       (widget.value - widget.min) / (widget.max - widget.min);
-  
+
   /// Interpolate between blue (low) and red (high) based on progress.
   Color get _valueColor =>
       Color.lerp(AppColors.morningColor, AppColors.nightColor, _progress) ??
@@ -83,12 +83,12 @@ class _ScoreSelectorState extends State<ScoreSelector> {
   void _handleValueChange(double newValue) {
     final clamped = newValue.clamp(widget.min, widget.max);
     final rounded = clamped.round();
-    
+
     if (rounded != _lastRoundedValue) {
       HapticFeedback.selectionClick();
       _lastRoundedValue = rounded;
     }
-    
+
     widget.onChanged(clamped);
   }
 
@@ -99,64 +99,63 @@ class _ScoreSelectorState extends State<ScoreSelector> {
   @override
   Widget build(BuildContext context) {
     final color = _valueColor;
-    
+
     final content = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Icon + Label row
-              Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: color.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Center(
-                      child: widget.icon != null
-                          ? Icon(widget.icon, color: color, size: 18)
-                          : widget.iconAsset != null
-                              ? SvgPicture.asset(
-                                  widget.iconAsset!,
-                                  width: 18,
-                                  height: 18,
-                            colorFilter:
-                                ColorFilter.mode(color, BlendMode.srcIn),
-                                )
-                              : null,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    widget.label,
-                    style: GoogleFonts.inter(
-                      fontSize: 11,
-                      color: AppColors.warmMuted,
-                    ),
-                  ),
-                ],
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Icon + Label row
+        Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(height: 14),
-              _HorizontalSlider(
-                value: widget.value,
-                onChanged: _handleValueChange,
-                min: widget.min,
-                max: widget.max,
-                color: color,
+              child: Center(
+                child: widget.icon != null
+                    ? Icon(widget.icon, color: color, size: 18)
+                    : widget.iconAsset != null
+                    ? SvgPicture.asset(
+                        widget.iconAsset!,
+                        width: 18,
+                        height: 18,
+                        colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              widget.label,
+              style: GoogleFonts.inter(
+                fontSize: 11,
+                color: AppColors.warmMuted,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _HorizontalSlider(
+          value: widget.value,
+          onChanged: _handleValueChange,
+          min: widget.min,
+          max: widget.max,
+          color: color,
           height: _barHeight,
         ),
       ],
     );
-    
+
     if (widget.embedded) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: content,
       );
     }
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -221,8 +220,10 @@ class _VerticalBarSliderState extends State<VerticalBarSlider> {
 
   void _handleDrag(Offset localPosition, double trackHeight) {
     final progress = (1.0 - localPosition.dy / trackHeight).clamp(0.0, 1.0);
-    final newValue = (widget.min + progress * (widget.max - widget.min))
-        .clamp(widget.min, widget.max);
+    final newValue = (widget.min + progress * (widget.max - widget.min)).clamp(
+      widget.min,
+      widget.max,
+    );
     final rounded = newValue.round();
 
     if (rounded != _lastRoundedValue) {
@@ -278,12 +279,13 @@ class _VerticalBarSliderState extends State<VerticalBarSlider> {
                       // Filled bar (bottom-up)
                       AnimatedContainer(
                         duration: Duration(
-                          milliseconds:
-                              widget.displayProgress != null ? 0 : 50,
+                          milliseconds: widget.displayProgress != null ? 0 : 50,
                         ),
                         width: double.infinity,
-                        height: (trackHeight * fillProgress)
-                            .clamp(trackHeight * 0.05, trackHeight),
+                        height: (trackHeight * fillProgress).clamp(
+                          trackHeight * 0.05,
+                          trackHeight,
+                        ),
                         decoration: BoxDecoration(
                           color: color,
                           borderRadius: BorderRadius.circular(borderRadius),
@@ -317,14 +319,13 @@ class _VerticalBarSliderState extends State<VerticalBarSlider> {
             child: widget.icon != null
                 ? Icon(widget.icon, color: color, size: 18)
                 : widget.iconAsset != null
-                    ? SvgPicture.asset(
-                        widget.iconAsset!,
-                        width: 18,
-                        height: 18,
-                        colorFilter:
-                            ColorFilter.mode(color, BlendMode.srcIn),
-                      )
-                    : null,
+                ? SvgPicture.asset(
+                    widget.iconAsset!,
+                    width: 18,
+                    height: 18,
+                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
+                  )
+                : null,
           ),
         ),
 
@@ -372,11 +373,11 @@ class _HorizontalSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     final progress = (value - min) / (max - min);
     const borderRadius = 12.0;
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final trackWidth = constraints.maxWidth;
-        
+
         return GestureDetector(
           onHorizontalDragStart: (details) {
             HapticFeedback.lightImpact();
@@ -407,8 +408,10 @@ class _HorizontalSlider extends StatelessWidget {
                 // Filled track
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 50),
-                  width: (trackWidth * progress)
-                      .clamp(trackWidth * 0.05, trackWidth),
+                  width: (trackWidth * progress).clamp(
+                    trackWidth * 0.05,
+                    trackWidth,
+                  ),
                   height: height,
                   decoration: BoxDecoration(
                     color: color,

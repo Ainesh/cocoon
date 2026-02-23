@@ -47,8 +47,9 @@ class TestSplashScreen extends StatelessWidget {
 
 void main() {
   // WS-01
-  testWidgets('SplashScreen shows app icon and loading indicator',
-      (tester) async {
+  testWidgets('SplashScreen shows app icon and loading indicator', (
+    tester,
+  ) async {
     await tester.pumpScreen(const TestSplashScreen());
 
     // Verify heart icon is present

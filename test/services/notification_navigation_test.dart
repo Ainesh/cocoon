@@ -14,17 +14,19 @@ void main() {
     });
 
     test('isMoment returns true for all moment variants', () {
-      for (final type in ['moment_planned', 'moment_edited', 'moment_deleted', 'moment_completed']) {
+      for (final type in [
+        'moment_planned',
+        'moment_edited',
+        'moment_deleted',
+        'moment_completed',
+      ]) {
         final nav = NotificationNavigation(type: type, spaceId: 'space123');
         expect(nav.isMoment, true, reason: '$type should be a moment type');
       }
     });
 
     test('isCheckIn returns true for checkin type', () {
-      const nav = NotificationNavigation(
-        type: 'checkin',
-        spaceId: 'space123',
-      );
+      const nav = NotificationNavigation(type: 'checkin', spaceId: 'space123');
       expect(nav.isCheckIn, true);
       expect(nav.isMoment, false);
     });
@@ -39,10 +41,7 @@ void main() {
     });
 
     test('default entityType and entityId are empty', () {
-      const nav = NotificationNavigation(
-        type: 'checkin',
-        spaceId: 'space123',
-      );
+      const nav = NotificationNavigation(type: 'checkin', spaceId: 'space123');
       expect(nav.entityType, '');
       expect(nav.entityId, '');
     });

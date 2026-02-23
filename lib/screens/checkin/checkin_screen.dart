@@ -24,10 +24,7 @@ import '../../widgets/slide_to_action.dart';
 
 /// Check-in screen for submitting relationship scores.
 class CheckInScreen extends StatefulWidget {
-  const CheckInScreen({
-    super.key,
-    required this.spaceId,
-  });
+  const CheckInScreen({super.key, required this.spaceId});
 
   final String spaceId;
 
@@ -54,9 +51,6 @@ class _CheckInScreenState extends State<CheckInScreen>
   final _notesFocusNode = FocusNode();
   bool _isNotesFocused = false;
   bool _hasLoadedDefaults = false;
-  
-  
-
 
   // Loading state
   bool _isSubmitting = false;
@@ -65,7 +59,7 @@ class _CheckInScreenState extends State<CheckInScreen>
   StreamSubscription<List<UserCheckIn>>? _checkInsSubscription;
   List<UserCheckIn> _recentCheckIns = [];
   String? _currentUserId;
-  
+
   // Fixed seed for the Voronoi mosaic — set once, stable across rebuilds
   late final int _mosaicSeed = DateTime.now().millisecondsSinceEpoch;
 
@@ -84,12 +78,12 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
 
     _subscribeToCheckIns();
-    
+
     // Listen for notes focus changes
     _notesFocusNode.addListener(() {
       setState(() => _isNotesFocused = _notesFocusNode.hasFocus);
     });
-    
+
     // Listen for notes text changes to update active state
     _notesController.addListener(() {
       setState(() {});
@@ -123,26 +117,26 @@ class _CheckInScreenState extends State<CheckInScreen>
     _checkInsSubscription = _firestoreService
         .watchRecentCheckIns(widget.spaceId, daysBack: 30)
         .listen(
-      (checkIns) {
-        setState(() {
-          _recentCheckIns = checkIns;
-          
-          // Set defaults from last check-in (only once)
-          if (!_hasLoadedDefaults && _myCheckIns.isNotEmpty) {
-            final lastCheckIn = _myCheckIns.first;
-            _connection = lastCheckIn.connection.toDouble();
-            _intimacy = lastCheckIn.intimacy.toDouble();
-            _peace = lastCheckIn.peace.toDouble();
-            
-            _hasLoadedDefaults = true;
-          }
-        });
-      },
-      onError: (error) {
-        debugPrint('Error loading check-ins: $error');
-        setState(() {});
-      },
-    );
+          (checkIns) {
+            setState(() {
+              _recentCheckIns = checkIns;
+
+              // Set defaults from last check-in (only once)
+              if (!_hasLoadedDefaults && _myCheckIns.isNotEmpty) {
+                final lastCheckIn = _myCheckIns.first;
+                _connection = lastCheckIn.connection.toDouble();
+                _intimacy = lastCheckIn.intimacy.toDouble();
+                _peace = lastCheckIn.peace.toDouble();
+
+                _hasLoadedDefaults = true;
+              }
+            });
+          },
+          onError: (error) {
+            debugPrint('Error loading check-ins: $error');
+            setState(() {});
+          },
+        );
   }
 
   // ---------------------------------------------------------------------------
@@ -168,7 +162,7 @@ class _CheckInScreenState extends State<CheckInScreen>
       // Log activity
       final profile = await _firestoreService.getUserProfile(userId);
       final userName = profile?['name'] as String? ?? 'Someone';
-      
+
       await _firestoreService.logCheckInActivity(
         spaceId: widget.spaceId,
         userId: userId,
@@ -233,7 +227,10 @@ class _CheckInScreenState extends State<CheckInScreen>
           ),
           centerTitle: true,
           leading: IconButton(
-            icon: const Icon(Icons.arrow_back_rounded, color: AppColors.lightText),
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: AppColors.lightText,
+            ),
             onPressed: () => context.pop(),
           ),
         ),
@@ -255,10 +252,7 @@ class _CheckInScreenState extends State<CheckInScreen>
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildCheckInForm(),
-              const SizedBox(height: 24),
-            ],
+            children: [_buildCheckInForm(), const SizedBox(height: 24)],
           ),
         ),
       ),
@@ -273,8 +267,11 @@ class _CheckInScreenState extends State<CheckInScreen>
 
   /// Compute a colour from a 1–10 value on the blue→red spectrum.
   Color _scoreColor(double value) =>
-      Color.lerp(AppColors.morningColor, AppColors.nightColor,
-          (value - 1) / 9) ??
+      Color.lerp(
+        AppColors.morningColor,
+        AppColors.nightColor,
+        (value - 1) / 9,
+      ) ??
       AppColors.nightColor;
 
   Widget _buildPulseCard() {
@@ -292,7 +289,7 @@ class _CheckInScreenState extends State<CheckInScreen>
         final connFill = barEase < 1.0 ? _barFill(_connection, barEase) : null;
         final intFill = barEase < 1.0 ? _barFill(_intimacy, barEase) : null;
         final peaceFill = barEase < 1.0 ? _barFill(_peace, barEase) : null;
-    
+
         return Container(
           decoration: BoxDecoration(
             color: AppColors.darkCardLight,
@@ -301,8 +298,8 @@ class _CheckInScreenState extends State<CheckInScreen>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 // ---- Top: Voronoi mosaic with grouped colours + header ----
                 Stack(
                   children: [
@@ -365,43 +362,43 @@ class _CheckInScreenState extends State<CheckInScreen>
                     height: 265,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+                      children: [
                         Expanded(
                           child: VerticalBarSlider(
-                value: _connection,
-                onChanged: (v) => setState(() => _connection = v),
+                            value: _connection,
+                            onChanged: (v) => setState(() => _connection = v),
                             icon: Icons.favorite_rounded,
-                label: 'Connection',
+                            label: 'Connection',
                             displayProgress: connFill,
                           ),
-              ),
+                        ),
                         const SizedBox(width: 24),
                         Expanded(
                           child: VerticalBarSlider(
-                value: _intimacy,
-                onChanged: (v) => setState(() => _intimacy = v),
+                            value: _intimacy,
+                            onChanged: (v) => setState(() => _intimacy = v),
                             iconAsset: 'assets/icons/flame.svg',
-                label: 'Intimacy',
+                            label: 'Intimacy',
                             displayProgress: intFill,
                           ),
-              ),
+                        ),
                         const SizedBox(width: 24),
                         Expanded(
                           child: VerticalBarSlider(
-                value: _peace,
-                onChanged: (v) => setState(() => _peace = v),
+                            value: _peace,
+                            onChanged: (v) => setState(() => _peace = v),
                             iconAsset: 'assets/icons/peace.svg',
-                label: 'Peace',
+                            label: 'Peace',
                             displayProgress: peaceFill,
                           ),
                         ),
                       ],
                     ),
                   ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
-        ),
         );
       },
     );
@@ -422,7 +419,8 @@ class _CheckInScreenState extends State<CheckInScreen>
           child: ActiveCard(
             heading: 'Reflection',
             isActive: true,
-            helperText: 'Got something on your mind? Use this space to share your thoughts.',
+            helperText:
+                'Got something on your mind? Use this space to share your thoughts.',
             hideHelperWhenActive: false,
             showBorder: _isNotesFocused,
             child: TextField(

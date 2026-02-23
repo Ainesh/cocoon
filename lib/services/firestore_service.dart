@@ -80,10 +80,7 @@ enum JoinResult {
 
 /// Data returned after successfully creating a space.
 class CreateSpaceResult {
-  const CreateSpaceResult({
-    required this.spaceId,
-    required this.inviteCode,
-  });
+  const CreateSpaceResult({required this.spaceId, required this.inviteCode});
 
   final String spaceId;
   final String inviteCode;
@@ -101,7 +98,7 @@ class CreateSpaceResult {
 /// - `users/{uid}` - User profile data
 class FirestoreService {
   FirestoreService({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -311,8 +308,10 @@ class FirestoreService {
 
   /// Gets the space ID from an invite code (for redirection after join).
   Future<String?> getSpaceIdFromInvite(String inviteCode) async {
-    final inviteDoc =
-        await _firestore.collection(_invitesCollection).doc(inviteCode).get();
+    final inviteDoc = await _firestore
+        .collection(_invitesCollection)
+        .doc(inviteCode)
+        .get();
 
     if (!inviteDoc.exists) return null;
 
@@ -355,8 +354,7 @@ class FirestoreService {
 
   /// Gets a user's profile.
   Future<Map<String, dynamic>?> getUserProfile(String userId) async {
-    final doc =
-        await _firestore.collection(_usersCollection).doc(userId).get();
+    final doc = await _firestore.collection(_usersCollection).doc(userId).get();
     return doc.exists ? doc.data() : null;
   }
 
@@ -381,8 +379,10 @@ class FirestoreService {
 
   /// Gets space details by ID.
   Future<Map<String, dynamic>?> getSpace(String spaceId) async {
-    final doc =
-        await _firestore.collection(_spacesCollection).doc(spaceId).get();
+    final doc = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .get();
 
     if (!doc.exists) return null;
 
@@ -391,8 +391,10 @@ class FirestoreService {
 
   /// Gets space details with member profiles.
   Future<Map<String, dynamic>?> getSpaceWithMembers(String spaceId) async {
-    final spaceDoc =
-        await _firestore.collection(_spacesCollection).doc(spaceId).get();
+    final spaceDoc = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .get();
 
     if (!spaceDoc.exists) return null;
 
@@ -408,11 +410,7 @@ class FirestoreService {
       }
     }
 
-    return {
-      'id': spaceDoc.id,
-      ...spaceData,
-      'members': members,
-    };
+    return {'id': spaceDoc.id, ...spaceData, 'members': members};
   }
 
   /// Updates the name of a space.
@@ -459,8 +457,10 @@ class FirestoreService {
 
   /// Verifies that a user is a member of a specific space.
   Future<bool> _verifyUserMembership(String spaceId, String userId) async {
-    final doc =
-        await _firestore.collection(_spacesCollection).doc(spaceId).get();
+    final doc = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .get();
 
     if (!doc.exists) return false;
 
@@ -524,12 +524,12 @@ class FirestoreService {
         .orderBy('startDate')
         .snapshots()
         .map((snapshot) {
-      final moments = snapshot.docs
-          .map((doc) => Moment.fromFirestore(doc))
-          .where((m) => m.isUpcoming || m.spansToday)
-          .toList();
-      return moments;
-    });
+          final moments = snapshot.docs
+              .map((doc) => Moment.fromFirestore(doc))
+              .where((m) => m.isUpcoming || m.spansToday)
+              .toList();
+          return moments;
+        });
   }
 
   /// Gets the next upcoming moment for display on dashboard.
@@ -545,7 +545,10 @@ class FirestoreService {
           .collection(_spacesCollection)
           .doc(spaceId)
           .collection('moments')
-          .where('startDate', isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday))
+          .where(
+            'startDate',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfToday),
+          )
           .orderBy('startDate')
           .limit(limit)
           .get();
@@ -713,10 +716,7 @@ class FirestoreService {
         .doc(momentId)
         .collection('editing')
         .doc(userId)
-        .set({
-      'userName': userName,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+        .set({'userName': userName, 'timestamp': FieldValue.serverTimestamp()});
   }
 
   /// Clears editing presence for a user.
@@ -780,20 +780,23 @@ class FirestoreService {
         .collection('editing')
         .snapshots()
         .map((snapshot) {
-      final editors = <({String name, DateTime time})>[];
-      for (final doc in snapshot.docs) {
-        if (doc.id == excludeUserId) continue;
-        final data = doc.data();
-        final ts = data['timestamp'] as Timestamp?;
-        if (ts == null) continue;
-        final time = ts.toDate();
-        // Only show if presence is < 60s old (stale cleanup)
-        if (DateTime.now().difference(time).inSeconds < 60) {
-          editors.add((name: data['userName'] as String? ?? 'Partner', time: time));
-        }
-      }
-      return editors;
-    });
+          final editors = <({String name, DateTime time})>[];
+          for (final doc in snapshot.docs) {
+            if (doc.id == excludeUserId) continue;
+            final data = doc.data();
+            final ts = data['timestamp'] as Timestamp?;
+            if (ts == null) continue;
+            final time = ts.toDate();
+            // Only show if presence is < 60s old (stale cleanup)
+            if (DateTime.now().difference(time).inSeconds < 60) {
+              editors.add((
+                name: data['userName'] as String? ?? 'Partner',
+                time: time,
+              ));
+            }
+          }
+          return editors;
+        });
   }
 
   // ---------------------------------------------------------------------------
@@ -814,12 +817,17 @@ class FirestoreService {
         .collection(_spacesCollection)
         .doc(spaceId)
         .collection('checkins')
-        .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
+        .where(
+          'timestamp',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate),
+        )
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs.map((doc) => UserCheckIn.fromFirestore(doc)).toList();
-    });
+          return snapshot.docs
+              .map((doc) => UserCheckIn.fromFirestore(doc))
+              .toList();
+        });
   }
 
   /// Gets recent check-ins for a specific user in a space.
@@ -838,7 +846,9 @@ class FirestoreService {
           .limit(limit)
           .get();
 
-      return snapshot.docs.map((doc) => UserCheckIn.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => UserCheckIn.fromFirestore(doc))
+          .toList();
     } catch (e) {
       // If composite index doesn't exist, fall back to fetching all and filtering
       debugPrint('Falling back to manual filtering: $e');
@@ -907,20 +917,23 @@ class FirestoreService {
     try {
       final now = DateTime.now();
       final cutoffDate = now.subtract(Duration(days: days));
-      
+
       // Get all check-ins from the last N days
       final snapshot = await _firestore
           .collection(_spacesCollection)
           .doc(spaceId)
           .collection('checkins')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
+          .where(
+            'timestamp',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate),
+          )
           .get();
-      
+
       if (snapshot.docs.isEmpty) {
         debugPrint('No check-ins in the last $days days');
         return CheckInStats.empty;
       }
-      
+
       final allCheckIns = snapshot.docs
           .map((doc) => UserCheckIn.fromJson(doc.id, doc.data()))
           .toList();
@@ -930,7 +943,10 @@ class FirestoreService {
       // Sort by timestamp for trend calculation
       allCheckIns.sort((a, b) => b.timestamp.compareTo(a.timestamp));
 
-      return CheckInStats.fromCheckIns(allCheckIns, currentUserId: currentUserId);
+      return CheckInStats.fromCheckIns(
+        allCheckIns,
+        currentUserId: currentUserId,
+      );
     } catch (e) {
       debugPrint('Error getting check-in stats: $e');
       return CheckInStats.empty;
@@ -948,30 +964,34 @@ class FirestoreService {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final cutoffDate = today.subtract(Duration(days: days - 1));
-      
+
       final snapshot = await _firestore
           .collection(_spacesCollection)
           .doc(spaceId)
           .collection('checkins')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
+          .where(
+            'timestamp',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate),
+          )
           .orderBy('timestamp', descending: false)
           .get();
-      
+
       // Group check-ins by day
       final Map<String, List<UserCheckIn>> byDay = {};
       for (final doc in snapshot.docs) {
         final checkIn = UserCheckIn.fromFirestore(doc);
-        final dayKey = '${checkIn.timestamp.year}-${checkIn.timestamp.month}-${checkIn.timestamp.day}';
+        final dayKey =
+            '${checkIn.timestamp.year}-${checkIn.timestamp.month}-${checkIn.timestamp.day}';
         byDay.putIfAbsent(dayKey, () => []).add(checkIn);
       }
-      
+
       // Build result for each day
       final result = <Map<String, dynamic>>[];
       for (int i = 0; i < days; i++) {
         final date = cutoffDate.add(Duration(days: i));
         final dayKey = '${date.year}-${date.month}-${date.day}';
         final dayCheckIns = byDay[dayKey] ?? [];
-        
+
         double score = 0;
         if (dayCheckIns.isNotEmpty) {
           // Calculate average health score for this day (1-10 scale -> 0-100)
@@ -984,58 +1004,62 @@ class FirestoreService {
           }
           score = totalScore / dayCheckIns.length;
         }
-        
+
         result.add({
           'date': date,
           'score': score,
           'hasCheckIn': dayCheckIns.isNotEmpty,
         });
       }
-      
+
       return result;
     } catch (e) {
       debugPrint('Error getting daily health scores: $e');
       return [];
     }
   }
-  
+
   /// Calculates the current check-in streak (consecutive days).
   Future<int> getCheckInStreak(String spaceId) async {
     try {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      
+
       // Get check-ins from last 60 days (more than enough to find streak)
       final cutoffDate = today.subtract(const Duration(days: 60));
-      
+
       final snapshot = await _firestore
           .collection(_spacesCollection)
           .doc(spaceId)
           .collection('checkins')
-          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate))
+          .where(
+            'timestamp',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate),
+          )
           .orderBy('timestamp', descending: true)
           .get();
-      
+
       if (snapshot.docs.isEmpty) return 0;
-      
+
       // Get unique days with check-ins
       final Set<String> daysWithCheckIns = {};
       for (final doc in snapshot.docs) {
         final checkIn = UserCheckIn.fromFirestore(doc);
-        final dayKey = '${checkIn.timestamp.year}-${checkIn.timestamp.month}-${checkIn.timestamp.day}';
+        final dayKey =
+            '${checkIn.timestamp.year}-${checkIn.timestamp.month}-${checkIn.timestamp.day}';
         daysWithCheckIns.add(dayKey);
       }
-      
+
       // Count consecutive days starting from today (or yesterday if no check-in today)
       int streak = 0;
       var checkDate = today;
       final todayKey = '${today.year}-${today.month}-${today.day}';
-      
+
       // If no check-in today, start from yesterday
       if (!daysWithCheckIns.contains(todayKey)) {
         checkDate = today.subtract(const Duration(days: 1));
       }
-      
+
       while (true) {
         final dayKey = '${checkDate.year}-${checkDate.month}-${checkDate.day}';
         if (daysWithCheckIns.contains(dayKey)) {
@@ -1045,7 +1069,7 @@ class FirestoreService {
           break;
         }
       }
-      
+
       return streak;
     } catch (e) {
       debugPrint('Error calculating streak: $e');
@@ -1097,8 +1121,10 @@ class FirestoreService {
 
     do {
       code = _generateInviteCode();
-      final doc =
-          await _firestore.collection(_invitesCollection).doc(code).get();
+      final doc = await _firestore
+          .collection(_invitesCollection)
+          .doc(code)
+          .get();
       exists = doc.exists;
     } while (exists);
 
@@ -1150,7 +1176,7 @@ class FirestoreService {
 
       await activityRef.set(activity.toFirestore());
       debugPrint('Logged activity: ${activity.type.value} by $actorName');
-      
+
       return activityRef.id;
     } catch (e) {
       debugPrint('Error logging activity: $e');
@@ -1184,10 +1210,7 @@ class FirestoreService {
   /// Watches real-time activity updates for a space.
   ///
   /// Returns a stream of activity lists, updated whenever new activities are added.
-  Stream<List<Activity>> watchActivities(
-    String spaceId, {
-    int limit = 20,
-  }) {
+  Stream<List<Activity>> watchActivities(String spaceId, {int limit = 20}) {
     return _firestore
         .collection(_spacesCollection)
         .doc(spaceId)
@@ -1195,8 +1218,10 @@ class FirestoreService {
         .orderBy('timestamp', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Activity.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => Activity.fromFirestore(doc)).toList(),
+        );
   }
 
   // ---------------------------------------------------------------------------
@@ -1298,10 +1323,7 @@ class FirestoreService {
       actorName: userName,
       entityType: EntityType.moment,
       // No entityId since it's deleted
-      metadata: {
-        'momentName': momentName,
-        'momentType': momentType,
-      },
+      metadata: {'momentName': momentName, 'momentType': momentType},
     );
   }
 
@@ -1354,10 +1376,7 @@ class FirestoreService {
       actorName: userName,
       entityType: EntityType.space,
       entityId: spaceId,
-      metadata: {
-        'oldName': oldName,
-        'newName': newName,
-      },
+      metadata: {'oldName': oldName, 'newName': newName},
     );
   }
 
@@ -1376,9 +1395,7 @@ class FirestoreService {
   }) async {
     try {
       await _firestore.collection(_usersCollection).doc(userId).set({
-        'fcmTokens': {
-          token: deviceInfo,
-        },
+        'fcmTokens': {token: deviceInfo},
       }, SetOptions(merge: true));
       debugPrint('Stored FCM token for user: $userId');
     } catch (e) {
@@ -1406,8 +1423,10 @@ class FirestoreService {
   /// Gets all FCM tokens for a user.
   Future<Map<String, dynamic>> getFcmTokens(String userId) async {
     try {
-      final doc =
-          await _firestore.collection(_usersCollection).doc(userId).get();
+      final doc = await _firestore
+          .collection(_usersCollection)
+          .doc(userId)
+          .get();
       return doc.data()?['fcmTokens'] as Map<String, dynamic>? ?? {};
     } catch (e) {
       debugPrint('Error getting FCM tokens: $e');
@@ -1421,11 +1440,15 @@ class FirestoreService {
 
   /// Gets notification preferences for a user.
   Future<NotificationPreferences> getNotificationPreferences(
-      String userId) async {
+    String userId,
+  ) async {
     try {
-      final doc =
-          await _firestore.collection(_usersCollection).doc(userId).get();
-      final data = doc.data()?['notificationPreferences'] as Map<String, dynamic>?;
+      final doc = await _firestore
+          .collection(_usersCollection)
+          .doc(userId)
+          .get();
+      final data =
+          doc.data()?['notificationPreferences'] as Map<String, dynamic>?;
       return NotificationPreferences.fromFirestore(data);
     } catch (e) {
       debugPrint('Error getting notification preferences: $e');
@@ -1487,12 +1510,11 @@ class FirestoreService {
 
   /// Watches notification preferences for real-time updates.
   Stream<NotificationPreferences> watchNotificationPreferences(String userId) {
-    return _firestore
-        .collection(_usersCollection)
-        .doc(userId)
-        .snapshots()
-        .map((doc) {
-      final data = doc.data()?['notificationPreferences'] as Map<String, dynamic>?;
+    return _firestore.collection(_usersCollection).doc(userId).snapshots().map((
+      doc,
+    ) {
+      final data =
+          doc.data()?['notificationPreferences'] as Map<String, dynamic>?;
       return NotificationPreferences.fromFirestore(data);
     });
   }
@@ -1508,10 +1530,11 @@ class FirestoreService {
     required String currentUserId,
   }) async {
     try {
-      final spaceDoc =
-          await _firestore.collection(_spacesCollection).doc(spaceId).get();
-      final memberIds =
-          List<String>.from(spaceDoc.data()?['memberIds'] ?? []);
+      final spaceDoc = await _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .get();
+      final memberIds = List<String>.from(spaceDoc.data()?['memberIds'] ?? []);
       return memberIds.firstWhere(
         (id) => id != currentUserId,
         orElse: () => '',

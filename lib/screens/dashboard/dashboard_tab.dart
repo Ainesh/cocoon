@@ -89,37 +89,38 @@ class DashboardTabState extends State<DashboardTab> {
   /// Subscribe to live streams. Updates flow to ValueNotifiers, not setState.
   void _subscribeToStreams() {
     final currentUserId = _authService.currentUser?.uid;
-    
+
     // Moments → ValueNotifier (only ComingUpCard rebuilds)
     _momentsSubscription = _firestoreService
         .watchUpcomingMoments(widget.spaceId, daysAhead: 60)
         .listen((moments) {
-      if (mounted) _momentsNotifier.value = moments;
-    });
+          if (mounted) _momentsNotifier.value = moments;
+        });
 
     // Check-ins → ValueNotifier (only HealthCard rebuilds)
     _checkInsSubscription = _firestoreService
         .watchRecentCheckIns(widget.spaceId, daysBack: 30)
         .listen((checkIns) {
-      if (mounted) {
-        final oldCount = _statsNotifier.value.checkInCount;
-        final stats = CheckInStats.fromCheckIns(
-          checkIns,
-          currentUserId: currentUserId,
-        );
-        _statsNotifier.value = stats;
-        
-        // Animate health card on new check-in
-        if (stats.checkInCount > oldCount && _hasAnimatedOnce) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              _healthCardKey.currentState
-                  ?.animateHealthScore(forceReanimate: true);
+          if (mounted) {
+            final oldCount = _statsNotifier.value.checkInCount;
+            final stats = CheckInStats.fromCheckIns(
+              checkIns,
+              currentUserId: currentUserId,
+            );
+            _statsNotifier.value = stats;
+
+            // Animate health card on new check-in
+            if (stats.checkInCount > oldCount && _hasAnimatedOnce) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _healthCardKey.currentState?.animateHealthScore(
+                    forceReanimate: true,
+                  );
+                }
+              });
             }
-          });
-        }
-      }
-    });
+          }
+        });
   }
 
   /// Load initial data that isn't streamed (daily scores, streak).
@@ -135,7 +136,7 @@ class DashboardTabState extends State<DashboardTab> {
             (results[0] as List?)?.cast<Map<String, dynamic>>() ?? [];
         _streak = results[1] as int? ?? 0;
         setState(() => _isLoading = false);
-        
+
         // Animate health score on first load
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !_hasAnimatedOnce) {
@@ -151,7 +152,7 @@ class DashboardTabState extends State<DashboardTab> {
 
   Future<void> _handleRefresh() async {
     HapticFeedback.mediumImpact();
-    
+
     try {
       final results = await Future.wait([
         _firestoreService.getDailyHealthScores(widget.spaceId, days: 30),
@@ -162,19 +163,20 @@ class DashboardTabState extends State<DashboardTab> {
         _dailyScores =
             (results[0] as List?)?.cast<Map<String, dynamic>>() ?? [];
         _streak = results[1] as int? ?? 0;
-        
+
         // Re-animate health score on refresh
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _healthCardKey.currentState
-                ?.animateHealthScore(forceReanimate: true);
+            _healthCardKey.currentState?.animateHealthScore(
+              forceReanimate: true,
+            );
           }
         });
       }
     } catch (e) {
       debugPrint('Error refreshing dashboard: $e');
     }
-    
+
     if (mounted) HapticFeedback.lightImpact();
   }
 
@@ -184,7 +186,10 @@ class DashboardTabState extends State<DashboardTab> {
 
   /// Opens a moment or check-in details sheet by entity ID.
   /// Called from notification deep links.
-  Future<void> openEntityById({required String entityType, required String entityId}) async {
+  Future<void> openEntityById({
+    required String entityType,
+    required String entityId,
+  }) async {
     if (entityType == 'moment' && entityId.isNotEmpty) {
       // Try cached first, fall back to Firestore
       final cached = _momentsNotifier.value
@@ -245,10 +250,8 @@ class DashboardTabState extends State<DashboardTab> {
 
           final userId = _authService.currentUser?.uid;
           if (userId != null) {
-            final profile =
-                await _firestoreService.getUserProfile(userId);
-            final userName =
-                profile?['name'] as String? ?? 'Someone';
+            final profile = await _firestoreService.getUserProfile(userId);
+            final userName = profile?['name'] as String? ?? 'Someone';
 
             await _firestoreService.logMomentDeletedActivity(
               spaceId: widget.spaceId,
@@ -321,8 +324,8 @@ class DashboardTabState extends State<DashboardTab> {
     final currentUserId = _authService.currentUser?.uid;
     final displayName =
         (currentUserId != null && activity.actorId == currentUserId)
-            ? 'You'
-            : activity.actorName;
+        ? 'You'
+        : activity.actorName;
 
     showCheckinDetailsSheet(
       context: context,
@@ -406,8 +409,7 @@ class DashboardTabState extends State<DashboardTab> {
                       )
                     else
                       PlanMomentCard(
-                        onTap: () =>
-                            context.push('/moment/${widget.spaceId}'),
+                        onTap: () => context.push('/moment/${widget.spaceId}'),
                       ),
                   ],
                 );
@@ -436,8 +438,7 @@ class DashboardTabState extends State<DashboardTab> {
                 ),
                 const SizedBox(height: 12),
                 CheckInCard(
-                  onTap: () =>
-                      context.push('/checkin/${widget.spaceId}'),
+                  onTap: () => context.push('/checkin/${widget.spaceId}'),
                 ),
               ],
             ),

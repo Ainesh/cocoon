@@ -16,10 +16,7 @@ const _cardVariant = Color(0xFF2A2A2A);
 
 /// Agreements tab placeholder.
 class AgreementsTab extends StatelessWidget {
-  const AgreementsTab({
-    super.key,
-    required this.spaceId,
-  });
+  const AgreementsTab({super.key, required this.spaceId});
 
   final String spaceId;
 
@@ -74,11 +71,7 @@ class AgreementsTab extends StatelessWidget {
             const Text(
               'Create shared agreements with your partner.\nTrack commitments and relationship boundaries.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 16,
-                color: _bodyGray,
-                height: 1.5,
-              ),
+              style: TextStyle(fontSize: 16, color: _bodyGray, height: 1.5),
             ),
             const SizedBox(height: 24),
 
@@ -99,7 +92,11 @@ class AgreementsTab extends StatelessWidget {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.construction_rounded, color: _refinedRed, size: 20),
+                  Icon(
+                    Icons.construction_rounded,
+                    color: _refinedRed,
+                    size: 20,
+                  ),
                   SizedBox(width: 8),
                   Text(
                     'Coming soon',
@@ -131,7 +128,10 @@ class AgreementsTab extends StatelessWidget {
                   const SizedBox(height: 16),
                   _buildExampleItem('📅', 'Weekly date night on Saturdays'),
                   _buildExampleItem('📱', 'No phones during dinner'),
-                  _buildExampleItem('💬', 'Check in before making big purchases'),
+                  _buildExampleItem(
+                    '💬',
+                    'Check in before making big purchases',
+                  ),
                   _buildExampleItem('🏠', 'Split household chores fairly'),
                 ],
               ),
@@ -160,10 +160,7 @@ class AgreementsTab extends StatelessWidget {
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                fontSize: 15,
-                color: _bodyGray,
-              ),
+              style: const TextStyle(fontSize: 15, color: _bodyGray),
             ),
           ),
         ],

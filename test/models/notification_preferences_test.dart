@@ -6,15 +6,27 @@ import 'package:couple_space/models/activity.dart';
 void main() {
   group('NotificationPriority', () {
     test('fromValue returns correct priority', () {
-      expect(NotificationPriority.fromValue('silent'), NotificationPriority.silent);
+      expect(
+        NotificationPriority.fromValue('silent'),
+        NotificationPriority.silent,
+      );
       expect(NotificationPriority.fromValue('low'), NotificationPriority.low);
-      expect(NotificationPriority.fromValue('normal'), NotificationPriority.normal);
+      expect(
+        NotificationPriority.fromValue('normal'),
+        NotificationPriority.normal,
+      );
       expect(NotificationPriority.fromValue('high'), NotificationPriority.high);
-      expect(NotificationPriority.fromValue('critical'), NotificationPriority.critical);
+      expect(
+        NotificationPriority.fromValue('critical'),
+        NotificationPriority.critical,
+      );
     });
 
     test('fromValue defaults to normal for unknown values', () {
-      expect(NotificationPriority.fromValue('unknown'), NotificationPriority.normal);
+      expect(
+        NotificationPriority.fromValue('unknown'),
+        NotificationPriority.normal,
+      );
       expect(NotificationPriority.fromValue(''), NotificationPriority.normal);
     });
 
@@ -35,10 +47,10 @@ void main() {
     });
 
     test('fromJson deserializes correctly', () {
-      final config = ActivityNotificationConfig.fromJson(
-        ActivityType.checkin,
-        {'enabled': false, 'priority': 'low'},
-      );
+      final config = ActivityNotificationConfig.fromJson(ActivityType.checkin, {
+        'enabled': false,
+        'priority': 'low',
+      });
       expect(config.activityType, ActivityType.checkin);
       expect(config.enabled, false);
       expect(config.priority, NotificationPriority.low);
@@ -59,7 +71,10 @@ void main() {
         enabled: true,
         priority: NotificationPriority.normal,
       );
-      final updated = config.copyWith(enabled: false, priority: NotificationPriority.silent);
+      final updated = config.copyWith(
+        enabled: false,
+        priority: NotificationPriority.silent,
+      );
       expect(updated.enabled, false);
       expect(updated.priority, NotificationPriority.silent);
       expect(updated.activityType, ActivityType.checkin);
@@ -89,10 +104,22 @@ void main() {
 
     test('getPriority returns correct default priorities', () {
       final prefs = NotificationPreferences();
-      expect(prefs.getPriority(ActivityType.checkin), NotificationPriority.normal);
-      expect(prefs.getPriority(ActivityType.spaceJoined), NotificationPriority.high);
-      expect(prefs.getPriority(ActivityType.momentEdited), NotificationPriority.low);
-      expect(prefs.getPriority(ActivityType.spaceCreated), NotificationPriority.silent);
+      expect(
+        prefs.getPriority(ActivityType.checkin),
+        NotificationPriority.normal,
+      );
+      expect(
+        prefs.getPriority(ActivityType.spaceJoined),
+        NotificationPriority.high,
+      );
+      expect(
+        prefs.getPriority(ActivityType.momentEdited),
+        NotificationPriority.low,
+      );
+      expect(
+        prefs.getPriority(ActivityType.spaceCreated),
+        NotificationPriority.silent,
+      );
     });
 
     test('enabledActivityTypes excludes disabled types', () {
@@ -128,14 +155,23 @@ void main() {
         ActivityType.checkin,
         priority: NotificationPriority.critical,
       );
-      expect(updated.getPriority(ActivityType.checkin), NotificationPriority.critical);
+      expect(
+        updated.getPriority(ActivityType.checkin),
+        NotificationPriority.critical,
+      );
       // Other types unchanged
-      expect(updated.getPriority(ActivityType.momentPlanned), NotificationPriority.normal);
+      expect(
+        updated.getPriority(ActivityType.momentPlanned),
+        NotificationPriority.normal,
+      );
     });
 
     test('toFirestore and fromFirestore round-trip correctly', () {
       final original = NotificationPreferences()
-          .updateActivityConfig(ActivityType.checkin, priority: NotificationPriority.high)
+          .updateActivityConfig(
+            ActivityType.checkin,
+            priority: NotificationPriority.high,
+          )
           .toggleActivityType(ActivityType.momentEdited);
 
       final json = original.toFirestore();
