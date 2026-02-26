@@ -1,16 +1,17 @@
 /// Check-in details bottom sheet — view-only.
 ///
 /// Shows a Voronoi mosaic tile pattern at the top representing the
-/// individual pulse scores, with score indicators and optional reflection.
-/// Matches the Moment Details Sheet design language.
+/// individual pulse scores, with dynamic score indicators and optional
+/// reflection. Renders attributes from the check-in's saved config.
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/pulse_config.dart';
+import '../../scoring/score_models.dart';
 import '../../theme/theme.dart';
 import '../../widgets/painters/voronoi_mosaic_painter.dart';
 
@@ -19,9 +20,8 @@ void showCheckinDetailsSheet({
   required BuildContext context,
   required String actorName,
   required DateTime timestamp,
-  required int connection,
-  required int intimacy,
-  required int peace,
+  required Map<String, int> scores,
+  required ConfigSnapshot configSnapshot,
   String? notes,
 }) {
   HapticFeedback.mediumImpact();
@@ -32,9 +32,8 @@ void showCheckinDetailsSheet({
     builder: (context) => _CheckinDetailsContent(
       actorName: actorName,
       timestamp: timestamp,
-      connection: connection,
-      intimacy: intimacy,
-      peace: peace,
+      scores: scores,
+      configSnapshot: configSnapshot,
       notes: notes,
     ),
   );
@@ -44,32 +43,37 @@ class _CheckinDetailsContent extends StatelessWidget {
   const _CheckinDetailsContent({
     required this.actorName,
     required this.timestamp,
-    required this.connection,
-    required this.intimacy,
-    required this.peace,
+    required this.scores,
+    required this.configSnapshot,
     this.notes,
   });
 
   final String actorName;
   final DateTime timestamp;
-  final int connection;
-  final int intimacy;
-  final int peace;
+  final Map<String, int> scores;
+  final ConfigSnapshot configSnapshot;
   final String? notes;
 
   Color _scoreColor(int score) =>
       Color.lerp(
         AppColors.morningColor,
         AppColors.nightColor,
-        ((score - 1) / 9).clamp(0.0, 1.0),
+        ((score - 1) / 99).clamp(0.0, 1.0),
       ) ??
       AppColors.nightColor;
 
+
   @override
   Widget build(BuildContext context) {
-    final connColor = _scoreColor(connection);
-    final intColor = _scoreColor(intimacy);
-    final peaceColor = _scoreColor(peace);
+    final activeAttrs = configSnapshot.activeAttributes
+        .map((id) => PulseAttribute.fromId(id))
+        .whereType<PulseAttribute>()
+        .toList();
+
+    final groupColors = activeAttrs
+        .map((a) => _scoreColor(scores[a.id] ?? 50))
+        .toList();
+
     final dateStr = DateFormat('EEEE, MMM d').format(timestamp);
 
     return GestureDetector(
@@ -125,7 +129,7 @@ class _CheckinDetailsContent extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
 
-                    // Pulse Check card — mosaic + 3 vertical bars
+                    // Pulse Check card — mosaic + dynamic vertical bars
                     Container(
                       decoration: BoxDecoration(
                         color: AppColors.darkCardLight,
@@ -144,11 +148,9 @@ class _CheckinDetailsContent extends StatelessWidget {
                                   width: double.infinity,
                                   child: CustomPaint(
                                     painter: VoronoiGroupedPainter(
-                                      groupColors: [
-                                        connColor,
-                                        intColor,
-                                        peaceColor,
-                                      ],
+                                      groupColors: groupColors.isEmpty
+                                          ? [AppColors.warmMuted]
+                                          : groupColors,
                                       seed: timestamp.millisecondsSinceEpoch,
                                       tileCount: 60,
                                       backgroundColor: AppColors.darkCardLight,
@@ -180,41 +182,30 @@ class _CheckinDetailsContent extends StatelessWidget {
                               ],
                             ),
 
-                            // 3 vertical bars
+                            // Dynamic vertical bars
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                               child: SizedBox(
                                 height: 220,
                                 child: Row(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    Expanded(
-                                      child: _buildStaticBar(
-                                        Icons.favorite_rounded,
-                                        null,
-                                        'Connection',
-                                        connection,
+                                    for (int i = 0;
+                                        i < activeAttrs.length;
+                                        i++) ...[
+                                      if (i > 0)
+                                        SizedBox(
+                                          width:
+                                              activeAttrs.length <= 3 ? 24 : 12,
+                                        ),
+                                      Expanded(
+                                        child: _buildStaticBar(
+                                          activeAttrs[i],
+                                          scores[activeAttrs[i].id] ?? 50,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 24),
-                                    Expanded(
-                                      child: _buildStaticBar(
-                                        null,
-                                        'assets/icons/flame.svg',
-                                        'Intimacy',
-                                        intimacy,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 24),
-                                    Expanded(
-                                      child: _buildStaticBar(
-                                        null,
-                                        'assets/icons/peace.svg',
-                                        'Peace',
-                                        peace,
-                                      ),
-                                    ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -270,14 +261,9 @@ class _CheckinDetailsContent extends StatelessWidget {
   }
 
   /// Static vertical bar — same look as VerticalBarSlider but read-only.
-  Widget _buildStaticBar(
-    IconData? icon,
-    String? svgPath,
-    String label,
-    int score,
-  ) {
+  Widget _buildStaticBar(PulseAttribute attr, int score) {
     final color = _scoreColor(score);
-    final progress = ((score - 1) / 9).clamp(0.0, 1.0);
+    final progress = ((score - 1) / 99).clamp(0.0, 1.0);
     const borderRadius = 14.0;
 
     return Column(
@@ -335,22 +321,13 @@ class _CheckinDetailsContent extends StatelessWidget {
             color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: Center(
-            child: icon != null
-                ? Icon(icon, color: color, size: 18)
-                : SvgPicture.asset(
-                    svgPath!,
-                    width: 18,
-                    height: 18,
-                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                  ),
-          ),
+          child: Center(child: attr.buildIcon(color: color)),
         ),
         const SizedBox(height: 6),
 
         // Label
         Text(
-          label,
+          attr.displayName,
           style: GoogleFonts.inter(
             fontSize: 10,
             color: AppColors.warmMuted,

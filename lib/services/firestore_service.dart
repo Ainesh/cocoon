@@ -48,7 +48,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/activity.dart';
 import '../models/moment.dart';
 import '../models/notification_preferences.dart';
+import '../models/pulse_config.dart';
 import '../models/user_checkin.dart';
+import '../scoring/score_models.dart';
 
 // -----------------------------------------------------------------------------
 // Exceptions
@@ -868,12 +870,14 @@ class FirestoreService {
   }
 
   /// Submits a new check-in for the current user.
+  ///
+  /// [scores] — attribute scores on a 1-100 scale.
+  /// [configSnapshot] — the active pulse configuration at check-in time.
   Future<String> submitCheckIn({
     required String spaceId,
     required String userId,
-    required int connection,
-    required int intimacy,
-    required int peace,
+    required Map<String, int> scores,
+    required ConfigSnapshot configSnapshot,
     String notes = '',
   }) async {
     final now = DateTime.now();
@@ -890,9 +894,8 @@ class FirestoreService {
       id: docId,
       userId: userId,
       timestamp: now,
-      connection: connection,
-      intimacy: intimacy,
-      peace: peace,
+      scores: scores,
+      configSnapshot: configSnapshot,
       notes: notes,
     );
 
@@ -906,117 +909,77 @@ class FirestoreService {
     return docId;
   }
 
-  /// Gets combined check-in statistics for all members in a space.
-  ///
-  /// Returns stats based on check-ins from the last [days] days.
-  Future<CheckInStats> getSpaceCheckInStats(
-    String spaceId, {
-    int days = 30,
-    String? currentUserId,
-  }) async {
-    try {
-      final now = DateTime.now();
-      final cutoffDate = now.subtract(Duration(days: days));
+  // ---------------------------------------------------------------------------
+  // Pulse Config
+  // ---------------------------------------------------------------------------
 
-      // Get all check-ins from the last N days
-      final snapshot = await _firestore
+  /// Gets the pulse configuration for a space.
+  ///
+  /// Returns a default config if no config exists on the space document.
+  Future<PulseConfig> getPulseConfig(String spaceId) async {
+    try {
+      final doc = await _firestore
           .collection(_spacesCollection)
           .doc(spaceId)
-          .collection('checkins')
-          .where(
-            'timestamp',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate),
-          )
           .get();
 
-      if (snapshot.docs.isEmpty) {
-        debugPrint('No check-ins in the last $days days');
-        return CheckInStats.empty;
+      if (!doc.exists) {
+        return PulseConfig.defaultConfig();
       }
 
-      final allCheckIns = snapshot.docs
-          .map((doc) => UserCheckIn.fromJson(doc.id, doc.data()))
-          .toList();
+      final data = doc.data()!;
+      if (data.containsKey('pulseConfig') && data['pulseConfig'] is Map) {
+        return PulseConfig.fromJson(
+          Map<String, dynamic>.from(data['pulseConfig'] as Map),
+        );
+      }
 
-      debugPrint('Check-ins in last $days days: ${allCheckIns.length}');
-
-      // Sort by timestamp for trend calculation
-      allCheckIns.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-
-      return CheckInStats.fromCheckIns(
-        allCheckIns,
-        currentUserId: currentUserId,
-      );
+      // No config yet — return default with member IDs
+      final memberIds = List<String>.from(data['memberIds'] ?? []);
+      return PulseConfig.defaultConfig(memberIds: memberIds);
     } catch (e) {
-      debugPrint('Error getting check-in stats: $e');
-      return CheckInStats.empty;
+      debugPrint('Error getting pulse config: $e');
+      return PulseConfig.defaultConfig();
     }
   }
 
-  /// Gets the most recent check-in activity for display.
-  /// Gets daily health scores for the last N days.
-  /// Returns a list of maps with 'date' and 'score' (0-100 scale).
-  Future<List<Map<String, dynamic>>> getDailyHealthScores(
-    String spaceId, {
-    int days = 7,
+  /// Watches the pulse configuration for real-time updates.
+  Stream<PulseConfig> watchPulseConfig(String spaceId) {
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .snapshots()
+        .map((doc) {
+      if (!doc.exists) return PulseConfig.defaultConfig();
+      final data = doc.data()!;
+      if (data.containsKey('pulseConfig') && data['pulseConfig'] is Map) {
+        return PulseConfig.fromJson(
+          Map<String, dynamic>.from(data['pulseConfig'] as Map),
+        );
+      }
+      final memberIds = List<String>.from(data['memberIds'] ?? []);
+      return PulseConfig.defaultConfig(memberIds: memberIds);
+    });
+  }
+
+  /// Updates a single user's attribute picks in the pulse configuration.
+  ///
+  /// Only modifies the calling user's entry in `userPicks`.
+  Future<void> updateUserPicks({
+    required String spaceId,
+    required String userId,
+    required List<String> picks,
   }) async {
-    try {
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final cutoffDate = today.subtract(Duration(days: days - 1));
-
-      final snapshot = await _firestore
-          .collection(_spacesCollection)
-          .doc(spaceId)
-          .collection('checkins')
-          .where(
-            'timestamp',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(cutoffDate),
-          )
-          .orderBy('timestamp', descending: false)
-          .get();
-
-      // Group check-ins by day
-      final Map<String, List<UserCheckIn>> byDay = {};
-      for (final doc in snapshot.docs) {
-        final checkIn = UserCheckIn.fromFirestore(doc);
-        final dayKey =
-            '${checkIn.timestamp.year}-${checkIn.timestamp.month}-${checkIn.timestamp.day}';
-        byDay.putIfAbsent(dayKey, () => []).add(checkIn);
-      }
-
-      // Build result for each day
-      final result = <Map<String, dynamic>>[];
-      for (int i = 0; i < days; i++) {
-        final date = cutoffDate.add(Duration(days: i));
-        final dayKey = '${date.year}-${date.month}-${date.day}';
-        final dayCheckIns = byDay[dayKey] ?? [];
-
-        double score = 0;
-        if (dayCheckIns.isNotEmpty) {
-          // Calculate average health score for this day (1-10 scale -> 0-100)
-          double totalScore = 0;
-          for (final c in dayCheckIns) {
-            final connectionPct = c.connection * 10;
-            final intimacyPct = c.intimacy * 10;
-            final peacePct = c.peace * 10;
-            totalScore += (connectionPct + intimacyPct + peacePct) / 3;
-          }
-          score = totalScore / dayCheckIns.length;
-        }
-
-        result.add({
-          'date': date,
-          'score': score,
-          'hasCheckIn': dayCheckIns.isNotEmpty,
-        });
-      }
-
-      return result;
-    } catch (e) {
-      debugPrint('Error getting daily health scores: $e');
-      return [];
+    if (!PulseConfig.isValidUserPicks(picks)) {
+      throw ArgumentError('Invalid picks: must be 1-3 valid attribute IDs');
     }
+
+    await _firestore.collection(_spacesCollection).doc(spaceId).set({
+      'pulseConfig': {
+        'userPicks': {userId: picks},
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+    }, SetOptions(merge: true));
   }
 
   /// Calculates the current check-in streak (consecutive days).
@@ -1229,14 +1192,14 @@ class FirestoreService {
   // ---------------------------------------------------------------------------
 
   /// Logs a check-in activity.
+  ///
+  /// [compactScores] — compact format: `{attrId: {value: int, weight: double}}`.
   Future<void> logCheckInActivity({
     required String spaceId,
     required String userId,
     required String userName,
     required String checkInId,
-    required int connection,
-    required int intimacy,
-    required int peace,
+    required Map<String, dynamic> compactScores,
     String? notes,
   }) async {
     await logActivity(
@@ -1247,9 +1210,7 @@ class FirestoreService {
       entityType: EntityType.checkin,
       entityId: checkInId,
       metadata: {
-        'connection': connection,
-        'intimacy': intimacy,
-        'peace': peace,
+        'scores': compactScores,
         if (notes != null && notes.isNotEmpty) 'notes': notes,
       },
     );

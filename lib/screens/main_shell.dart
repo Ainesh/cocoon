@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/pulse_config.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
@@ -363,6 +364,16 @@ class _MainShellState extends State<MainShell> {
               ),
             ),
             const SizedBox(height: 24),
+            // Pulse attributes
+            _buildSettingsItem(
+              icon: Icons.tune_rounded,
+              title: 'Pulse attributes',
+              onTap: () {
+                Navigator.pop(context);
+                _showPulseAttributePicker(context);
+              },
+            ),
+            const SizedBox(height: 12),
             // Change space name
             _buildSettingsItem(
               icon: Icons.edit_rounded,
@@ -424,6 +435,25 @@ class _MainShellState extends State<MainShell> {
             Icon(Icons.chevron_right_rounded, color: _dimText, size: 20),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showPulseAttributePicker(BuildContext context) {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _darkGlass,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => _PulseAttributePickerSheet(
+        spaceId: widget.spaceId,
+        userId: userId,
+        firestoreService: _firestoreService,
       ),
     );
   }
@@ -498,6 +528,246 @@ class _MainShellState extends State<MainShell> {
   Future<void> _signOut() async {
     await _authService.signOut();
     if (mounted) context.go('/login');
+  }
+}
+
+/// Pulse attribute picker — each user picks up to 3 of 5.
+class _PulseAttributePickerSheet extends StatefulWidget {
+  const _PulseAttributePickerSheet({
+    required this.spaceId,
+    required this.userId,
+    required this.firestoreService,
+  });
+
+  final String spaceId;
+  final String userId;
+  final FirestoreService firestoreService;
+
+  @override
+  State<_PulseAttributePickerSheet> createState() =>
+      _PulseAttributePickerSheetState();
+}
+
+class _PulseAttributePickerSheetState
+    extends State<_PulseAttributePickerSheet> {
+  PulseConfig? _config;
+  List<String> _myPicks = [];
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfig();
+  }
+
+  Future<void> _loadConfig() async {
+    final config =
+        await widget.firestoreService.getPulseConfig(widget.spaceId);
+    if (!mounted) return;
+    setState(() {
+      _config = config;
+      _myPicks = List.from(
+        config.userPicks[widget.userId] ?? ['connection', 'intimacy', 'peace'],
+      );
+    });
+  }
+
+  Future<void> _save() async {
+    if (_myPicks.isEmpty || _myPicks.length > 3) return;
+    setState(() => _isSaving = true);
+    try {
+      await widget.firestoreService.updateUserPicks(
+        spaceId: widget.spaceId,
+        userId: widget.userId,
+        picks: _myPicks,
+      );
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _toggle(String attrId) {
+    setState(() {
+      if (_myPicks.contains(attrId)) {
+        if (_myPicks.length > 1) _myPicks.remove(attrId);
+      } else {
+        if (_myPicks.length < 3) _myPicks.add(attrId);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_config == null) {
+      return const SizedBox(
+        height: 200,
+        child: Center(
+          child: CircularProgressIndicator(color: _refinedRed),
+        ),
+      );
+    }
+
+    // Get partner's picks for display
+    final partnerPicks = _config!.userPicks.entries
+        .where((e) => e.key != widget.userId)
+        .expand((e) => e.value)
+        .toSet();
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        24,
+        16,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: _dimText.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Pulse Attributes',
+            style: GoogleFonts.outfit(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: _lightText,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Pick up to 3 attributes that matter to you',
+            style: GoogleFonts.inter(fontSize: 13, color: _dimText),
+          ),
+          const SizedBox(height: 24),
+
+          // Attribute pills
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            alignment: WrapAlignment.center,
+            children: [
+              for (final attr in PulseAttribute.values)
+                _buildPill(attr, partnerPicks.contains(attr.id)),
+            ],
+          ),
+
+          const SizedBox(height: 28),
+          // Save button — matches SlideToAction style
+          GestureDetector(
+            onTap: _isSaving ? null : _save,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: _refinedRed,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Center(
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        'Save (${_myPicks.length}/3)',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPill(PulseAttribute attr, bool partnerPicked) {
+    final isSelected = _myPicks.contains(attr.id);
+    final canSelect = _myPicks.length < 3 || isSelected;
+    final pillColor = isSelected ? _refinedRed : _dimText;
+
+    return GestureDetector(
+      onTap: canSelect
+          ? () {
+              HapticFeedback.selectionClick();
+              _toggle(attr.id);
+            }
+          : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? _refinedRed.withValues(alpha: 0.12)
+              : _cardVariant,
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: isSelected
+                ? _refinedRed.withValues(alpha: 0.5)
+                : _dimText.withValues(alpha: 0.15),
+            width: 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: _refinedRed.withValues(alpha: 0.25),
+                    blurRadius: 16,
+                    spreadRadius: 0,
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Use the same SVG/icon as check-in bars
+            attr.buildIcon(color: pillColor, size: 18),
+            const SizedBox(width: 10),
+            Text(
+              attr.displayName,
+              style: GoogleFonts.outfit(
+                color: isSelected ? _lightText : _dimText,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                fontSize: 15,
+              ),
+            ),
+            if (partnerPicked) ...[
+              const SizedBox(width: 8),
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _refinedRed.withValues(alpha: 0.8),
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 

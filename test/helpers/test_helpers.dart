@@ -1,7 +1,7 @@
 /// Factory methods for creating test data objects.
 ///
 /// Provides convenient constructors for [Moment], [Activity], [UserCheckIn],
-/// and [AvatarData] with sensible defaults for use in tests.
+/// [PulseConfig], [ScoreResult], and [AvatarData] with sensible defaults.
 library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,7 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:couple_space/models/activity.dart';
 import 'package:couple_space/models/avatar_data.dart';
 import 'package:couple_space/models/moment.dart';
+import 'package:couple_space/models/pulse_config.dart';
 import 'package:couple_space/models/user_checkin.dart';
+import 'package:couple_space/scoring/score_models.dart';
 
 /// UTC midnight today — use for all test date defaults.
 DateTime _todayUtc() {
@@ -111,26 +113,44 @@ Activity createTestMomentPlannedActivity({
 }
 
 // =============================================================================
-// UserCheckIn Factories
+// UserCheckIn Factories (new v2 format: scores map + configSnapshot)
 // =============================================================================
 
-/// Creates a test [UserCheckIn] with sensible defaults.
+/// Creates a test [UserCheckIn] with dynamic scores (1-100 scale).
+///
+/// Also supports legacy-style named params [connection], [intimacy], [peace]
+/// which are mapped into the scores map.
 UserCheckIn createTestCheckIn({
   String id = 'checkin_1',
   String userId = 'user_1',
   DateTime? timestamp,
-  int connection = 7,
-  int intimacy = 6,
-  int peace = 8,
+  Map<String, int>? scores,
+  ConfigSnapshot? configSnapshot,
+  int connection = 70,
+  int intimacy = 60,
+  int peace = 80,
   String notes = '',
 }) {
+  final effectiveScores = scores ??
+      {
+        'connection': connection,
+        'intimacy': intimacy,
+        'peace': peace,
+      };
+  final effectiveSnapshot = configSnapshot ??
+      ConfigSnapshot(
+        activeAttributes: effectiveScores.keys.toList(),
+        weights: {
+          for (final k in effectiveScores.keys) k: 1.0 / effectiveScores.length,
+        },
+      );
+
   return UserCheckIn(
     id: id,
     userId: userId,
     timestamp: timestamp ?? DateTime.now(),
-    connection: connection,
-    intimacy: intimacy,
-    peace: peace,
+    scores: effectiveScores,
+    configSnapshot: effectiveSnapshot,
     notes: notes,
   );
 }
@@ -145,11 +165,74 @@ List<UserCheckIn> createTestCheckInSeries({
       id: 'checkin_$i',
       userId: userId,
       timestamp: DateTime.now().subtract(Duration(days: count - i)),
-      connection: 5 + (i % 4),
-      intimacy: 4 + (i % 3),
-      peace: 6 + (i % 5),
+      connection: 50 + (i % 4) * 10,
+      intimacy: 40 + (i % 3) * 10,
+      peace: 60 + (i % 5) * 10,
     );
   });
+}
+
+// =============================================================================
+// PulseConfig Factories
+// =============================================================================
+
+/// Creates a test [PulseConfig] with customisable picks.
+PulseConfig createTestPulseConfig({
+  Map<String, List<String>>? userPicks,
+  DateTime? updatedAt,
+}) {
+  return PulseConfig(
+    userPicks: userPicks ??
+        {
+          'user_a': ['connection', 'trust', 'communication'],
+          'user_b': ['connection', 'intimacy', 'trust'],
+        },
+    updatedAt: updatedAt,
+  );
+}
+
+// =============================================================================
+// ScoreResult Factories
+// =============================================================================
+
+/// Creates a test [ScoreResult] for widget tests.
+ScoreResult createTestScoreResult({
+  int overallScore = 72,
+  Map<String, double>? attributeScores,
+  Map<String, double>? attributeTrends,
+  double overallTrend = 0.1,
+  InsightLabel insight = InsightLabel.steady,
+  int checkInCount = 10,
+  int userCheckInCount = 5,
+  int partnerCheckInCount = 5,
+  int streak = 3,
+  Map<String, double>? weights,
+}) {
+  return ScoreResult(
+    overallScore: overallScore,
+    attributeScores: attributeScores ??
+        {'connection': 75, 'intimacy': 68, 'peace': 72},
+    attributeTrends: attributeTrends ??
+        {'connection': 0.1, 'intimacy': 0.05, 'peace': -0.02},
+    overallTrend: overallTrend,
+    weeklyScores: List.generate(
+      4,
+      (i) => WeeklyScore(
+        weekIndex: i,
+        startDate: DateTime.now().subtract(Duration(days: 28 - i * 7)),
+        endDate: DateTime.now().subtract(Duration(days: 22 - i * 7)),
+        overallScore: 65.0 + i * 3,
+        hasData: true,
+      ),
+    ),
+    insight: insight,
+    checkInCount: checkInCount,
+    userCheckInCount: userCheckInCount,
+    partnerCheckInCount: partnerCheckInCount,
+    streak: streak,
+    weights: weights ??
+        {'connection': 0.333, 'intimacy': 0.167, 'peace': 0.167, 'trust': 0.333},
+  );
 }
 
 // =============================================================================
@@ -207,21 +290,38 @@ Map<String, dynamic> createTestMomentJson({
   };
 }
 
-/// Creates a Firestore-compatible map for a UserCheckIn.
+/// Creates a Firestore-compatible map for a UserCheckIn (compact format).
+///
+/// ```json
+/// "scores": {"connection": {"value": 70, "weight": 0.33}, ...}
+/// ```
 Map<String, dynamic> createTestCheckInJson({
   String userId = 'user_1',
   DateTime? timestamp,
-  int connection = 7,
-  int intimacy = 6,
-  int peace = 8,
+  Map<String, int>? scores,
+  Map<String, double>? weights,
+  int connection = 70,
+  int intimacy = 60,
+  int peace = 80,
   String notes = '',
 }) {
+  final effectiveScores = scores ??
+      {'connection': connection, 'intimacy': intimacy, 'peace': peace};
+  final effectiveWeights = weights ??
+      {for (final k in effectiveScores.keys) k: 1.0 / effectiveScores.length};
+
+  final compactScores = <String, dynamic>{};
+  for (final k in effectiveScores.keys) {
+    compactScores[k] = {
+      'value': effectiveScores[k],
+      'weight': effectiveWeights[k] ?? 0,
+    };
+  }
+
   return {
     'userId': userId,
     'timestamp': Timestamp.fromDate(timestamp ?? DateTime.now()),
-    'connection': connection,
-    'intimacy': intimacy,
-    'peace': peace,
+    'scores': compactScores,
     'notes': notes,
   };
 }

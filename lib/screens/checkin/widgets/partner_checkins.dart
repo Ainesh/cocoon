@@ -1,13 +1,13 @@
 /// Partner check-ins timeline widget.
 ///
 /// Displays a timeline view of partner's recent check-ins
-/// with scores for each dimension.
+/// with dynamic attribute scores from each check-in's scores map.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../models/pulse_config.dart';
 import '../../../models/user_checkin.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
@@ -124,11 +124,26 @@ class _TimelineItem extends StatelessWidget {
   final UserCheckIn checkIn;
   final bool isLast;
 
+  /// Score colour on the blue → red spectrum (1-100 scale).
+  Color _scoreColor(int score) =>
+      Color.lerp(
+        AppColors.morningColor,
+        AppColors.nightColor,
+        ((score - 1) / 99).clamp(0.0, 1.0),
+      ) ??
+      AppColors.nightColor;
+
+  Widget _buildScoreIcon(PulseAttribute attr, int score) {
+    return attr.buildIcon(color: _scoreColor(score), size: 16);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final connectionPct = checkIn.connection * 10;
-    final intimacyPct = checkIn.intimacy * 10;
-    final peacePct = checkIn.peace * 10;
+    // Render dynamic scores from the check-in's scores map
+    final activeAttrs = checkIn.configSnapshot.activeAttributes
+        .map((id) => PulseAttribute.fromId(id))
+        .whereType<PulseAttribute>()
+        .toList();
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,23 +178,30 @@ class _TimelineItem extends StatelessWidget {
                   style: AppTypography.labelSmall(color: AppColors.warmMuted),
                 ),
                 const SizedBox(height: 8),
-                // Scores inline
+                // Scores inline — dynamic attributes
                 Row(
                   children: [
-                    _InlineScore(
-                      icon: Icons.favorite_rounded,
-                      value: connectionPct.round(),
-                    ),
-                    const SizedBox(width: 16),
-                    _InlineScoreSvg(
-                      svgPath: 'assets/icons/flame.svg',
-                      value: intimacyPct.round(),
-                    ),
-                    const SizedBox(width: 16),
-                    _InlineScoreSvg(
-                      svgPath: 'assets/icons/peace.svg',
-                      value: peacePct.round(),
-                    ),
+                    for (int i = 0; i < activeAttrs.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 12),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildScoreIcon(
+                            activeAttrs[i],
+                            checkIn.scores[activeAttrs[i].id] ?? 50,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${checkIn.scores[activeAttrs[i].id] ?? 50}',
+                            style: GoogleFonts.outfit(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.warmLight,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -191,62 +213,3 @@ class _TimelineItem extends StatelessWidget {
   }
 }
 
-class _InlineScore extends StatelessWidget {
-  const _InlineScore({required this.icon, required this.value});
-
-  final IconData icon;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: AppColors.accentRed, size: 16),
-        const SizedBox(width: 4),
-        Text(
-          '$value',
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppColors.warmLight,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _InlineScoreSvg extends StatelessWidget {
-  const _InlineScoreSvg({required this.svgPath, required this.value});
-
-  final String svgPath;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SvgPicture.asset(
-          svgPath,
-          width: 16,
-          height: 16,
-          colorFilter: const ColorFilter.mode(
-            AppColors.accentRed,
-            BlendMode.srcIn,
-          ),
-        ),
-        const SizedBox(width: 4),
-        Text(
-          '$value',
-          style: GoogleFonts.outfit(
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-            color: AppColors.warmLight,
-          ),
-        ),
-      ],
-    );
-  }
-}
