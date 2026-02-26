@@ -1,13 +1,13 @@
 /// Your trend chart widget.
 ///
 /// Displays a chart showing the user's check-in history
-/// with connection and intimacy trends.
+/// with dynamic attribute trends based on the active pulse config.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
+import '../../../models/pulse_config.dart';
 import '../../../models/user_checkin.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_typography.dart';
@@ -32,12 +32,26 @@ class YourTrendChart extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final connectionValues = displayCheckIns
-        .map((c) => c.connection.toDouble())
+    // Determine which attributes to show from the most recent check-in's config
+    final latestConfig = displayCheckIns.last.configSnapshot;
+    final activeIds = latestConfig.activeAttributes;
+
+    // Use the first two attributes for the trend chart (primary + secondary)
+    final primaryAttrId = activeIds.isNotEmpty ? activeIds[0] : 'connection';
+    final secondaryAttrId = activeIds.length > 1 ? activeIds[1] : null;
+
+    final primaryValues = displayCheckIns
+        .map((c) => (c.scores[primaryAttrId] ?? 50).toDouble())
         .toList();
-    final intimacyValues = displayCheckIns
-        .map((c) => c.intimacy.toDouble())
-        .toList();
+    final List<double>? secondaryValues = secondaryAttrId != null
+        ? displayCheckIns
+            .map((c) => (c.scores[secondaryAttrId] ?? 50).toDouble())
+            .toList()
+        : null;
+
+    final primaryAttr = PulseAttribute.fromId(primaryAttrId);
+    final secondaryAttr =
+        secondaryAttrId != null ? PulseAttribute.fromId(secondaryAttrId) : null;
 
     return PremiumCard(
       child: Column(
@@ -58,39 +72,30 @@ class YourTrendChart extends StatelessWidget {
             child: CustomPaint(
               size: const Size(double.infinity, 100),
               painter: TrendChartPainter(
-                primaryValues: connectionValues,
-                secondaryValues: intimacyValues,
+                primaryValues: primaryValues,
+                secondaryValues: secondaryValues ?? [],
+                maxValue: 100,
               ),
             ),
           ),
           const SizedBox(height: 16),
-          // Legend
+          // Legend — dynamic from active attributes
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _LegendItem(
-                icon: const Icon(
-                  Icons.favorite_rounded,
-                  color: AppColors.accentRed,
-                  size: 14,
-                ),
-                label: 'Connection',
+                icon: _buildAttrIcon(primaryAttr, AppColors.accentRed),
+                label: primaryAttr?.displayName ?? primaryAttrId,
                 color: AppColors.accentRed,
               ),
-              const SizedBox(width: 24),
-              _LegendItem(
-                icon: SvgPicture.asset(
-                  'assets/icons/flame.svg',
-                  width: 14,
-                  height: 14,
-                  colorFilter: ColorFilter.mode(
-                    AppColors.morningColor,
-                    BlendMode.srcIn,
-                  ),
+              if (secondaryAttr != null) ...[
+                const SizedBox(width: 24),
+                _LegendItem(
+                  icon: _buildAttrIcon(secondaryAttr, AppColors.morningColor),
+                  label: secondaryAttr.displayName,
+                  color: AppColors.morningColor,
                 ),
-                label: 'Intimacy',
-                color: AppColors.morningColor,
-              ),
+              ],
             ],
           ),
           const SizedBox(height: 12),
@@ -111,6 +116,11 @@ class YourTrendChart extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Widget _buildAttrIcon(PulseAttribute? attr, Color color) {
+    if (attr == null) return Icon(Icons.circle, color: color, size: 14);
+    return attr.buildIcon(color: color, size: 14);
   }
 }
 

@@ -1,4 +1,4 @@
-/// Dashboard tab for Cocoon app.
+/// Dashboard tab for Kairos app.
 ///
 /// Uses ValueNotifier for localized rebuilds — stream updates only rebuild
 /// the specific card that changed, not the entire dashboard.
@@ -9,9 +9,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
+import '../../models/pulse_config.dart';
 import '../../models/user_checkin.dart';
+import '../../scoring/checkin_score_source.dart';
+import '../../scoring/score_engine.dart';
+import '../../scoring/score_models.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
@@ -36,6 +41,7 @@ class DashboardTab extends StatefulWidget {
 class DashboardTabState extends State<DashboardTab> {
   final _firestoreService = FirestoreService();
   final _authService = AuthService();
+  final _scoreEngine = const ScoreEngine();
 
   // ---------------------------------------------------------------------------
   // Localized state — ValueNotifiers prevent full-tree rebuilds
@@ -44,11 +50,13 @@ class DashboardTabState extends State<DashboardTab> {
   /// Moments list — only ComingUpCard listens.
   final _momentsNotifier = ValueNotifier<List<Moment>>([]);
 
-  /// Check-in stats — only HealthCard listens.
-  final _statsNotifier = ValueNotifier<CheckInStats>(CheckInStats.empty);
+  /// ScoreResult — only HealthCard listens.
+  final _scoreNotifier = ValueNotifier<ScoreResult>(ScoreResult.empty);
 
-  // Non-streamed data (loaded once, refreshed on pull)
-  List<Map<String, dynamic>>? _dailyScores;
+  // Pulse config
+  PulseConfig _pulseConfig = PulseConfig.defaultConfig();
+
+  // Non-streamed data
   int _streak = 0;
 
   // UI state
@@ -58,9 +66,13 @@ class DashboardTabState extends State<DashboardTab> {
   // Stream subscriptions
   StreamSubscription<List<Moment>>? _momentsSubscription;
   StreamSubscription<List<UserCheckIn>>? _checkInsSubscription;
+  StreamSubscription<PulseConfig>? _configSubscription;
 
   // Reference to health card for triggering animation
   final GlobalKey<HealthCardState> _healthCardKey = GlobalKey();
+
+  // Cache check-ins for recomputation when config changes
+  List<UserCheckIn> _cachedCheckIns = [];
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -77,8 +89,9 @@ class DashboardTabState extends State<DashboardTab> {
   void dispose() {
     _momentsSubscription?.cancel();
     _checkInsSubscription?.cancel();
+    _configSubscription?.cancel();
     _momentsNotifier.dispose();
-    _statsNotifier.dispose();
+    _scoreNotifier.dispose();
     super.dispose();
   }
 
@@ -86,10 +99,7 @@ class DashboardTabState extends State<DashboardTab> {
   // Data
   // ---------------------------------------------------------------------------
 
-  /// Subscribe to live streams. Updates flow to ValueNotifiers, not setState.
   void _subscribeToStreams() {
-    final currentUserId = _authService.currentUser?.uid;
-
     // Moments → ValueNotifier (only ComingUpCard rebuilds)
     _momentsSubscription = _firestoreService
         .watchUpcomingMoments(widget.spaceId, daysAhead: 60)
@@ -97,20 +107,28 @@ class DashboardTabState extends State<DashboardTab> {
           if (mounted) _momentsNotifier.value = moments;
         });
 
-    // Check-ins → ValueNotifier (only HealthCard rebuilds)
+    // Pulse config → recompute scores when config changes
+    _configSubscription = _firestoreService
+        .watchPulseConfig(widget.spaceId)
+        .listen((config) {
+      if (mounted) {
+        _pulseConfig = config;
+        _recomputeScores();
+      }
+    });
+
+    // Check-ins → compute ScoreResult via engine
     _checkInsSubscription = _firestoreService
         .watchRecentCheckIns(widget.spaceId, daysBack: 30)
         .listen((checkIns) {
           if (mounted) {
-            final oldCount = _statsNotifier.value.checkInCount;
-            final stats = CheckInStats.fromCheckIns(
-              checkIns,
-              currentUserId: currentUserId,
-            );
-            _statsNotifier.value = stats;
+            final oldCount = _scoreNotifier.value.checkInCount;
+            _cachedCheckIns = checkIns;
+            _recomputeScores();
 
             // Animate health card on new check-in
-            if (stats.checkInCount > oldCount && _hasAnimatedOnce) {
+            final newCount = _scoreNotifier.value.checkInCount;
+            if (newCount > oldCount && _hasAnimatedOnce) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (mounted) {
                   _healthCardKey.currentState?.animateHealthScore(
@@ -123,18 +141,35 @@ class DashboardTabState extends State<DashboardTab> {
         });
   }
 
-  /// Load initial data that isn't streamed (daily scores, streak).
+  /// Recompute the ScoreResult from cached check-ins + current config.
+  void _recomputeScores() {
+    final currentUserId = _authService.currentUser?.uid;
+    final source = CheckInScoreSource(_cachedCheckIns);
+    final now = DateTime.now();
+    final cutoff = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: 29));
+
+    final contributions = source.getContributions(
+      from: cutoff,
+      to: now.add(const Duration(days: 1)),
+    );
+
+    final result = _scoreEngine.computeScoreResult(
+      contributions: contributions,
+      currentWeights: _pulseConfig.weights,
+      currentUserId: currentUserId,
+      streak: _streak,
+    );
+
+    _scoreNotifier.value = result;
+  }
+
+  /// Load initial data that isn't streamed (streak).
   Future<void> _loadInitialData() async {
     try {
-      final results = await Future.wait([
-        _firestoreService.getDailyHealthScores(widget.spaceId, days: 30),
-        _firestoreService.getCheckInStreak(widget.spaceId),
-      ]);
+      _streak = await _firestoreService.getCheckInStreak(widget.spaceId);
 
       if (mounted) {
-        _dailyScores =
-            (results[0] as List?)?.cast<Map<String, dynamic>>() ?? [];
-        _streak = results[1] as int? ?? 0;
         setState(() => _isLoading = false);
 
         // Animate health score on first load
@@ -154,25 +189,17 @@ class DashboardTabState extends State<DashboardTab> {
     HapticFeedback.mediumImpact();
 
     try {
-      final results = await Future.wait([
-        _firestoreService.getDailyHealthScores(widget.spaceId, days: 30),
-        _firestoreService.getCheckInStreak(widget.spaceId),
-      ]);
+      _streak = await _firestoreService.getCheckInStreak(widget.spaceId);
+      _recomputeScores();
 
-      if (mounted) {
-        _dailyScores =
-            (results[0] as List?)?.cast<Map<String, dynamic>>() ?? [];
-        _streak = results[1] as int? ?? 0;
-
-        // Re-animate health score on refresh
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _healthCardKey.currentState?.animateHealthScore(
-              forceReanimate: true,
-            );
-          }
-        });
-      }
+      // Re-animate health score on refresh
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _healthCardKey.currentState?.animateHealthScore(
+            forceReanimate: true,
+          );
+        }
+      });
     } catch (e) {
       debugPrint('Error refreshing dashboard: $e');
     }
@@ -191,7 +218,6 @@ class DashboardTabState extends State<DashboardTab> {
     required String entityId,
   }) async {
     if (entityType == 'moment' && entityId.isNotEmpty) {
-      // Try cached first, fall back to Firestore
       final cached = _momentsNotifier.value
           .where((m) => m.id == entityId)
           .firstOrNull;
@@ -214,11 +240,97 @@ class DashboardTabState extends State<DashboardTab> {
   }
 
   void _showHealthDetails() {
+    final result = _scoreNotifier.value;
+    final hasBothCheckedIn =
+        result.userCheckInCount > 0 && result.partnerCheckInCount > 0;
+
+    if (!hasBothCheckedIn) {
+      _showHealthPreview();
+      return;
+    }
+
     showHealthDetailsSheet(
       context: context,
-      checkInStats: _statsNotifier.value,
+      scoreResult: result,
       streak: _streak,
-      dailyScores: _dailyScores,
+    );
+  }
+
+  void _showHealthPreview() {
+    HapticFeedback.lightImpact();
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.darkCardLight,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.auto_awesome_rounded,
+                color: AppColors.accentRed.withValues(alpha: 0.7),
+                size: 40,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Health Score',
+                style: GoogleFonts.outfit(
+                  color: AppColors.warmLight,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Once all the members of the space start checking in, this mosaic will come alive with colours that represent your relationship health.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: AppColors.warmDim,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'You\'ll see a detailed score breakdown, pulse attributes, weekly trends, and insights — all based on check-ins from both partners over the last 30 days.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: AppColors.warmMuted,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  style: TextButton.styleFrom(
+                    backgroundColor:
+                        AppColors.accentRed.withValues(alpha: 0.15),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Got it',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.accentRed,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -291,13 +403,10 @@ class DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  /// Opens moment details for an activity.
-  /// Checks cached upcoming moments first, falls back to Firestore fetch.
   Future<void> _openMomentFromActivity(Activity activity) async {
     final entityId = activity.entityId;
     if (entityId == null || entityId.isEmpty) return;
 
-    // Try cached upcoming moments first
     final cached = _momentsNotifier.value
         .where((m) => m.id == entityId)
         .firstOrNull;
@@ -306,7 +415,6 @@ class DashboardTabState extends State<DashboardTab> {
       return;
     }
 
-    // Not in cache — fetch from Firestore (past or non-upcoming moment)
     try {
       final doc = await _firestoreService.getMoment(
         spaceId: widget.spaceId,
@@ -327,13 +435,31 @@ class DashboardTabState extends State<DashboardTab> {
         ? 'You'
         : activity.actorName;
 
+    // Parse scores from activity metadata — graceful on malformed data
+    Map<String, int> scores = {};
+    ConfigSnapshot configSnapshot = const ConfigSnapshot(
+      activeAttributes: [],
+      weights: {},
+    );
+
+    try {
+      if (activity.metadata?['scores'] is Map) {
+        final raw = Map<String, dynamic>.from(
+            activity.metadata!['scores'] as Map);
+        scores = raw.map(
+            (k, v) => MapEntry(k, ((v as Map)['value'] as num).toInt()));
+        configSnapshot = ConfigSnapshot.fromScoresMap(raw);
+      }
+    } catch (_) {
+      // Old data format — won't render scores but won't crash
+    }
+
     showCheckinDetailsSheet(
       context: context,
       actorName: displayName,
       timestamp: activity.timestamp,
-      connection: activity.metadata?['connection'] as int? ?? 5,
-      intimacy: activity.metadata?['intimacy'] as int? ?? 5,
-      peace: activity.metadata?['peace'] as int? ?? 5,
+      scores: scores,
+      configSnapshot: configSnapshot,
       notes: activity.metadata?['notes'] as String?,
     );
   }
@@ -423,13 +549,13 @@ class DashboardTabState extends State<DashboardTab> {
             child: Column(
               children: [
                 Expanded(
-                  child: ValueListenableBuilder<CheckInStats>(
-                    valueListenable: _statsNotifier,
-                    builder: (context, stats, _) {
+                  child: ValueListenableBuilder<ScoreResult>(
+                    valueListenable: _scoreNotifier,
+                    builder: (context, result, _) {
                       return RepaintBoundary(
                         child: HealthCard(
                           key: _healthCardKey,
-                          checkInStats: stats,
+                          scoreResult: result,
                           onTap: _showHealthDetails,
                         ),
                       );

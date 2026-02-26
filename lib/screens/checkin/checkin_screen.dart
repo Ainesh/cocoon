@@ -1,8 +1,8 @@
 /// Check-in screen for Couple Space app.
 ///
-/// Allows users to submit relationship check-ins with scores
-/// for connection, intimacy, and peace levels. Matches the health
-/// card and health details sheet design language.
+/// Allows users to submit relationship check-ins with dynamic pulse
+/// attribute scores on a 1-100 scale. The active attributes are determined
+/// by the space's pulse configuration.
 library;
 
 import 'dart:async';
@@ -12,7 +12,9 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/pulse_config.dart';
 import '../../models/user_checkin.dart';
+import '../../scoring/score_models.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
@@ -43,14 +45,16 @@ class _CheckInScreenState extends State<CheckInScreen>
   // Bar entrance — quick settle from max
   late AnimationController _barController;
 
-  // Form state - will be initialized from last check-in
-  double _connection = 5;
-  double _intimacy = 5;
-  double _peace = 5;
+  // Dynamic form state — keyed by attribute ID, values 1-100
+  final Map<String, double> _scores = {};
   final _notesController = TextEditingController();
   final _notesFocusNode = FocusNode();
   bool _isNotesFocused = false;
   bool _hasLoadedDefaults = false;
+
+  // Pulse config
+  PulseConfig? _pulseConfig;
+  StreamSubscription<PulseConfig>? _configSubscription;
 
   // Loading state
   bool _isSubmitting = false;
@@ -77,6 +81,7 @@ class _CheckInScreenState extends State<CheckInScreen>
       duration: const Duration(milliseconds: 600),
     );
 
+    _subscribeToPulseConfig();
     _subscribeToCheckIns();
 
     // Listen for notes focus changes
@@ -103,6 +108,7 @@ class _CheckInScreenState extends State<CheckInScreen>
     _tileController.dispose();
     _barController.dispose();
     _checkInsSubscription?.cancel();
+    _configSubscription?.cancel();
     _notesController.dispose();
     _notesFocusNode.dispose();
     super.dispose();
@@ -111,6 +117,21 @@ class _CheckInScreenState extends State<CheckInScreen>
   // ---------------------------------------------------------------------------
   // Data Loading
   // ---------------------------------------------------------------------------
+
+  void _subscribeToPulseConfig() {
+    _configSubscription = _firestoreService
+        .watchPulseConfig(widget.spaceId)
+        .listen((config) {
+      if (!mounted) return;
+      setState(() {
+        _pulseConfig = config;
+        // Initialize scores for any new attributes with default 50
+        for (final attrId in config.activeAttributes) {
+          _scores.putIfAbsent(attrId, () => 50);
+        }
+      });
+    });
+  }
 
   void _subscribeToCheckIns() {
     _checkInsSubscription?.cancel();
@@ -124,10 +145,9 @@ class _CheckInScreenState extends State<CheckInScreen>
               // Set defaults from last check-in (only once)
               if (!_hasLoadedDefaults && _myCheckIns.isNotEmpty) {
                 final lastCheckIn = _myCheckIns.first;
-                _connection = lastCheckIn.connection.toDouble();
-                _intimacy = lastCheckIn.intimacy.toDouble();
-                _peace = lastCheckIn.peace.toDouble();
-
+                for (final entry in lastCheckIn.scores.entries) {
+                  _scores[entry.key] = entry.value.toDouble();
+                }
                 _hasLoadedDefaults = true;
               }
             });
@@ -145,21 +165,41 @@ class _CheckInScreenState extends State<CheckInScreen>
 
   Future<void> _submitCheckIn() async {
     final userId = _currentUserId;
-    if (userId == null) return;
+    final config = _pulseConfig;
+    if (userId == null || config == null) return;
 
     setState(() => _isSubmitting = true);
 
     try {
+      // Build scores map (only active attributes)
+      final activeScores = <String, int>{};
+      for (final attrId in config.activeAttributes) {
+        activeScores[attrId] = (_scores[attrId] ?? 50).round();
+      }
+
+      // Build config snapshot
+      final snapshot = ConfigSnapshot(
+        activeAttributes: config.activeAttributes,
+        weights: config.weights,
+      );
+
       final checkInId = await _firestoreService.submitCheckIn(
         spaceId: widget.spaceId,
         userId: userId,
-        connection: _connection.round(),
-        intimacy: _intimacy.round(),
-        peace: _peace.round(),
+        scores: activeScores,
+        configSnapshot: snapshot,
         notes: _notesController.text.trim(),
       );
 
-      // Log activity
+      // Build compact scores for activity log
+      final compactScores = <String, dynamic>{};
+      for (final attr in activeScores.keys) {
+        compactScores[attr] = {
+          'value': activeScores[attr],
+          'weight': snapshot.weights[attr] ?? 0,
+        };
+      }
+
       final profile = await _firestoreService.getUserProfile(userId);
       final userName = profile?['name'] as String? ?? 'Someone';
 
@@ -168,9 +208,7 @@ class _CheckInScreenState extends State<CheckInScreen>
         userId: userId,
         userName: userName,
         checkInId: checkInId,
-        connection: _connection.round(),
-        intimacy: _intimacy.round(),
-        peace: _peace.round(),
+        compactScores: compactScores,
         notes: _notesController.text.trim(),
       );
 
@@ -199,6 +237,24 @@ class _CheckInScreenState extends State<CheckInScreen>
 
   List<UserCheckIn> get _myCheckIns =>
       _recentCheckIns.where((c) => c.userId == _currentUserId).toList();
+
+  List<PulseAttribute> get _activeAttributes =>
+      _pulseConfig?.activeAttributeEnums ?? [];
+
+  /// Compute a colour from a 1-100 value on the blue→red spectrum.
+  Color _scoreColor(double value) =>
+      Color.lerp(
+        AppColors.morningColor,
+        AppColors.nightColor,
+        ((value - 1) / 99).clamp(0.0, 1.0),
+      ) ??
+      AppColors.nightColor;
+
+  /// Bar fill during entrance: lerp from 1.0 (full) down to actual progress.
+  double _barFill(double value, double ease) {
+    final target = ((value - 1) / 99).clamp(0.0, 1.0);
+    return 1.0 + (target - 1.0) * ease; // 1.0 → target
+  }
 
   // ---------------------------------------------------------------------------
   // UI Build Methods
@@ -242,7 +298,7 @@ class _CheckInScreenState extends State<CheckInScreen>
               loadingLabel: 'Saving...',
               onConfirm: _submitCheckIn,
               isLoading: _isSubmitting,
-              enabled: true,
+              enabled: _pulseConfig != null,
             ),
           ),
         ),
@@ -259,36 +315,23 @@ class _CheckInScreenState extends State<CheckInScreen>
     );
   }
 
-  /// Bar fill during entrance: lerp from 1.0 (full) down to actual progress.
-  double _barFill(double value, double ease) {
-    final target = (value - 1) / 9;
-    return 1.0 + (target - 1.0) * ease; // 1.0 → target
-  }
-
-  /// Compute a colour from a 1–10 value on the blue→red spectrum.
-  Color _scoreColor(double value) =>
-      Color.lerp(
-        AppColors.morningColor,
-        AppColors.nightColor,
-        (value - 1) / 9,
-      ) ??
-      AppColors.nightColor;
-
   Widget _buildPulseCard() {
+    final attrs = _activeAttributes;
+    if (attrs.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     // Listen to both controllers — tiles (slow) and bars (fast)
     return AnimatedBuilder(
       animation: Listenable.merge([_tileController, _barController]),
       builder: (context, _) {
         final tileAnim = _tileController.value;
-        final connColor = _scoreColor(_connection);
-        final intColor = _scoreColor(_intimacy);
-        final peaceColor = _scoreColor(_peace);
-
-        // Bars: quick settle from max to actual value
         final barEase = Curves.easeOutCubic.transform(_barController.value);
-        final connFill = barEase < 1.0 ? _barFill(_connection, barEase) : null;
-        final intFill = barEase < 1.0 ? _barFill(_intimacy, barEase) : null;
-        final peaceFill = barEase < 1.0 ? _barFill(_peace, barEase) : null;
+
+        // Build group colors from active attributes
+        final groupColors = attrs
+            .map((a) => _scoreColor(_scores[a.id] ?? 50))
+            .toList();
 
         return Container(
           decoration: BoxDecoration(
@@ -310,7 +353,7 @@ class _CheckInScreenState extends State<CheckInScreen>
                         child: RepaintBoundary(
                           child: CustomPaint(
                             painter: VoronoiGroupedPainter(
-                              groupColors: [connColor, intColor, peaceColor],
+                              groupColors: groupColors,
                               seed: _mosaicSeed,
                               animationProgress: tileAnim,
                               tileCount: 60,
@@ -355,43 +398,32 @@ class _CheckInScreenState extends State<CheckInScreen>
                   ),
                 ),
 
-                // ---- Bottom: 3 vertical bar sliders ----
+                // ---- Bottom: Dynamic vertical bar sliders ----
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   child: SizedBox(
                     height: 265,
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: VerticalBarSlider(
-                            value: _connection,
-                            onChanged: (v) => setState(() => _connection = v),
-                            icon: Icons.favorite_rounded,
-                            label: 'Connection',
-                            displayProgress: connFill,
+                        for (int i = 0; i < attrs.length; i++) ...[
+                          if (i > 0)
+                            SizedBox(width: attrs.length <= 3 ? 24 : 12),
+                          Expanded(
+                            child: VerticalBarSlider(
+                              value: _scores[attrs[i].id] ?? 50,
+                              onChanged: (v) =>
+                                  setState(() => _scores[attrs[i].id] = v),
+                              icon: attrs[i].icon,
+                              iconAsset: attrs[i].iconAsset,
+                              label: attrs[i].displayName,
+                              displayProgress: barEase < 1.0
+                                  ? _barFill(
+                                      _scores[attrs[i].id] ?? 50, barEase)
+                                  : null,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          child: VerticalBarSlider(
-                            value: _intimacy,
-                            onChanged: (v) => setState(() => _intimacy = v),
-                            iconAsset: 'assets/icons/flame.svg',
-                            label: 'Intimacy',
-                            displayProgress: intFill,
-                          ),
-                        ),
-                        const SizedBox(width: 24),
-                        Expanded(
-                          child: VerticalBarSlider(
-                            value: _peace,
-                            onChanged: (v) => setState(() => _peace = v),
-                            iconAsset: 'assets/icons/peace.svg',
-                            label: 'Peace',
-                            displayProgress: peaceFill,
-                          ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -408,7 +440,7 @@ class _CheckInScreenState extends State<CheckInScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Mosaic + 3 vertical bar sliders
+        // Mosaic + dynamic vertical bar sliders
         _buildPulseCard(),
         const SizedBox(height: 12),
 

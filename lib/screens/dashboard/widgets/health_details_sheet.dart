@@ -1,129 +1,55 @@
-/// Health details bottom sheet showing detailed relationship health metrics.
+/// Health details bottom sheet — fully dynamic from ScoreResult.
+///
+/// Shows overall score, dynamic pulse attribute rows, simplified insight
+/// labels (6 total), and a weekly trend chart. Everything scoped to 30 days.
 library;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../models/user_checkin.dart';
+import '../../../models/pulse_config.dart';
+import '../../../scoring/score_models.dart';
 import '../../../theme/theme.dart';
 
 /// Shows detailed health score breakdown in a modal bottom sheet.
 void showHealthDetailsSheet({
   required BuildContext context,
-  required CheckInStats checkInStats,
+  required ScoreResult scoreResult,
   required int streak,
-  required List<Map<String, dynamic>>? dailyScores,
 }) {
-  // Scores are 1-10, convert to 0-100 scale
-  final connectionPct = checkInStats.avgConnection * 10;
-  final intimacyPct = checkInStats.avgIntimacy * 10;
-  final peacePct = checkInStats.avgPeace * 10;
-
-  final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3).round();
-  final remark = _getHealthRemark(overallHealth);
+  final remark = _getHealthRemark(scoreResult.overallScore);
 
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (context) => _HealthDetailsContent(
-      overallHealth: overallHealth,
+      scoreResult: scoreResult,
       remark: remark,
-      connectionPct: connectionPct,
-      intimacyPct: intimacyPct,
-      peacePct: peacePct,
-      checkInStats: checkInStats,
       streak: streak,
-      dailyScores: dailyScores,
     ),
   );
 }
 
+/// Score-magnitude remark (distinct from trend-based insight labels).
 String _getHealthRemark(int score) {
   if (score >= 85) return 'Deeply Connected';
-  if (score >= 70) return 'Thriving Together';
-  if (score >= 50) return 'Growing Stronger';
-  if (score >= 30) return 'Room to Grow';
-  return 'Needs Attention';
-}
-
-/// Gets a single word summary of the relationship trend over the month.
-String _getMonthSummary(
-  CheckInStats stats,
-  List<Map<String, dynamic>>? dailyScores,
-) {
-  if (stats.checkInCount < 2) return 'Starting';
-
-  // Calculate overall trend from the three dimensions
-  final overallTrend =
-      (stats.connectionTrend + stats.intimacyTrend + stats.peaceTrend) / 3;
-
-  // Calculate variance from daily scores if available
-  double variance = 0;
-  if (dailyScores != null && dailyScores.isNotEmpty) {
-    final scores = dailyScores
-        .where((d) => d['hasCheckIn'] == true)
-        .map((d) => (d['score'] as double?) ?? 0)
-        .toList();
-    if (scores.length >= 2) {
-      final mean = scores.reduce((a, b) => a + b) / scores.length;
-      variance =
-          scores.map((s) => (s - mean) * (s - mean)).reduce((a, b) => a + b) /
-          scores.length;
-    }
-  }
-
-  // Calculate average health
-  final avgHealth =
-      ((stats.avgConnection * 10) +
-          (stats.avgIntimacy * 10) +
-          (stats.avgPeace * 10)) /
-      3;
-
-  // Determine summary based on trend, variance, and health
-  if (variance > 400) {
-    // High variance = turbulent
-    return 'Turbulent';
-  } else if (overallTrend > 0.3 && avgHealth >= 70) {
-    return 'Blossoming';
-  } else if (overallTrend > 0.15) {
-    return 'Improving';
-  } else if (overallTrend < -0.3) {
-    return 'Challenging';
-  } else if (overallTrend < -0.15) {
-    return 'Cooling';
-  } else if (avgHealth >= 80 && variance < 100) {
-    return 'Harmonious';
-  } else if (avgHealth >= 65 && variance < 150) {
-    return 'Smooth';
-  } else if (avgHealth >= 50) {
-    return 'Steady';
-  } else {
-    return 'Rebuilding';
-  }
+  if (score >= 70) return 'In a Good Place';
+  if (score >= 50) return 'Building Together';
+  if (score >= 30) return 'Room to Bloom';
+  return 'Time to Reconnect';
 }
 
 class _HealthDetailsContent extends StatelessWidget {
   const _HealthDetailsContent({
-    required this.overallHealth,
+    required this.scoreResult,
     required this.remark,
-    required this.connectionPct,
-    required this.intimacyPct,
-    required this.peacePct,
-    required this.checkInStats,
     required this.streak,
-    required this.dailyScores,
   });
 
-  final int overallHealth;
+  final ScoreResult scoreResult;
   final String remark;
-  final double connectionPct;
-  final double intimacyPct;
-  final double peacePct;
-  final CheckInStats checkInStats;
   final int streak;
-  final List<Map<String, dynamic>>? dailyScores;
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +96,7 @@ class _HealthDetailsContent extends StatelessWidget {
                     const SizedBox(height: 16),
                     // Top: Centered score
                     Text(
-                      overallHealth.toString(),
+                      scoreResult.overallScore.toString(),
                       style: GoogleFonts.outfit(
                         color: AppColors.accentRed,
                         fontSize: 96,
@@ -191,7 +117,7 @@ class _HealthDetailsContent extends StatelessWidget {
                     const SizedBox(height: 16),
                     // Helper text
                     Text(
-                      'The health card is a uniquely generated artifact using this data.',
+                      'The mosaic is a live artifact that represents the health of the space using data below.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.inter(
                         color: AppColors.warmMuted.withValues(alpha: 0.7),
@@ -226,8 +152,6 @@ class _HealthDetailsContent extends StatelessWidget {
   }
 
   Widget _buildInsightsCard(BuildContext context) {
-    final monthSummary = _getMonthSummary(checkInStats, dailyScores);
-
     return GestureDetector(
       onTap: () => _showInsightsHelp(context),
       child: Container(
@@ -281,7 +205,7 @@ class _HealthDetailsContent extends StatelessWidget {
               text: TextSpan(
                 children: [
                   TextSpan(
-                    text: monthSummary,
+                    text: scoreResult.insight.displayName,
                     style: GoogleFonts.outfit(
                       color: AppColors.accentRed,
                       fontSize: 14,
@@ -301,14 +225,12 @@ class _HealthDetailsContent extends StatelessWidget {
             const SizedBox(height: 12),
             _buildInsightRow(
               'Your check-ins',
-              checkInStats.userCheckInCount.toString(),
-              '',
+              scoreResult.userCheckInCount.toString(),
             ),
             const SizedBox(height: 12),
             _buildInsightRow(
               'Partner check-ins',
-              checkInStats.partnerCheckInCount.toString(),
-              '',
+              scoreResult.partnerCheckInCount.toString(),
             ),
             const SizedBox(height: 14),
             Container(
@@ -390,16 +312,9 @@ class _HealthDetailsContent extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              _buildGlossaryItem('Blossoming', 'High scores & improving trend'),
-              _buildGlossaryItem('Harmonious', 'Consistently high scores'),
-              _buildGlossaryItem('Smooth', 'Good scores & stable'),
-              _buildGlossaryItem('Improving', 'Scores trending upward'),
-              _buildGlossaryItem('Steady', 'Moderate & consistent'),
-              _buildGlossaryItem('Cooling', 'Slight downward trend'),
-              _buildGlossaryItem('Challenging', 'Significant decline'),
-              _buildGlossaryItem('Turbulent', 'Fluctuating scores'),
-              _buildGlossaryItem('Rebuilding', 'Working through lows'),
-              _buildGlossaryItem('Starting', 'Need more check-ins'),
+              // 6 reduced labels
+              for (final label in InsightLabel.values)
+                _buildGlossaryItem(label.displayName, label.description),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -462,7 +377,7 @@ class _HealthDetailsContent extends StatelessWidget {
     );
   }
 
-  Widget _buildInsightRow(String label, String value, String suffix) {
+  Widget _buildInsightRow(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -470,27 +385,13 @@ class _HealthDetailsContent extends StatelessWidget {
           label,
           style: GoogleFonts.inter(color: AppColors.warmDim, fontSize: 13),
         ),
-        Row(
-          children: [
-            Text(
-              value,
-              style: GoogleFonts.outfit(
-                color: AppColors.warmLight,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (suffix.isNotEmpty) ...[
-              const SizedBox(width: 4),
-              Text(
-                suffix,
-                style: GoogleFonts.inter(
-                  color: AppColors.warmMuted,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ],
+        Text(
+          value,
+          style: GoogleFonts.outfit(
+            color: AppColors.warmLight,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ],
     );
@@ -505,7 +406,11 @@ class _HealthDetailsContent extends StatelessWidget {
       ) ??
       AppColors.nightColor;
 
+
   Widget _buildAttributesColumn() {
+    // Dynamic attribute rows from ScoreResult
+    final attrIds = scoreResult.attributeScores.keys.toList();
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -526,42 +431,23 @@ class _HealthDetailsContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          _buildPulseRow(
-            Icons.favorite_rounded,
-            null,
-            'Connection',
-            connectionPct,
-            checkInStats.connectionTrend,
-          ),
-          const SizedBox(height: 12),
-          _buildPulseRow(
-            null,
-            'assets/icons/flame.svg',
-            'Intimacy',
-            intimacyPct,
-            checkInStats.intimacyTrend,
-          ),
-          const SizedBox(height: 12),
-          _buildPulseRow(
-            null,
-            'assets/icons/peace.svg',
-            'Peace',
-            peacePct,
-            checkInStats.peaceTrend,
-          ),
+          for (int i = 0; i < attrIds.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            _buildPulseRow(
+              attrIds[i],
+              scoreResult.attributeScores[attrIds[i]] ?? 0,
+              scoreResult.attributeTrends[attrIds[i]] ?? 0,
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _buildPulseRow(
-    IconData? icon,
-    String? svgPath,
-    String label,
-    double value,
-    double trend,
-  ) {
+  Widget _buildPulseRow(String attrId, double value, double trend) {
+    final attr = PulseAttribute.fromId(attrId);
     final color = _scoreColor(value);
+    final label = attr?.displayName ?? attrId;
 
     return Row(
       children: [
@@ -573,14 +459,9 @@ class _HealthDetailsContent extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
-            child: icon != null
-                ? Icon(icon, color: color, size: 14)
-                : SvgPicture.asset(
-                    svgPath!,
-                    width: 14,
-                    height: 14,
-                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                  ),
+            child: attr != null
+                ? attr.buildIcon(color: color, size: 14)
+                : Icon(Icons.circle, color: color, size: 14),
           ),
         ),
         const SizedBox(width: 8),
@@ -603,34 +484,11 @@ class _HealthDetailsContent extends StatelessWidget {
   }
 
   Widget _buildMonthlyTrendChart() {
-    final scores = dailyScores ?? [];
-    final hasData =
-        scores.isNotEmpty && scores.any((d) => d['hasCheckIn'] == true);
+    final weeklyScores = scoreResult.weeklyScores;
+    final hasData = weeklyScores.any((w) => w.hasData);
 
-    // Calculate weekly averages (4 weeks from 30 days)
-    // Week 1: days 0-6, Week 2: days 7-13, Week 3: days 14-20, Week 4: days 21-29
-    final weeklyAverages = <double>[];
-    final weekRanges = [
-      [0, 7], // Week 1 (oldest)
-      [7, 14], // Week 2
-      [14, 21], // Week 3
-      [21, 30], // Week 4 (most recent, includes today)
-    ];
-
-    for (final range in weekRanges) {
-      double sum = 0;
-      int checkInCount = 0;
-      for (int i = range[0]; i < range[1] && i < scores.length; i++) {
-        final hasCheckIn = scores[i]['hasCheckIn'] as bool? ?? false;
-        if (hasCheckIn) {
-          final score = scores[i]['score'] as double? ?? 0;
-          sum += score;
-          checkInCount++;
-        }
-      }
-      // Average only from days with check-ins, 0 if no check-ins in week
-      weeklyAverages.add(checkInCount > 0 ? sum / checkInCount : 0);
-    }
+    final weeklyValues =
+        weeklyScores.map((w) => w.overallScore).toList();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -641,7 +499,6 @@ class _HealthDetailsContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Heading inside card
           Text(
             'TREND',
             style: GoogleFonts.outfit(
@@ -652,15 +509,13 @@ class _HealthDetailsContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-
-          // Chart area
           SizedBox(
             height: 80,
             child: hasData
                 ? CustomPaint(
                     size: const Size(double.infinity, 80),
                     painter: _WeeklyBarChartPainter(
-                      values: weeklyAverages,
+                      values: weeklyValues,
                       barColor: AppColors.accentRed,
                       curveColor: AppColors.accentRed,
                     ),
@@ -675,8 +530,6 @@ class _HealthDetailsContent extends StatelessWidget {
                     ),
                   ),
           ),
-
-          // X-axis labels
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -720,24 +573,20 @@ class _WeeklyBarChartPainter extends CustomPainter {
     if (values.isEmpty) return;
 
     final pointCount = values.length;
-
-    // Calculate point heights (scaled to 0-100 -> 0-height)
     final heights = values.map((v) => (v / 100) * size.height).toList();
 
-    // Calculate evenly spaced x positions
     final points = <Offset>[];
     for (int i = 0; i < pointCount; i++) {
-      final x = (i / (pointCount - 1)) * size.width;
+      final x = pointCount > 1
+          ? (i / (pointCount - 1)) * size.width
+          : size.width / 2;
       points.add(Offset(x, size.height - heights[i]));
     }
 
-    // Draw smooth curve
     if (heights.any((h) => h > 0)) {
       final curvePath = Path();
-
       curvePath.moveTo(points.first.dx, points.first.dy);
 
-      // Draw smooth bezier curves between points
       for (int i = 0; i < points.length - 1; i++) {
         final p0 = i > 0 ? points[i - 1] : points[i];
         final p1 = points[i];
@@ -752,13 +601,11 @@ class _WeeklyBarChartPainter extends CustomPainter {
         curvePath.cubicTo(cp1x, cp1y, cp2x, cp2y, p2.dx, p2.dy);
       }
 
-      // Close path for fill
       final fillPath = Path.from(curvePath);
       fillPath.lineTo(size.width, size.height);
       fillPath.lineTo(0, size.height);
       fillPath.close();
 
-      // Draw gradient fill under curve
       final fillPaint = Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
@@ -772,7 +619,6 @@ class _WeeklyBarChartPainter extends CustomPainter {
 
       canvas.drawPath(fillPath, fillPaint);
 
-      // Draw curve line
       final curvePaint = Paint()
         ..color = curveColor
         ..style = PaintingStyle.stroke
@@ -782,7 +628,6 @@ class _WeeklyBarChartPainter extends CustomPainter {
 
       canvas.drawPath(curvePath, curvePaint);
 
-      // Draw dot at the last point (this week)
       final dotPaint = Paint()
         ..color = curveColor
         ..style = PaintingStyle.fill;

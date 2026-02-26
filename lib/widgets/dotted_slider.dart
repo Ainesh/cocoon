@@ -22,7 +22,7 @@ class ScoreSelector extends StatefulWidget {
     this.icon,
     this.iconAsset,
     this.min = 1.0,
-    this.max = 10.0,
+    this.max = 100.0,
     this.embedded = false,
   });
 
@@ -48,11 +48,14 @@ class _ScoreSelectorState extends State<ScoreSelector> {
 
   static const double _barHeight = 44.0;
 
+  /// Haptic fires every N units (not every 1, too noisy for 1-100).
+  static const int _hapticStep = 5;
+
   // ---------------------------------------------------------------------------
   // State
   // ---------------------------------------------------------------------------
 
-  int _lastRoundedValue = 0;
+  int _lastHapticBucket = 0;
 
   // ---------------------------------------------------------------------------
   // Computed
@@ -73,7 +76,7 @@ class _ScoreSelectorState extends State<ScoreSelector> {
   @override
   void initState() {
     super.initState();
-    _lastRoundedValue = widget.value.round();
+    _lastHapticBucket = widget.value.round() ~/ _hapticStep;
   }
 
   // ---------------------------------------------------------------------------
@@ -82,11 +85,11 @@ class _ScoreSelectorState extends State<ScoreSelector> {
 
   void _handleValueChange(double newValue) {
     final clamped = newValue.clamp(widget.min, widget.max);
-    final rounded = clamped.round();
+    final bucket = clamped.round() ~/ _hapticStep;
 
-    if (rounded != _lastRoundedValue) {
+    if (bucket != _lastHapticBucket) {
       HapticFeedback.selectionClick();
-      _lastRoundedValue = rounded;
+      _lastHapticBucket = bucket;
     }
 
     widget.onChanged(clamped);
@@ -182,7 +185,7 @@ class VerticalBarSlider extends StatefulWidget {
     this.icon,
     this.iconAsset,
     this.min = 1.0,
-    this.max = 10.0,
+    this.max = 100.0,
     this.displayProgress,
   });
 
@@ -203,7 +206,10 @@ class VerticalBarSlider extends StatefulWidget {
 }
 
 class _VerticalBarSliderState extends State<VerticalBarSlider> {
-  int _lastRoundedValue = 0;
+  /// Haptic fires every N units (not every 1, too noisy for 1-100).
+  static const int _hapticStep = 5;
+
+  int _lastHapticBucket = 0;
 
   double get _progress =>
       (widget.value - widget.min) / (widget.max - widget.min);
@@ -215,7 +221,7 @@ class _VerticalBarSliderState extends State<VerticalBarSlider> {
   @override
   void initState() {
     super.initState();
-    _lastRoundedValue = widget.value.round();
+    _lastHapticBucket = widget.value.round() ~/ _hapticStep;
   }
 
   void _handleDrag(Offset localPosition, double trackHeight) {
@@ -224,11 +230,11 @@ class _VerticalBarSliderState extends State<VerticalBarSlider> {
       widget.min,
       widget.max,
     );
-    final rounded = newValue.round();
+    final bucket = newValue.round() ~/ _hapticStep;
 
-    if (rounded != _lastRoundedValue) {
+    if (bucket != _lastHapticBucket) {
       HapticFeedback.selectionClick();
-      _lastRoundedValue = rounded;
+      _lastHapticBucket = bucket;
     }
 
     widget.onChanged(newValue);

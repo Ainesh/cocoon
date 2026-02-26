@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../models/user_checkin.dart';
+import '../../../scoring/score_models.dart';
 import '../../../theme/theme.dart';
 import '../../../widgets/painters/voronoi_mosaic_painter.dart';
 
@@ -14,17 +14,15 @@ typedef ShowHealthDetailsCallback = void Function();
 
 /// Animated health score card with Voronoi mosaic background.
 ///
-/// Tiles appear one-by-one with a zoom-in → glow → zoom-out → settle
-/// animation. Tile colours represent the health score on a
-/// blue (low) → red (high) spectrum.
+/// Mosaic stays grayed out until both users have checked in at least once.
 class HealthCard extends StatefulWidget {
   const HealthCard({
     super.key,
-    required this.checkInStats,
+    required this.scoreResult,
     required this.onTap,
   });
 
-  final CheckInStats checkInStats;
+  final ScoreResult scoreResult;
   final ShowHealthDetailsCallback onTap;
 
   @override
@@ -39,15 +37,9 @@ class HealthCardState extends State<HealthCard>
 
   late AnimationController _controller;
 
-  /// Health score 0–1 used for colour computation (NOT animation progress).
   double _targetProgress = 0;
-
-  /// Seed for the Voronoi random pattern — changes on each animation start.
   int _seed = DateTime.now().millisecondsSinceEpoch;
-
   bool _hasAnimated = false;
-
-  /// Tracks how many haptic ticks have fired during tile appearance.
   int _lastHapticTick = -1;
 
   // ---------------------------------------------------------------------------
@@ -69,9 +61,10 @@ class HealthCardState extends State<HealthCard>
   @override
   void didUpdateWidget(HealthCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.checkInStats != widget.checkInStats) {
+    if (oldWidget.scoreResult.overallScore !=
+        widget.scoreResult.overallScore) {
       _calculateInitialValues();
-      if (!_hasAnimated && widget.checkInStats.checkInCount > 0) {
+      if (!_hasAnimated && _hasBothCheckedIn) {
         animateHealthScore();
       }
     }
@@ -89,18 +82,17 @@ class HealthCardState extends State<HealthCard>
   // Helpers
   // ---------------------------------------------------------------------------
 
+  bool get _hasBothCheckedIn =>
+      widget.scoreResult.userCheckInCount > 0 &&
+      widget.scoreResult.partnerCheckInCount > 0;
+
   void _calculateInitialValues() {
-    final connectionPct = widget.checkInStats.avgConnection * 10;
-    final intimacyPct = widget.checkInStats.avgIntimacy * 10;
-    final peacePct = widget.checkInStats.avgPeace * 10;
-    final overallHealth = ((connectionPct + intimacyPct + peacePct) / 3)
-        .round();
-    _targetProgress = overallHealth / 100;
+    _targetProgress = _hasBothCheckedIn
+        ? widget.scoreResult.overallScore / 100
+        : 0;
   }
 
   void _onTick() {
-    // Haptic feedback while tiles are appearing (0→0.75 of timeline).
-    // Fire ~12 evenly spaced ticks during the tile entrance phase.
     final progress = _controller.value;
     if (progress <= 0.75) {
       const totalTicks = 12;
@@ -123,12 +115,10 @@ class HealthCardState extends State<HealthCard>
   // Actions
   // ---------------------------------------------------------------------------
 
-  /// Start the health score animation from the current stats.
-  /// Set [forceReanimate] to true to replay the animation (e.g., on refresh).
   void animateHealthScore({bool forceReanimate = false}) {
+    if (!_hasBothCheckedIn) return;
     if (_hasAnimated && !forceReanimate) return;
 
-    // Fresh seed → fresh Voronoi pattern
     _seed = DateTime.now().millisecondsSinceEpoch;
     _hasAnimated = true;
     _lastHapticTick = -1;
@@ -137,7 +127,6 @@ class HealthCardState extends State<HealthCard>
       _controller.reset();
     }
 
-    // Immediate rebuild to show dark state before tiles start appearing
     setState(() {});
 
     Future.delayed(const Duration(milliseconds: 300), () {
@@ -154,7 +143,7 @@ class HealthCardState extends State<HealthCard>
 
   @override
   Widget build(BuildContext context) {
-    final animProgress = _controller.value;
+    final animProgress = _hasBothCheckedIn ? _controller.value : 0.0;
 
     return GestureDetector(
       onTap: widget.onTap,
@@ -163,36 +152,44 @@ class HealthCardState extends State<HealthCard>
         decoration: BoxDecoration(
           color: AppColors.darkCardLight,
           borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Color.lerp(
-                const Color(0xFF60A5FA),
-                AppColors.accentRed,
-                _targetProgress,
-              )!.withValues(alpha: 0.25),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          boxShadow: _hasBothCheckedIn
+              ? [
+                  BoxShadow(
+                    color: Color.lerp(
+                      const Color(0xFF60A5FA),
+                      AppColors.accentRed,
+                      _targetProgress,
+                    )!.withValues(alpha: 0.25),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : null,
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(20),
           child: Stack(
             children: [
-              // Layer 1: Voronoi mosaic (full-bleed)
+              // Mosaic — gray tiles when not enough data, coloured when active
               Positioned.fill(
                 child: RepaintBoundary(
                   child: CustomPaint(
                     painter: VoronoiMosaicPainter(
-                      animationProgress: animProgress,
-                      targetScore: _targetProgress,
+                      animationProgress:
+                          _hasBothCheckedIn ? animProgress : 1.0,
+                      targetScore: _hasBothCheckedIn ? _targetProgress : 0.5,
                       seed: _seed,
+                      coolColor: _hasBothCheckedIn
+                          ? const Color(0xFF60A5FA)
+                          : const Color(0xFF3A3A3A),
+                      warmColor: _hasBothCheckedIn
+                          ? const Color(0xFFE84545)
+                          : const Color(0xFF4A4A4A),
                     ),
                   ),
                 ),
               ),
-
-              // Layer 2: Label
+              // Label
               Padding(
                 padding: const EdgeInsets.all(12),
                 child: Text(

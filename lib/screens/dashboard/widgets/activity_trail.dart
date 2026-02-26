@@ -14,6 +14,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../models/activity.dart';
 import '../../../models/moment.dart';
+import '../../../models/pulse_config.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/firestore_service.dart';
 import '../../../theme/theme.dart';
@@ -428,7 +429,7 @@ class _ActivityItem extends StatelessWidget {
     // Check if this is a check-in with scores (multiline display)
     final isCheckinWithScores =
         activity.type == ActivityType.checkin &&
-        activity.metadata?['connection'] != null;
+        activity.metadata?['scores'] != null;
 
     if (isCheckinWithScores) {
       return _buildCheckinContent();
@@ -609,11 +610,9 @@ class _ActivityItem extends StatelessWidget {
     );
   }
 
-  /// Builds check-in specific content with score badges.
+  /// Builds check-in specific content with dynamic score badges.
   Widget _buildCheckinContent() {
-    final connection = activity.metadata?['connection'] as int? ?? 0;
-    final intimacy = activity.metadata?['intimacy'] as int? ?? 0;
-    final peace = activity.metadata?['peace'] as int? ?? 0;
+    final scores = _parseScoresFromMetadata(activity.metadata);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,40 +629,51 @@ class _ActivityItem extends StatelessWidget {
         ),
         const SizedBox(height: 4),
 
-        // Score icons coloured by value (blue→red spectrum)
+        // Dynamic score icons coloured by value (blue→red spectrum)
         Row(
           children: [
-            _buildIconScore(Icons.favorite_rounded, connection),
-            const SizedBox(width: 10),
-            _buildSvgScore('assets/icons/flame.svg', intimacy),
-            const SizedBox(width: 10),
-            _buildSvgScore('assets/icons/peace.svg', peace),
+            for (int i = 0; i < scores.entries.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              _buildDynamicScoreIcon(
+                scores.entries.elementAt(i).key,
+                scores.entries.elementAt(i).value,
+              ),
+            ],
           ],
         ),
       ],
     );
   }
 
-  /// Score colour on the blue (low) → red (high) spectrum.
+  /// Score colour on the blue (low) → red (high) spectrum (1-100 scale).
   Color _scoreColor(int score) =>
       Color.lerp(
         AppColors.morningColor,
         AppColors.nightColor,
-        ((score - 1) / 9).clamp(0.0, 1.0),
+        ((score - 1) / 99).clamp(0.0, 1.0),
       ) ??
       AppColors.nightColor;
 
-  Widget _buildIconScore(IconData icon, int score) {
-    return Icon(icon, color: _scoreColor(score), size: 16);
+  Widget _buildDynamicScoreIcon(String attrId, int score) {
+    final color = _scoreColor(score);
+    final attr = PulseAttribute.fromId(attrId);
+    if (attr != null) return attr.buildIcon(color: color, size: 16);
+    return Icon(Icons.circle, color: color, size: 16);
   }
 
-  Widget _buildSvgScore(String svgPath, int score) {
-    return SvgPicture.asset(
-      svgPath,
-      width: 16,
-      height: 16,
-      colorFilter: ColorFilter.mode(_scoreColor(score), BlendMode.srcIn),
-    );
+  /// Extracts scores from activity metadata. Returns empty on malformed data.
+  static Map<String, int> _parseScoresFromMetadata(
+      Map<String, dynamic>? metadata) {
+    try {
+      if (metadata == null || metadata['scores'] is! Map) return {};
+      final raw = Map<String, dynamic>.from(metadata['scores'] as Map);
+      return raw.map((k, v) {
+        if (v is Map) return MapEntry(k, (v['value'] as num).toInt());
+        return MapEntry(k, (v as num).toInt());
+      });
+    } catch (_) {
+      return {};
+    }
   }
 
   IconData _getActivityIcon() {

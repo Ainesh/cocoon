@@ -1,4 +1,4 @@
-# Cocoon 🦋
+# Kairos ⏳
 
 [![Flutter](https://img.shields.io/badge/Flutter-3.10+-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Firebase](https://img.shields.io/badge/Firebase-Auth%20%2B%20Firestore-FFCA28?logo=firebase&logoColor=black)](https://firebase.google.com)
@@ -6,7 +6,7 @@
 
 A premium Flutter relationship wellness app for couples to nurture their connection through intentional check-ins, planned moments, and shared reflection. Built with Firebase for real-time sync across devices.
 
-> **"Grow together, intentionally."**
+> **"Seize the moment. Together."**
 
 ---
 
@@ -31,12 +31,12 @@ A premium Flutter relationship wellness app for couples to nurture their connect
 
 ## Overview
 
-### What is Cocoon?
+### What is Kairos?
 
-Cocoon helps couples stay intentionally connected through:
+Kairos helps couples stay intentionally connected through:
 
-- **Daily Check-ins**: Rate connection, intimacy, and peace on a 1-10 scale
-- **Relationship Health Score**: Aggregated score from both partners' check-ins over 30 days
+- **Daily Check-ins**: Rate dynamic pulse attributes on a 1-100 scale (each user picks 3 of 5)
+- **Relationship Health Score**: Weighted score from both partners' check-ins over 30 days with per-check-in config snapshots
 - **Planned Moments**: Schedule dates (Connect), celebrations (Celebrate), and getaways (Escape)
 - **Activity Trail**: Track all couple activities with detailed history and pagination
 - **Real-time Sync**: Both partners see updates instantly across all devices
@@ -46,10 +46,11 @@ Cocoon helps couples stay intentionally connected through:
 | Concept | Description |
 |---------|-------------|
 | **Space** | A private shared space for a couple (2 members max). Each space has a custom name (e.g., "pluto") |
-| **Check-in** | Daily reflection with 3 metrics + optional notes |
+| **Check-in** | Daily reflection with dynamic pulse attributes (3-5) + optional notes |
 | **Moment** | A planned event (Connect, Celebrate, or Escape) |
-| **Health Score** | 0-100 score derived from check-in averages over 30 days |
-| **Pulse** | Single word describing relationship rhythm based on trends |
+| **Pulse Config** | Space-level config: each user picks 3 of 5 attributes; overlaps get 2× weight |
+| **Health Score** | 0-100 weighted score from check-ins over 30 days; per-check-in config snapshots |
+| **Insight** | One of 6 labels describing relationship rhythm (Thriving, Growing, Steady, Cooling, Struggling, Just starting) |
 | **Activity** | A tracked event (check-in, moment CRUD, space events) |
 
 ### Tech Stack
@@ -75,6 +76,10 @@ Cocoon helps couples stay intentionally connected through:
 - Create a private space for you and your partner
 - Invite via 6-character code or shareable URL
 - Space name customization from settings
+- **Pulse Attribute Config** — each user picks 3 of 5 attributes in Settings → Pulse Attributes
+  - Tappable pill-style selector with red glow on active picks
+  - Partner's picks shown with a dot indicator
+  - Icons match check-in sliders (same SVGs/Material icons throughout)
 
 ### 📊 Dashboard
 - **Navigation** — Stretchy 2-tab selector (Dashboard ↔ Coming Soon)
@@ -87,7 +92,8 @@ Cocoon helps couples stay intentionally connected through:
   - Tile colours represent health score on a blue (low) → red (high) spectrum
   - Geometry cached (O(n² × rays)) — never recomputed in paint()
   - Phantom border seeds create organic rounded edges at card boundary
-  - Tap for detailed breakdown sheet
+  - **Gray mosaic** until both members have checked in at least once
+  - Tap shows preview popup when insufficient data, full details sheet when active
   - Live updates when partner checks in
 - **Coming Up Card** — Upcoming moments with smart layout:
   - Featured moment (next up) with full details
@@ -147,21 +153,28 @@ Three types of moments with progressive reveal UI:
 ### 🔍 Check-in Details
 - View-only bottom sheet opened from Activity Trail
 - Voronoi mosaic at top grouped by pulse attribute
-- 3 static vertical bars showing Connection, Intimacy, Peace scores
+- Dynamic vertical bars (3-5) showing active attribute scores from saved config
+- Adaptive spacing: bars tighten when 4-5 attributes are active
 - Reflection card (if notes were provided)
 - "Checked in by You on Saturday, Feb 15" subtitle
 
 ### 💬 Check-ins
-- **Pulse Check Card** — Voronoi mosaic + 3 vertical bar sliders
-  - Top: Grouped Voronoi mosaic — tiles randomly assigned to 3 pulse attributes
+- **Pulse Check Card** — Voronoi mosaic + dynamic vertical bar sliders
+  - Top: Grouped Voronoi mosaic — tiles randomly assigned to active pulse attributes
   - Each group's tiles coloured by that slider's value (blue→red)
   - Staggered tile entrance animation (2s) + quick bar settle from max (600ms)
-  - Bottom: 3 vertical bar sliders (Connection ❤️, Intimacy 🔥, Peace ☮️)
-  - Drag vertically to set 1-10 score with haptic feedback
+  - Bottom: 3-5 vertical bar sliders (dynamic from pulse config union)
+  - Drag vertically to set 1-100 score with haptic feedback every 5 units
   - "PULSE CHECK" header + helper text
+  - Adaptive spacing: bars tighten when 4-5 attributes are active
+- **Dynamic Attributes** — 5 available: Connection ❤️, Intimacy 🔥, Peace ☮️, Trust 🤝, Communication 💬
+  - Each user picks 3 in Settings → Pulse Attributes
+  - Both users see the union of all picks on the check-in screen
+  - Overlapping picks get 2× weight in scoring
+- **Config Snapshot** — Active attributes + weights saved with each check-in for historical consistency
 - **Smart Defaults** — Sliders start from your last check-in
 - **Reflection** — Optional appreciation or thoughts (always-red label)
-- **Slide to Save** — Sticky bottom swipe-to-confirm, always enabled
+- **Slide to Save** — Sticky bottom swipe-to-confirm, enabled when config loaded
 
 ### 🔔 Push Notifications
 Real-time notifications triggered by partner activities via Firebase Cloud Functions:
@@ -209,7 +222,7 @@ A comprehensive activity tracking system that logs all couple interactions:
 
 | Activity Type | Description | Metadata |
 |--------------|-------------|----------|
-| **Check-in** | Daily check-in submitted | Connection, intimacy, peace scores |
+| **Check-in** | Daily check-in submitted | Dynamic attribute scores (1-100) |
 | **Moment Planned** | New moment created | Moment name, type, dates |
 | **Moment Edited** | Existing moment updated | Changed fields (dates, time, notes) |
 | **Moment Deleted** | Moment cancelled | Moment name, type |
@@ -230,30 +243,67 @@ A comprehensive activity tracking system that logs all couple interactions:
 
 ### 📈 Health Score Calculation
 
+#### Pulse Attributes
+
+5 available attributes: **Connection**, **Intimacy**, **Peace**, **Trust**, **Communication**
+
+Each user picks up to 3. The active set is the union of both users' picks (3-5 attributes). Attributes picked by both users receive **2× weight**; picked by one get **1×**.
+
 ```
-Connection (1-10) × 10 = Connection %
-Intimacy (1-10) × 10 = Intimacy %
-Peace (1-10) × 10 = Peace %
+Example: UserA picks [Connection, Trust, Communication]
+         UserB picks [Connection, Intimacy, Trust]
 
-Overall Health = Average of all three (0-100%)
+Active:  {Connection, Trust, Communication, Intimacy}
+Overlap: Connection(2×), Trust(2×), Communication(1×), Intimacy(1×)
+Weights: 2/6, 2/6, 1/6, 1/6
 ```
 
-Scores calculated from **past 30 days** of check-ins from both partners.
+#### Score Pipeline
 
-### 💫 Relationship Pulse
+All scores stored on a **1-100 scale**. Each check-in saves a **config snapshot** (active attributes + weights) so historical scores are never re-evaluated against a changed config.
 
-| Pulse | Meaning |
-|-------|---------|
-| **Blossoming** | High scores & improving trend |
-| **Harmonious** | Consistently high scores |
-| **Smooth** | Good scores & stable |
-| **Improving** | Scores trending upward |
-| **Steady** | Moderate & consistent |
+```
+Per Check-in:
+  Overall = weighted average of attribute scores using THIS check-in's saved config weights
+
+Per User Per Day:
+  Average of the user's per-check-in overalls for that day
+
+Per Day (combined):
+  Average of user-averages (equal weight per user, prevents frequency skew)
+
+Per Week:
+  Mean of daily combined scores (only days with check-ins count)
+
+Per Month:
+  Mean of 4 weekly scores (only weeks with data count)
+```
+
+Everything scoped to a strict **30-day window**.
+
+#### Example
+
+```
+Day 1: User1 scores Connection=100, User2 scores Connection=80
+  → Combined daily Connection = (100 + 80) / 2 = 90
+
+3 days at 90 → Weekly avg = 90 → Monthly avg = 90
+```
+
+### 💫 Relationship Pulse (Insights)
+
+| Label | Condition |
+|-------|-----------|
+| **Thriving** | High scores (≥75) and stable/improving trend |
+| **Growing** | Scores trending upward |
+| **Steady** | Moderate scores and low variance |
 | **Cooling** | Slight downward trend |
-| **Challenging** | Significant decline |
-| **Turbulent** | Fluctuating scores |
-| **Rebuilding** | Working through lows |
-| **Starting** | Need more check-ins |
+| **Struggling** | Significant decline or low scores |
+| **Just starting** | Fewer than 4 check-ins in window |
+
+#### Extensibility
+
+The scoring engine (`lib/scoring/`) is pure Dart with no Flutter dependencies. It accepts `ScoreContribution` objects from any source via the `ScoreSource` interface. Currently only check-ins contribute, but moments, app activity, and other signals can be added as future `ScoreSource` implementations without changing the engine.
 
 ---
 
@@ -428,7 +478,7 @@ Located in `assets/icons/`:
 | Peace | `peace.svg` | Peace indicator |
 | Google | `google_logo.svg` | Google Sign-In |
 | Apple | `apple_logo.svg` | Apple Sign-In |
-| Logo | `cocoon_logo.svg` | App branding |
+| Logo | `kairos_logo.svg` | App branding |
 
 ---
 
@@ -677,7 +727,14 @@ lib/
 │   ├── avatar_data.dart         # Avatar and color data
 │   ├── moment.dart              # Moment model (Connect, Celebrate, Escape)
 │   ├── notification_preferences.dart # Notification config per activity type
-│   └── user_checkin.dart        # Check-in model & CheckInStats
+│   ├── pulse_config.dart        # PulseAttribute enum (5), PulseConfig (picks + weights)
+│   └── user_checkin.dart        # Check-in model (scores map + configSnapshot)
+│
+├── scoring/                     # Pure Dart scoring engine (no Flutter deps)
+│   ├── score_models.dart        # ScoreResult, DailyScore, WeeklyScore, InsightLabel
+│   ├── score_engine.dart        # Core computation: daily→weekly→monthly + trends
+│   ├── score_source.dart        # Abstract ScoreSource interface (extensible)
+│   └── checkin_score_source.dart # CheckIn → ScoreContribution adapter
 │
 ├── router/
 │   └── app_router.dart          # GoRouter with auth guards
@@ -776,27 +833,59 @@ class Moment {
 ```dart
 class UserCheckIn {
   final String id;
-  final String oderId;
+  final String userId;
   final DateTime timestamp;
-  final int connection;           // 1-10
-  final int intimacy;             // 1-10
-  final int peace;                // 1-10 (higher = more peaceful)
-  final String? notes;
+  final Map<String, int> scores;        // Dynamic attribute scores (1-100)
+  final ConfigSnapshot configSnapshot;  // Saved config at check-in time
+  final String notes;
+  
+  // Convenience getters
+  int get connection => scores['connection'] ?? 0;
+  int get intimacy => scores['intimacy'] ?? 0;
+  int get peace => scores['peace'] ?? 0;
 }
 
-class CheckInStats {
-  final double avgConnection;
-  final double avgIntimacy;
-  final double avgPeace;
+/// Reconstructed from the scores map at read time — not stored separately.
+class ConfigSnapshot {
+  final List<String> activeAttributes;  // = scores.keys
+  final Map<String, double> weights;    // = scores[*].weight
+}
+```
+
+### PulseConfig
+
+```dart
+class PulseConfig {
+  final Map<String, List<String>> userPicks; // userId -> [attrId, attrId, attrId]
+  final DateTime? updatedAt;
+  
+  List<String> get activeAttributes;     // Union of all picks (canonical order)
+  Map<String, double> get weights;       // 2× for overlaps, normalized to 1.0
+}
+
+enum PulseAttribute {
+  connection, intimacy, peace, trust, communication
+}
+```
+
+### ScoreResult
+
+```dart
+class ScoreResult {
+  final int overallScore;                    // 0-100, weighted
+  final Map<String, double> attributeScores; // Per-attribute avg (0-100)
+  final Map<String, double> attributeTrends; // Per-attribute trend (-1..1)
+  final double overallTrend;                 // -1..1
+  final List<WeeklyScore> weeklyScores;      // 4 weeks for trend chart
+  final InsightLabel insight;                // One of 6 labels
   final int checkInCount;
   final int userCheckInCount;
   final int partnerCheckInCount;
-  final double connectionTrend;   // -1 to 1
-  final double intimacyTrend;
-  final double peaceTrend;
-  
-  factory CheckInStats.fromCheckIns(List<UserCheckIn>, {required String currentUserId});
+  final int streak;
+  final Map<String, double> weights;         // Active config weights
 }
+
+enum InsightLabel { thriving, growing, steady, cooling, needsCare, newLabel }
 ```
 
 ### Activity
@@ -882,13 +971,17 @@ class FirestoreService {
   
   // Check-ins
   Stream<List<UserCheckIn>> watchRecentCheckIns(spaceId, {daysBack});
-  Future<void> submitCheckIn({spaceId, userId, connection, intimacy, peace, notes});
-  Future<int> getCheckInStreak(spaceId, userId);
-  Future<List<Map<String, dynamic>>> getDailyScores(spaceId, {daysBack});
+  Future<String> submitCheckIn({spaceId, userId, scores, configSnapshot, notes});
+  Future<int> getCheckInStreak(spaceId);
+  
+  // Pulse Config
+  Future<PulseConfig> getPulseConfig(spaceId);
+  Stream<PulseConfig> watchPulseConfig(spaceId);
+  Future<void> updateUserPicks({spaceId, userId, picks});
   
   // Activities
   Future<void> logActivity({spaceId, type, actorId, actorName, entityType, entityId, metadata});
-  Future<void> logCheckInActivity({spaceId, actorId, actorName, checkinId, connection, intimacy, peace});
+  Future<void> logCheckInActivity({spaceId, actorId, actorName, checkinId, scores, notes});
   Future<void> logMomentPlannedActivity({spaceId, actorId, actorName, momentId, momentName, momentType, startDate, endDate});
   Future<void> logMomentEditedActivity({spaceId, actorId, actorName, momentId, momentName, momentType, changedFields});
   Future<void> logMomentDeletedActivity({spaceId, actorId, actorName, momentId, momentName, momentType});
@@ -921,57 +1014,10 @@ class FirestoreService {
    - Firebase Console → Authentication → Sign-in method
    - Enable **Email/Password** and **Google**
 
-3. **Firestore Security Rules**
-   ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /invites/{inviteId} {
-         allow read, write: if request.auth != null;
-       }
-
-       match /spaces/{spaceId} {
-         allow create: if request.auth != null;
-         allow read: if request.auth != null;
-         allow update: if request.auth != null && (
-           request.auth.uid in resource.data.memberIds ||
-           (request.auth.uid in request.resource.data.memberIds &&
-            request.resource.data.memberIds.size() == resource.data.memberIds.size() + 1)
-         );
-
-       match /moments/{momentId} {
-          allow read, write: if request.auth != null &&
-            request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-
-          // Editing presence (optimistic locking)
-          match /editing/{editorId} {
-            allow read, write: if request.auth != null &&
-              request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-          }
-        }
-
-        match /checkins/{checkinId} {
-          allow read, write: if request.auth != null &&
-            request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-        }
-        
-        match /activities/{activityId} {
-          allow read, write: if request.auth != null &&
-            request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
-        }
-      }
-
-       match /users/{userId} {
-         allow read: if request.auth != null && (
-           request.auth.uid == userId ||
-           (resource.data.spaceId != null &&
-            request.auth.uid in get(/databases/$(database)/documents/spaces/$(resource.data.spaceId)).data.memberIds)
-         );
-         allow write: if request.auth != null && request.auth.uid == userId;
-       }
-     }
-   }
-   ```
+3. **Firestore Security Rules** — see `firestore.rules` for canonical rules. Key protections:
+   - **Pulse config**: Users can only modify their own `pulseConfig.userPicks` entry (not partner's)
+   - **Check-in schema**: `create` requires `userId`, `timestamp`, `scores`, `configSnapshot` fields and `userId == auth.uid`
+   - **Member check**: All subcollection access gated by `request.auth.uid in memberIds`
 
 ### Installation
 
@@ -1057,6 +1103,8 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 - Read/write access restricted to authenticated space members
 - Users can only modify their own profile
 - Invite codes are validated server-side
+- Pulse config: users can only modify their own attribute picks
+- Check-in creation requires `scores` + `configSnapshot` fields and `userId == auth.uid`
 
 ### Best Practices Followed
 - ✅ `mounted` checks after all async operations
@@ -1189,4 +1237,4 @@ MIT License — see [LICENSE](LICENSE) file for details.
 
 ---
 
-*Last updated: February 22, 2026*
+*Last updated: February 25, 2026*
