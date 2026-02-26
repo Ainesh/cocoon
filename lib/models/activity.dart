@@ -1,4 +1,4 @@
-/// Activity model for Cocoon app.
+/// Activity model for Kairos app.
 ///
 /// Tracks all activities within a couple space for the activity trail.
 /// Supports various activity types with entity linking for deep navigation.

@@ -1,4 +1,4 @@
-/// Centralized typography definitions for Cocoon app.
+/// Centralized typography definitions for Kairos app.
 ///
 /// Use these text styles throughout the app for consistency.
 /// Import: `import 'package:couple_space/theme/app_typography.dart';`
@@ -9,7 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_colors.dart';
 
-/// Cocoon app typography styles.
+/// Kairos app typography styles.
 abstract final class AppTypography {
   // ---------------------------------------------------------------------------
   // Font Families

@@ -1,5 +1,5 @@
 /**
- * Cloud Functions for Cocoon app.
+ * Cloud Functions for Kairos app.
  *
  * Handles push notifications triggered by activity creation in Firestore.
  * Each activity logged in spaces/{spaceId}/activities triggers a notification

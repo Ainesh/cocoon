@@ -1,4 +1,4 @@
-/// Cocoon app theme barrel file.
+/// Kairos app theme barrel file.
 ///
 /// Import this file to access all theme-related constants:
 /// ```dart

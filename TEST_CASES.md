@@ -1,4 +1,4 @@
-# Cocoon - Comprehensive Test Cases
+# Kairos - Comprehensive Test Cases
 
 > Human-readable catalog of all test cases organized by type.
 > Total: 159 test cases across unit, widget, and integration layers.
@@ -33,7 +33,7 @@ Quick checks that core features render and core data structures work.
 | THM-01 | Theme | AppColors constants are non-null and have correct hex values | `app_colors_test.dart` |
 | THM-04 | Theme | AppSpacing constants have correct values | `app_colors_test.dart` |
 | THM-05 | Theme | AppSpacing animation durations are positive | `app_colors_test.dart` |
-| WS-01 | Screen | SplashScreen shows heart icon, "Cocoon" text, and loading indicator | `splash_screen_test.dart` |
+| WS-01 | Screen | SplashScreen shows heart icon, "Kairos" text, and loading indicator | `splash_screen_test.dart` |
 | WS-02 | Screen | LoginScreen renders email and password input fields | `login_screen_test.dart` |
 | WS-11 | Screen | LoginScreen shows Google and Apple social buttons | `login_screen_test.dart` |
 

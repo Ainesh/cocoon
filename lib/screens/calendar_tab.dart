@@ -1,4 +1,4 @@
-/// Events tab for Cocoon app.
+/// Events tab for Kairos app.
 ///
 /// Displays upcoming moments with week and month view options.
 /// Premium neumorphic UI with micro-interactions.

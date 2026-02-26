@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Cocoon Test Coverage Report Generator
+# Kairos Test Coverage Report Generator
 # =============================================================================
 #
 # Runs all unit and widget tests with coverage collection, generates an

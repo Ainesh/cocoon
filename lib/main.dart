@@ -1,4 +1,4 @@
-/// Cocoon - Grow together, intentionally.
+/// Kairos - Seize the moment. Together.
 ///
 /// A nurturing space for relationship transformation.
 /// Private. Intentional. Transformative.
@@ -48,7 +48,7 @@ void main() async {
   // Initialize notifications (non-blocking)
   _initializeNotifications();
 
-  runApp(const CocoonApp());
+  runApp(const KairosApp());
 }
 
 /// Initialize push notifications.
@@ -70,29 +70,29 @@ Future<void> _initializeNotifications() async {
   }
 }
 
-/// Root widget of the Cocoon application.
+/// Root widget of the Kairos application.
 ///
 /// Features a dark neumorphic theme with:
 /// - Warm red primary accent ([AppColors.refinedRed])
 /// - Soft purple secondary ([AppColors.accentPurple])
 /// - Pure black background ([AppColors.pureBlack])
-class CocoonApp extends StatelessWidget {
-  const CocoonApp({super.key});
+class KairosApp extends StatelessWidget {
+  const KairosApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Cocoon',
+      title: 'Kairos',
       debugShowCheckedModeBanner: false,
-      theme: _buildCocoonTheme(),
+      theme: _buildKairosTheme(),
       routerConfig: AppRouter.router,
     );
   }
 
-  /// Builds the Cocoon dark neumorphic theme.
+  /// Builds the Kairos dark neumorphic theme.
   ///
   /// Uses Material 3 with custom color scheme derived from [AppColors].
-  ThemeData _buildCocoonTheme() {
+  ThemeData _buildKairosTheme() {
     // Build color scheme from centralized AppColors
     final colorScheme = ColorScheme.dark(
       primary: AppColors.refinedRed,

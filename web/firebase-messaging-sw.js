@@ -16,7 +16,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((message) => {
   console.log('Background message received:', message);
 
-  const notificationTitle = message.notification?.title || 'Cocoon';
+  const notificationTitle = message.notification?.title || 'Kairos';
   const notificationOptions = {
     body: message.notification?.body || '',
     icon: '/icons/Icon-192.png',

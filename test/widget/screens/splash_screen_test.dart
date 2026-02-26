@@ -27,7 +27,7 @@ class TestSplashScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Cocoon',
+              'Kairos',
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -56,7 +56,7 @@ void main() {
     expect(find.byIcon(Icons.favorite_rounded), findsOneWidget);
 
     // Verify app name is displayed
-    expect(find.text('Cocoon'), findsOneWidget);
+    expect(find.text('Kairos'), findsOneWidget);
 
     // Verify loading indicator
     expect(find.byType(CircularProgressIndicator), findsOneWidget);

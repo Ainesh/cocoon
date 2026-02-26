@@ -1,4 +1,4 @@
-/// Themed inline calendar widgets for Cocoon app.
+/// Themed inline calendar widgets for Kairos app.
 ///
 /// Wraps `table_calendar` with the app's dark theme styling.
 /// Two modes: single date selection and range selection.
@@ -16,7 +16,7 @@ import '../utils/date_utils.dart';
 // Single date calendar
 // =============================================================================
 
-/// Inline single-date calendar with Cocoon theme.
+/// Inline single-date calendar with Kairos theme.
 ///
 /// Selected day uses a rounded rectangle; today is bold with no background.
 class InlineDateCalendar extends StatelessWidget {
@@ -77,7 +77,7 @@ class InlineDateCalendar extends StatelessWidget {
 // Range date calendar
 // =============================================================================
 
-/// Inline range-date calendar with Cocoon theme.
+/// Inline range-date calendar with Kairos theme.
 ///
 /// Start/end use circles that align with the solid red highlight bar.
 class InlineRangeCalendar extends StatelessWidget {

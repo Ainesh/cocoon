@@ -275,9 +275,9 @@ void main() {
     test('description for spaceRenamed includes new name from metadata', () {
       final activity = createTestActivity(
         type: ActivityType.spaceRenamed,
-        metadata: {'newName': 'Our Cocoon'},
+        metadata: {'newName': 'Our Kairos'},
       );
-      expect(activity.description, 'renamed space to "Our Cocoon"');
+      expect(activity.description, 'renamed space to "Our Kairos"');
     });
 
     test('description for momentEdited includes moment name', () {

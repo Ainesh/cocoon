@@ -1,4 +1,4 @@
-/// Splash screen for Cocoon app.
+/// Splash screen for Kairos app.
 ///
 /// Displays app branding while determining the initial navigation destination
 /// based on authentication state and space membership.
@@ -85,7 +85,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
             // App Name
             Text(
-              'Cocoon',
+              'Kairos',
               style: theme.textTheme.headlineMedium?.copyWith(
                 fontWeight: FontWeight.bold,
                 color: theme.colorScheme.onSurface,

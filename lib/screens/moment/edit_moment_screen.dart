@@ -1,4 +1,4 @@
-/// Edit Moment screen for Cocoon app.
+/// Edit Moment screen for Kairos app.
 ///
 /// Allows users to edit existing moments. The moment type and name
 /// cannot be changed - user must cancel and create a new one.
