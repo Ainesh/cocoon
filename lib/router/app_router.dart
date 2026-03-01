@@ -14,7 +14,7 @@ import '../screens/login_screen.dart';
 import '../screens/main_shell.dart';
 import '../screens/moment/edit_moment_screen.dart';
 import '../screens/moment/plan_moment_screen.dart';
-import '../screens/onboarding_screen.dart';
+import '../screens/onboarding/onboarding_flow.dart';
 import '../screens/splash_screen.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
@@ -83,7 +83,7 @@ abstract final class AppRouter {
       path: '/onboarding',
       name: 'onboarding',
       pageBuilder: (context, state) =>
-          _fadeSlideTransition(state, const OnboardingScreen()),
+          _fadeTransition(state, const OnboardingFlow()),
     ),
 
     // Dashboard - Main app screen (with bottom navigation)
@@ -244,32 +244,6 @@ abstract final class AppRouter {
                 CurvedAnimation(parent: animation, curve: Curves.easeInOut),
               ),
           child: child,
-        );
-      },
-    );
-  }
-
-  /// Creates a combined fade + slide-up transition for the given page.
-  static CustomTransitionPage<void> _fadeSlideTransition(
-    GoRouterState state,
-    Widget child,
-  ) {
-    return CustomTransitionPage(
-      key: state.pageKey,
-      child: child,
-      transitionsBuilder: (context, animation, secondaryAnimation, child) {
-        return FadeTransition(
-          opacity: animation,
-          child: SlideTransition(
-            position:
-                Tween<Offset>(
-                  begin: const Offset(0.0, 0.1),
-                  end: Offset.zero,
-                ).animate(
-                  CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                ),
-            child: child,
-          ),
         );
       },
     );

@@ -1,7 +1,7 @@
 # Kairos - Comprehensive Test Cases
 
 > Human-readable catalog of all test cases organized by type.
-> Total: 159 test cases across unit, widget, and integration layers.
+> Total: 177 test cases across unit, widget, and integration layers.
 
 ---
 
@@ -255,7 +255,7 @@ End-to-end user journeys that require Firebase emulators.
 |----|------|-------|------|
 | INT-01 | Auth: Sign Up | App launch -> Login -> Sign up -> Onboarding | Happy path |
 | INT-02 | Auth: Sign In | App launch -> Login -> Sign in -> Dashboard | Happy path |
-| INT-03 | Onboarding | Name space -> Profile -> Invite -> Dashboard | Happy path |
+| INT-03 | Onboarding | Breathing splash (0) → Space naming (1) → Profile + create (2) → Facets + check-in (3) → Invite + notifs (4) → Dashboard | Happy path |
 | INT-04 | Join Space | Invite link -> Auth -> Profile -> Join -> Dashboard | Happy path |
 | INT-05 | Check-in | Dashboard -> Check-in -> Scores -> Submit -> Return | Happy path |
 | INT-06 | Plan Moment | Dashboard -> Plan -> Type -> Date -> Save | Happy path |
@@ -390,6 +390,72 @@ End-to-end user journeys that require Firebase emulators.
 
 ---
 
+## 9. Onboarding Flow Tests (Manual)
+
+### Screen 0 — Kairos Splash
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-01 | Tile entrance | Launch onboarding | Tiles fade in from outer edges inward over ~1.8s | ☐ |
+| OB-02 | Breathing | Observe tiles | Tiles breathe at random phases with radial opacity gradient (dim center, bright edges) | ☐ |
+| OB-03 | Logo + tagline | Observe center | "Kairos" in Dr Sugiyama + "this is the moment your journey begins" centered, no tiles behind | ☐ |
+| OB-04 | Tap to continue | Observe bottom | "tap to continue" visible at screen bottom, static | ☐ |
+| OB-05 | Tap transition | Tap screen | Text fades, tiles fill (radial, intensifying haptics), then fade to bands (simmering haptics) | ☐ |
+| OB-06 | No double-fire | Tap screen twice | Only one transition triggers | ☐ |
+| OB-07 | Splash match | Observe splash → screen 0 | Logo position identical, seamless fade transition | ☐ |
+
+### Screen 1 — Space
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-08 | Staggered entrance | Arrive at Screen 1 | "Space" fades in → 2.5s pause → subtitle fades in → 2s pause → red prompt fades in | ☐ |
+| OB-09 | Breathing bands | Observe top/bottom | Mosaic bands visible and breathing at top and bottom quarters | ☐ |
+| OB-10 | Tap prompt | Tap "tap to name your space" | Title + subtitle disappear instantly, underline input appears with keyboard | ☐ |
+| OB-11 | Type name | Type "Our Place" | Text appears in Dr Sugiyama red, underline visible while focused | ☐ |
+| OB-12 | Unfocus with name | Tap outside / dismiss keyboard | Name replaces subtitle (center), tagline replaces prompt, underline gone. After 2s "tap to continue" appears at bottom | ☐ |
+| OB-13 | Re-edit name | Tap the displayed name | Input reopens with keyboard, tagline hides | ☐ |
+| OB-14 | Clear name | Clear input and unfocus | Reverts to title → subtitle → prompt state | ☐ |
+| OB-15 | Unfocus empty | Tap prompt, type nothing, dismiss keyboard | Subtitle reappears (not tagline) | ☐ |
+| OB-16 | Tap to continue | Tap "tap to continue" | Navigates to Screen 2 | ☐ |
+| OB-17 | Keyboard tiles | Open keyboard | Mosaic tiles don't move (resizeToAvoidBottomInset: false) | ☐ |
+
+### Screen 2 — About You
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-10 | Both fields required | Leave name empty, tap Create Space | Button dimmed, no action | ☐ |
+| OB-11 | Avatar required | Enter name but no avatar | Button dimmed | ☐ |
+| OB-12 | Create space | Fill name + select avatar, tap Create Space | Loading spinner, space created in Firestore | ☐ |
+| OB-13 | Ceremony overlay | After successful creation | Home icon + space name + "your space is ready" shown, auto-advances after ~2s | ☐ |
+| OB-14 | Error handling | Network error during creation | Error snackbar shown, button re-enabled | ☐ |
+
+### Screen 3 — First Pulse
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-15 | Facet selection | Tap 3 facets | Selected chips show red border + checkmark, counter shows "3 / 3" | ☐ |
+| OB-16 | Max 3 facets | With 3 selected, tap a 4th | 4th is not added, existing selection unchanged | ☐ |
+| OB-17 | Deselect facet | With 3 selected, tap a selected one | Deselects it, counter shows "2 / 3" | ☐ |
+| OB-18 | Faded unselected | With 3 selected | Unselected facets fade to 0.3 opacity | ☐ |
+| OB-19 | Phase B transition | Tap Continue with 3 selected | Voronoi mosaic header + sliders (height 265) appear | ☐ |
+| OB-20 | Sliders work | Drag a vertical bar | Score updates, mosaic colors change reactively | ☐ |
+| OB-21 | SlideToAction submit | Swipe slider fully right | Check-in saved to Firestore, celebration overlay shown | ☐ |
+| OB-22 | Celebration overlay | After successful check-in | "Your mosaic has begun" + mosaic animation + auto-advance | ☐ |
+
+### Screen 4 — Almost There
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-23 | Invite code shown | Arrive at Screen 4 | Invite code displayed with copy + share buttons | ☐ |
+| OB-24 | Copy code | Tap Copy | Code copied to clipboard, button text changes to "Copied!" | ☐ |
+| OB-25 | Share code | Tap Share | Native share sheet opens with invite text | ☐ |
+| OB-26 | Desaturation hook | Wait 1.5s on Screen 4 | Mosaic desaturates, text changes to "Without you, the colors fade" | ☐ |
+| OB-27 | Allow notifications | Tap "Keep My Mosaic Alive" | OS permission dialog, mosaic re-saturates on success | ☐ |
+| OB-28 | Skip notifications | Tap "I'll do it later" | Text changes to "You're all set", buttons hidden | ☐ |
+| OB-29 | Start button | Tap Start | Navigates to dashboard with correct spaceId | ☐ |
+
+---
+
 ## Running Tests
 
 ### Unit & Widget Tests
@@ -434,4 +500,4 @@ firebase functions:log --project couple-space-36e1a
 
 ---
 
-*Last updated: February 22, 2026*
+*Last updated: February 27, 2026*
