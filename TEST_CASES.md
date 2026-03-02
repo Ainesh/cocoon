@@ -255,7 +255,7 @@ End-to-end user journeys that require Firebase emulators.
 |----|------|-------|------|
 | INT-01 | Auth: Sign Up | App launch -> Login -> Sign up -> Onboarding | Happy path |
 | INT-02 | Auth: Sign In | App launch -> Login -> Sign in -> Dashboard | Happy path |
-| INT-03 | Onboarding | Breathing splash (0) → Space naming (1) → Profile + create (2) → Facets + check-in (3) → Invite + notifs (4) → Dashboard | Happy path |
+| INT-03 | Onboarding | Breathing splash (0) → Space naming (1) → Profile + create (2) → Pulse attributes + check-in (3) → Invite + notifs (4) → Dashboard | Happy path |
 | INT-04 | Join Space | Invite link -> Auth -> Profile -> Join -> Dashboard | Happy path |
 | INT-05 | Check-in | Dashboard -> Check-in -> Scores -> Submit -> Return | Happy path |
 | INT-06 | Plan Moment | Dashboard -> Plan -> Type -> Date -> Save | Happy path |
@@ -419,24 +419,30 @@ End-to-end user journeys that require Firebase emulators.
 | OB-16 | Tap to continue | Tap "tap to continue" | Navigates to Screen 2 | ☐ |
 | OB-17 | Keyboard tiles | Open keyboard | Mosaic tiles don't move (resizeToAvoidBottomInset: false) | ☐ |
 
-### Screen 2 — About You
+### Screen 2 — You (Name + Avatar)
 
 | ID | Scenario | Steps | Expected | Tested |
 |----|----------|-------|----------|--------|
-| OB-10 | Both fields required | Leave name empty, tap Create Space | Button dimmed, no action | ☐ |
-| OB-11 | Avatar required | Enter name but no avatar | Button dimmed | ☐ |
-| OB-12 | Create space | Fill name + select avatar, tap Create Space | Loading spinner, space created in Firestore | ☐ |
-| OB-13 | Ceremony overlay | After successful creation | Home icon + space name + "your space is ready" shown, auto-advances after ~2s | ☐ |
-| OB-14 | Error handling | Network error during creation | Error snackbar shown, button re-enabled | ☐ |
+| OB-18 | Tile transition | Tap continue on Screen 1 | Tiles refill center (bands reverse), swap screen, tiles clear to bands again | ☐ |
+| OB-19 | Staggered entrance | Arrive at Screen 2 | "You" → subtitle 1 → subtitle 2 → prompt appear one by one with pauses | ☐ |
+| OB-20 | Tap prompt | Tap "tap to enter your name" | Subtitles disappear instantly, underline input appears with keyboard | ☐ |
+| OB-21 | Type name | Type "Alex" | Text in Dr Sugiyama red, underline while focused | ☐ |
+| OB-22 | Auto avatar | Unfocus with name | Name + auto-generated Voronoi avatar + 5 color dots appear in center | ☐ |
+| OB-23 | Color dots | Tap a different color dot | Avatar palette changes instantly, selected dot gets white border | ☐ |
+| OB-24 | Re-edit name | Tap the displayed name | Input reopens, avatar hides | ☐ |
+| OB-25 | Clear name | Clear input and unfocus | Reverts to subtitle/prompt state | ☐ |
+| OB-26 | Tap to continue | Tap "tap to continue" with name | Space created in Firestore, advances to Screen 3 with tile transition | ☐ |
+| OB-27 | Error handling | Network error during creation | Error snackbar shown, "creating..." text resets | ☐ |
+| OB-28 | Tagline | After name + avatar shown | "This is how you'll appear in the space" shown below avatar | ☐ |
 
 ### Screen 3 — First Pulse
 
 | ID | Scenario | Steps | Expected | Tested |
 |----|----------|-------|----------|--------|
-| OB-15 | Facet selection | Tap 3 facets | Selected chips show red border + checkmark, counter shows "3 / 3" | ☐ |
-| OB-16 | Max 3 facets | With 3 selected, tap a 4th | 4th is not added, existing selection unchanged | ☐ |
-| OB-17 | Deselect facet | With 3 selected, tap a selected one | Deselects it, counter shows "2 / 3" | ☐ |
-| OB-18 | Faded unselected | With 3 selected | Unselected facets fade to 0.3 opacity | ☐ |
+| OB-15 | Attribute selection | Tap 3 pulse attributes | Selected chips show red glow, counter shows "3 / 3" | ☐ |
+| OB-16 | Max 3 attributes | With 3 selected, tap a 4th | 4th is not added, existing selection unchanged | ☐ |
+| OB-17 | Deselect attribute | With 3 selected, tap a selected one | Deselects it, counter shows "2 / 3" | ☐ |
+| OB-18 | Faded unselected | With 3 selected | Unselected attributes fade to 0.3 opacity | ☐ |
 | OB-19 | Phase B transition | Tap Continue with 3 selected | Voronoi mosaic header + sliders (height 265) appear | ☐ |
 | OB-20 | Sliders work | Drag a vertical bar | Score updates, mosaic colors change reactively | ☐ |
 | OB-21 | SlideToAction submit | Swipe slider fully right | Check-in saved to Firestore, celebration overlay shown | ☐ |

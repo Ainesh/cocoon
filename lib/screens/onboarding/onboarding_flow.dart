@@ -6,7 +6,7 @@
 /// Screen 0: Kairos splash (text overlay, full mosaic with radial gradient)
 /// Screen 1: Your Space (space name — mosaic in bands mode)
 /// Screen 2: About You (name + avatar + space creation)
-/// Screen 3: First Pulse (facets + check-in combined)
+/// Screen 3: First Check-in (mosaic card + sliders)
 /// Screen 4: Almost There (invite + notifications)
 library;
 
@@ -20,7 +20,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/painters/voronoi_mosaic_painter.dart';
 import 'screens/about_you_screen.dart';
 import 'screens/complete_screen.dart';
-import 'screens/first_pulse_screen.dart';
+import 'screens/pulse_screen.dart';
 import 'screens/the_word_screen.dart';
 import 'screens/your_space_screen.dart';
 
@@ -110,29 +110,25 @@ class _OnboardingFlowState extends State<OnboardingFlow>
   // ---------------------------------------------------------------------------
 
   void _onBreathTick() {
-    // Gentle pulse once per breath cycle (every 4s). Fire at the halfway
-    // mark so the haptic lands near the sine-wave peak.
     final half = (_breathController.value * 2).floor();
     if (half != _breathHapticHalf) {
       _breathHapticHalf = half;
-      // Only pulse during idle states (not during fill/bands transitions)
       if (_fillController.value == 0 ||
           (_fillController.value == 1 && _bandsController.value == 1)) {
-        HapticFeedback.selectionClick();
+        HapticFeedback.lightImpact();
       }
     }
   }
 
   void _onFillTick() {
-    // Intensifying: 8 ticks on a quadratic curve (bunch up toward the end).
     final p = _fillController.value;
-    final tick = (p * p * 8).floor();
+    final tick = (p * p * 10).floor();
     if (tick > _fillHapticTick) {
       _fillHapticTick = tick;
       if (tick < 3) {
-        HapticFeedback.lightImpact();
-      } else if (tick < 6) {
         HapticFeedback.mediumImpact();
+      } else if (tick < 7) {
+        HapticFeedback.heavyImpact();
       } else {
         HapticFeedback.heavyImpact();
       }
@@ -140,14 +136,13 @@ class _OnboardingFlowState extends State<OnboardingFlow>
   }
 
   void _onBandsTick() {
-    // Simmering down: 5 ticks on an inverse curve (spread out toward end).
     final p = _bandsController.value;
-    final tick = (math.sqrt(p) * 5).floor();
+    final tick = (math.sqrt(p) * 6).floor();
     if (tick > _bandsHapticTick) {
       _bandsHapticTick = tick;
-      if (tick == 0) {
+      if (tick < 2) {
         HapticFeedback.heavyImpact();
-      } else if (tick < 3) {
+      } else if (tick < 4) {
         HapticFeedback.mediumImpact();
       } else {
         HapticFeedback.lightImpact();
@@ -176,10 +171,75 @@ class _OnboardingFlowState extends State<OnboardingFlow>
   }
 
   // ---------------------------------------------------------------------------
-  // Screen navigation
+  // Screen navigation — tiles refill then clear for each transition
   // ---------------------------------------------------------------------------
 
-  void _goTo(int screen) => setState(() => _currentScreen = screen);
+  bool _isTransitioning = false;
+
+  /// Start the tile fill animation immediately (called before API finishes).
+  /// The fill keeps tiles breathing at full coverage until
+  /// [_completeTileFillTo] is called.
+  void _startTileFill() {
+    if (_isTransitioning) return;
+    _isTransitioning = true;
+    _bandsHapticTick = -1;
+    _bandsController.reverse();
+  }
+
+  /// Complete the fill→clear transition to [screen].
+  /// If tiles are still filling, waits for them. If already filled, proceeds.
+  Future<void> _completeTileFillTo(int screen) async {
+    if (!_isTransitioning) {
+      // Wasn't pre-started, do the full transition
+      _transitionTo(screen);
+      return;
+    }
+
+    // Wait until tiles are fully filled (reverse completes)
+    if (_bandsController.isAnimating) {
+      await _bandsController.reverse().orCancel.catchError((_) {});
+    }
+    if (!mounted) return;
+
+    setState(() => _currentScreen = -1);
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    setState(() => _currentScreen = screen);
+    _bandsHapticTick = -1;
+    _bandsController.forward();
+    _isTransitioning = false;
+  }
+
+  Future<void> _transitionTo(int screen) async {
+    if (_isTransitioning) return;
+    _isTransitioning = true;
+    _bandsHapticTick = -1;
+
+    // Start tiles filling — old screen exit overlaps with this
+    final reverseFuture =
+        _bandsController.reverse().orCancel.catchError((_) {});
+
+    // After 600ms, remove old screen content (name has had time to fade)
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    setState(() => _currentScreen = -1);
+
+    // Wait for tiles to fully cover
+    await reverseFuture;
+    if (!mounted) return;
+
+    // Hold at full coverage
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+
+    // Swap to new screen
+    setState(() => _currentScreen = screen);
+    _bandsHapticTick = -1;
+    _bandsController.forward();
+    _isTransitioning = false;
+  }
 
   void _finish() {
     if (_spaceId != null) {
@@ -244,34 +304,36 @@ class _OnboardingFlowState extends State<OnboardingFlow>
               initialName: _spaceName,
               onContinue: (name) {
                 _spaceName = name;
-                _goTo(2);
+                _transitionTo(2);
               },
             ),
           ),
 
-        // Screen 2 — about you
+        // Screen 2 — you (name + pulse attributes + space creation)
         if (_currentScreen >= 2)
           _ScreenLayer(
             isActive: _currentScreen == 2,
             child: AboutYouScreen(
               spaceName: _spaceName,
+              onStartExit: _startTileFill,
               onSpaceCreated: (spaceId, inviteCode, userName) {
                 _spaceId = spaceId;
                 _inviteCode = inviteCode;
                 _userName = userName;
-                _goTo(3);
+                _completeTileFillTo(3);
               },
             ),
           ),
 
-        // Screen 3 — facets + check-in
+        // Screen 3 — check-in (first check-in)
         if (_currentScreen >= 3)
           _ScreenLayer(
             isActive: _currentScreen == 3,
-            child: FirstPulseScreen(
+            child: PulseScreen(
               spaceId: _spaceId ?? '',
               userName: _userName,
-              onComplete: (_) => _goTo(4),
+              onComplete: () => _transitionTo(4),
+              onSkip: () => _transitionTo(4),
             ),
           ),
 

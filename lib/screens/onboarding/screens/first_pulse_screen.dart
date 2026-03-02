@@ -1,6 +1,6 @@
-/// Screen 3 — First Pulse: facet selection + first check-in combined.
+/// Screen 3 — First Pulse: attribute selection + first check-in combined.
 ///
-/// Phase A: compact facet chips (pick 3).
+/// Phase A: compact attribute chips (pick 3).
 /// Phase B: Voronoi mosaic header + vertical bar sliders + SlideToAction.
 /// After submit: mosaic celebration overlay.
 library;
@@ -51,7 +51,7 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
 
   // Phase A state
   final _selected = <PulseAttribute>{};
-  bool _facetsLocked = false;
+  bool _attrsLocked = false;
 
   // Phase B state
   final Map<String, double> _scores = {};
@@ -90,7 +90,7 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
     super.dispose();
   }
 
-  bool get _facetsReady => _selected.length == 3;
+  bool get _attrsReady => _selected.length == 3;
 
   List<PulseAttribute> get _picks => _selected.toList();
 
@@ -111,7 +111,7 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
   // Actions
   // ---------------------------------------------------------------------------
 
-  void _toggleFacet(PulseAttribute attr) {
+  void _toggleAttribute(PulseAttribute attr) {
     HapticFeedback.selectionClick();
     setState(() {
       if (_selected.contains(attr)) {
@@ -122,13 +122,13 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
     });
   }
 
-  void _lockFacets() {
-    if (!_facetsReady) return;
+  void _lockAttributes() {
+    if (!_attrsReady) return;
     HapticFeedback.mediumImpact();
     for (final p in _selected) {
       _scores.putIfAbsent(p.id, () => 50.0);
     }
-    setState(() => _facetsLocked = true);
+    setState(() => _attrsLocked = true);
     _transitionController.forward();
     _tileController.forward();
   }
@@ -210,14 +210,14 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
     return Container(
       color: AppColors.pureBlack,
       child: SafeArea(
-        child: _facetsLocked ? _buildCheckInPhase() : _buildFacetPhase(),
+        child: _attrsLocked ? _buildCheckInPhase() : _buildAttributePhase(),
       ),
     );
   }
 
-  // -- Phase A: Facet selection -----------------------------------------------
+  // -- Phase A: Attribute selection ---------------------------------------------
 
-  Widget _buildFacetPhase() {
+  Widget _buildAttributePhase() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
       child: Column(
@@ -239,7 +239,7 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
             'Pick 3  ·  ${_selected.length} / 3',
             style: AppTypography.labelMedium(
               color:
-                  _facetsReady ? AppColors.refinedRed : AppColors.warmMuted,
+                  _attrsReady ? AppColors.refinedRed : AppColors.warmMuted,
             ),
             textAlign: TextAlign.center,
           ),
@@ -250,12 +250,12 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
             child: ListView(
               children: PulseAttribute.values.map((attr) {
                 final isSelected = _selected.contains(attr);
-                final isFaded = _facetsReady && !isSelected;
+                final isFaded = _attrsReady && !isSelected;
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                   child: GestureDetector(
-                    onTap: () => _toggleFacet(attr),
+                    onTap: () => _toggleAttribute(attr),
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 200),
                       opacity: isFaded ? 0.3 : 1.0,
@@ -343,9 +343,9 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
           const SizedBox(height: AppSpacing.lg),
           AnimatedOpacity(
             duration: const Duration(milliseconds: 200),
-            opacity: _facetsReady ? 1.0 : 0.3,
+            opacity: _attrsReady ? 1.0 : 0.3,
             child: GestureDetector(
-              onTap: _facetsReady ? _lockFacets : null,
+              onTap: _attrsReady ? _lockAttributes : null,
               child: Container(
                 height: AppSpacing.buttonHeightLarge,
                 decoration: BoxDecoration(

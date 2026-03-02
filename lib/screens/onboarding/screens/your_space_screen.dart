@@ -34,12 +34,14 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
   final _focusNode = FocusNode();
 
   double _titleOp = 0;
-  double _subtitleOp = 0;
+  double _subtitle1Op = 0;
+  double _subtitle2Op = 0;
   double _promptOp = 0;
 
   bool _isFocused = false;
   bool _hasText = false;
   bool _showTagline = false;
+  bool _isExiting = false;
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -82,9 +84,13 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
 
     await Future.delayed(const Duration(milliseconds: 2500));
     if (!mounted) return;
-    setState(() => _subtitleOp = 1);
+    setState(() => _subtitle1Op = 1);
 
-    await Future.delayed(const Duration(milliseconds: 2000));
+    await Future.delayed(const Duration(milliseconds: 3800));
+    if (!mounted) return;
+    setState(() => _subtitle2Op = 1);
+
+    await Future.delayed(const Duration(milliseconds: 1800));
     if (!mounted) return;
     setState(() => _promptOp = 1);
   }
@@ -94,6 +100,7 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
   // ---------------------------------------------------------------------------
 
   void _onFocusChange() {
+    if (_isExiting) return;
     final wasFocused = _isFocused;
     setState(() => _isFocused = _focusNode.hasFocus);
 
@@ -126,6 +133,7 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
   // ---------------------------------------------------------------------------
 
   void _tapPrompt() {
+    if (_isExiting) return;
     setState(() => _isFocused = true);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _focusNode.requestFocus();
@@ -134,7 +142,11 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
 
   void _continue() {
     FocusScope.of(context).unfocus();
-    if (!_hasText) return;
+    if (!_hasText || _isExiting) return;
+    setState(() {
+      _isExiting = true;
+      _titleOp = 0;
+    });
     widget.onContinue(_nameController.text.trim());
   }
 
@@ -145,7 +157,7 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
   double get _middleOpacity {
     if (_showTagline && !_isFocused) return 1.0;
     if (_isFocused) return 0.0;
-    return _subtitleOp;
+    return _subtitle1Op;
   }
 
   // ---------------------------------------------------------------------------
@@ -199,7 +211,9 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
 
                     // --- Middle slot: subtitle → input (typing) → name (done) ---
                     AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 600),
+                      duration: Duration(
+                        milliseconds: _isFocused ? 0 : 600,
+                      ),
                       child: _showTagline && !_isFocused
                           ? FadeTransition(
                               key: const ValueKey('name'),
@@ -207,14 +221,23 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
                                 parent: _taglineController,
                                 curve: Curves.easeOut,
                               ),
-                              child: GestureDetector(
-                                onTap: _tapPrompt,
-                                child: Text(
-                                  _nameController.text.trim(),
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.drSugiyama(
-                                    fontSize: 32,
-                                    color: AppColors.refinedRed,
+                              child: AnimatedOpacity(
+                                duration: const Duration(milliseconds: 2500),
+                                opacity: _isExiting ? 0.0 : 1.0,
+                                child: AnimatedScale(
+                                  duration: const Duration(milliseconds: 2500),
+                                  scale: _isExiting ? 1.3 : 1.0,
+                                  curve: Curves.easeIn,
+                                  child: GestureDetector(
+                                    onTap: _isExiting ? null : _tapPrompt,
+                                    child: Text(
+                                      _nameController.text.trim(),
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.drSugiyama(
+                                        fontSize: 38,
+                                        color: AppColors.refinedRed,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -222,7 +245,7 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
                           : showField
                               ? SizedBox(
                                   key: const ValueKey('input'),
-                                  width: 200,
+                                  width: 220,
                                   child: TextFormField(
                                     controller: _nameController,
                                     focusNode: _focusNode,
@@ -230,7 +253,7 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
                                     autofocus: true,
                                     cursorColor: AppColors.refinedRed,
                                     style: GoogleFonts.drSugiyama(
-                                      fontSize: 32,
+                                      fontSize: 38,
                                       color: AppColors.refinedRed,
                                     ),
                                     decoration: const InputDecoration(
@@ -258,12 +281,38 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
                                   opacity: _middleOpacity,
                                   child: SizedBox(
                                     width: 280,
-                                    child: Text(
-                                      "We'll start by creating a shared\nspace for you and your person\nto grow the relationship",
-                                      textAlign: TextAlign.center,
-                                      style: AppTypography.bodyLarge(
-                                        color: AppColors.warmDim,
-                                      ),
+                                    child: Column(
+                                      children: [
+                                        Text(
+                                          'Your journey starts by\ncreating a shared space\nfor your relationship',
+                                          textAlign: TextAlign.center,
+                                          style: AppTypography.bodyLarge(
+                                            color: AppColors.warmDim,
+                                          ),
+                                        ),
+                                        const SizedBox(
+                                          height: AppSpacing.lg,
+                                        ),
+                                        AnimatedOpacity(
+                                          duration: Duration(
+                                            milliseconds:
+                                                _isFocused ? 0 : 600,
+                                          ),
+                                          opacity: _isFocused
+                                              ? 0.0
+                                              : _subtitle2Op,
+                                          child: Text(
+                                            'This is where you\ngrow, together',
+                                            textAlign: TextAlign.center,
+                                            style: GoogleFonts.inter(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w500,
+                                              color: AppColors.lightText,
+                                              height: 1.6,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -273,42 +322,51 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
 
                     // --- Bottom slot: prompt → tagline (after naming) ---
                     AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 600),
-                      child: _showTagline && !_isFocused
-                          ? FadeTransition(
-                              key: const ValueKey('tagline'),
-                              opacity: CurvedAnimation(
-                                parent: _taglineController,
-                                curve: Curves.easeOut,
-                              ),
-                              child: SizedBox(
-                                width: 280,
-                                child: Text(
-                                  'Your personal, intimate and safe\nplace to build memories\nand grow the relationship',
-                                  textAlign: TextAlign.center,
-                                  style: AppTypography.bodyLarge(
-                                    color: AppColors.warmDim,
+                      duration: Duration(
+                        milliseconds: _isFocused ? 0 : 600,
+                      ),
+                      child: _isExiting
+                          ? const SizedBox.shrink(key: ValueKey('exit'))
+                          : _showTagline && !_isFocused
+                              ? FadeTransition(
+                                  key: const ValueKey('tagline'),
+                                  opacity: CurvedAnimation(
+                                    parent: _taglineController,
+                                    curve: Curves.easeOut,
+                                  ),
+                                  child: SizedBox(
+                                    width: 280,
+                                    child: Text(
+                                      'Your personal, intimate, and\nsafe place to express\nand build memories',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w500,
+                                        color: AppColors.lightText,
+                                        height: 1.6,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : AnimatedOpacity(
+                                  key: const ValueKey('prompt'),
+                                  duration: Duration(
+                                    milliseconds: _isFocused ? 0 : 600,
+                                  ),
+                                  opacity: _isFocused ? 0.0 : _promptOp,
+                                  child: GestureDetector(
+                                    onTap: _tapPrompt,
+                                    child: Text(
+                                      'tap to name your space',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        color: AppColors.refinedRed,
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            )
-                          : AnimatedOpacity(
-                              key: const ValueKey('prompt'),
-                              duration: const Duration(milliseconds: 600),
-                              opacity: _isFocused ? 0.0 : _promptOp,
-                              child: GestureDetector(
-                                onTap: _tapPrompt,
-                                child: Text(
-                                  'tap to name your space',
-                                  textAlign: TextAlign.center,
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w400,
-                                    color: AppColors.refinedRed,
-                                  ),
-                                ),
-                              ),
-                            ),
                     ),
 
                     // Bottom zone (bands + padding)
@@ -324,15 +382,18 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
             left: 0,
             right: 0,
             bottom: bottomPad + 32,
-            child: FadeTransition(
-              opacity: CurvedAnimation(
-                parent: _continueController,
-                curve: Curves.easeOut,
-              ),
-              child: GestureDetector(
-                onTap: _hasText ? _continue : null,
-                child: Text(
-                  'tap to continue',
+            child: AnimatedOpacity(
+              duration: Duration.zero,
+              opacity: _isExiting ? 0.0 : 1.0,
+              child: FadeTransition(
+                opacity: CurvedAnimation(
+                  parent: _continueController,
+                  curve: Curves.easeOut,
+                ),
+                child: GestureDetector(
+                  onTap: _hasText && !_isExiting ? _continue : null,
+                  child: Text(
+                    'tap to continue',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(
                     fontSize: 15,
@@ -341,6 +402,7 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
                   ),
                 ),
               ),
+            ),
             ),
           ),
         ],

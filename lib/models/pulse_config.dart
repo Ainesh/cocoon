@@ -49,6 +49,27 @@ enum PulseAttribute {
     emoji: '💬',
     iconAsset: null,
     icon: Icons.chat_bubble_rounded,
+  ),
+  growth(
+    id: 'growth',
+    displayName: 'Growth',
+    emoji: '📈',
+    iconAsset: null,
+    icon: Icons.trending_up_rounded,
+  ),
+  fun(
+    id: 'fun',
+    displayName: 'Fun',
+    emoji: '🎉',
+    iconAsset: null,
+    icon: Icons.celebration_rounded,
+  ),
+  support(
+    id: 'support',
+    displayName: 'Support',
+    emoji: '🛡️',
+    iconAsset: null,
+    icon: Icons.shield_rounded,
   );
 
   /// Max characters for displayName to prevent UI overflow in bar sliders.

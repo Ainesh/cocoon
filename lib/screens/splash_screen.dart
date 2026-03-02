@@ -74,10 +74,11 @@ class _SplashScreenState extends State<SplashScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'this is the moment your journey begins',
+              'This is the moment',
               style: GoogleFonts.outfit(
-                fontSize: 14,
-                color: AppColors.warmDim,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppColors.lightText,
               ),
             ),
           ],

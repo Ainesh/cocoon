@@ -748,7 +748,7 @@ lib/
 │   │       ├── the_word_screen.dart      # Screen 0: Kairos flash
 │   │       ├── your_space_screen.dart    # Screen 1: Space naming
 │   │       ├── about_you_screen.dart     # Screen 2: Profile + creation
-│   │       ├── first_pulse_screen.dart   # Screen 3: Facets + check-in
+│   │       ├── first_pulse_screen.dart   # Screen 3: Pulse attributes + check-in
 │   │       └── complete_screen.dart      # Screen 4: Invite + notifs
 │   ├── join_screen.dart         # Join space with invite
 │   ├── main_shell.dart          # Stretchy tab nav + settings + coming soon
@@ -1071,7 +1071,7 @@ Individual screens are transparent overlays that crossfade on top of the mosaic.
 | 0 | **Kairos Splash** | Dr Sugiyama logo + tagline on breathing mosaic. Tap to trigger fill → bands transition |
 | 1 | **Space** | Staggered reveal (title → subtitle → prompt). Minimal red underline input. Name + tagline appear after unfocus |
 | 2 | **About You** | Display name + avatar picker + space creation ceremony |
-| 3 | **First Pulse** | Pick 3 facets, then Voronoi mosaic check-in with SlideToAction |
+| 3 | **First Pulse** | Pick 3 pulse attributes, then Voronoi mosaic check-in with SlideToAction |
 | 4 | **Almost There** | Invite code (copy/share) + notification permission with desaturating mosaic |
 
 Key widgets: `VoronoiBreathingPainter`, `DesaturatingMosaic`, `SlideToAction`, `VoronoiGroupedPainter`.

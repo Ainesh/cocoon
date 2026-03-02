@@ -1063,8 +1063,8 @@ class VoronoiBreathingPainter extends CustomPainter {
               1.0,
             );
 
-        // Band membership: 0 for center tiles, 1 for top/bottom quarter
-        final band = ((verticalDist - 0.45) / 0.35).clamp(0.0, 1.0);
+        // Band membership: 0 for center tiles, 1 for top/bottom ~20%
+        final band = ((verticalDist - 0.6) / 0.3).clamp(0.0, 1.0);
         final bandBase = band * 0.48;
 
         // Radial stagger: center tiles transition first, outer tiles last
@@ -1110,4 +1110,107 @@ class VoronoiBreathingPainter extends CustomPainter {
       bandsProgress != old.bandsProgress ||
       seed != old.seed ||
       targetScore != old.targetScore;
+}
+
+// ============================================================================
+// Single Voronoi tile painter (avatar)
+// ============================================================================
+
+/// Paints only the center tile from a small Voronoi grid, giving it the
+/// organic irregular shape characteristic of mosaic tiles.
+///
+/// Surrounding tiles are generated but not drawn — they exist only to
+/// shape the center tile's boundary.
+class VoronoiSingleTilePainter extends CustomPainter {
+  const VoronoiSingleTilePainter({
+    required this.tileColor,
+    required this.seed,
+    this.tileCount = 8,
+    this.backgroundColor = const Color(0xFF0A0A0A),
+  });
+
+  final Color tileColor;
+  final int seed;
+  final int tileCount;
+  final Color backgroundColor;
+
+  static _CachedMosaic? _cache;
+
+  _CachedMosaic _ensureCache(Size size) {
+    if (_cache != null && _cache!.key == seed && _cache!.size == size) {
+      return _cache!;
+    }
+
+    final rng = math.Random(seed);
+    final maxDim = math.max(size.width, size.height);
+    final cellSize = math.sqrt(size.width * size.height / tileCount);
+
+    final interiorSeeds = _gridSeeds(size.width, size.height, tileCount, rng);
+    final interiorCount = interiorSeeds.length;
+    final phantomSeeds = _borderSeeds(size.width, size.height, cellSize, rng);
+    final allSeeds = [...interiorSeeds, ...phantomSeeds];
+
+    final expandPad = cellSize * _Config.expandPadFactor;
+    final expandedRect = Rect.fromLTWH(
+      -expandPad,
+      -expandPad,
+      size.width + expandPad * 2,
+      size.height + expandPad * 2,
+    );
+
+    final allPaths = _buildVoronoiCells(
+      seeds: allSeeds,
+      bounds: expandedRect,
+      grout: maxDim * _Config.groutFactor,
+      searchRadius: maxDim * _Config.searchRadiusFactor,
+    );
+
+    final paths = allPaths.sublist(0, interiorCount);
+
+    _cache = _CachedMosaic(
+      key: seed,
+      size: size,
+      paths: paths,
+      centers: interiorSeeds,
+      order: List<int>.generate(interiorCount, (i) => i),
+      colorRandoms: List<double>.filled(interiorCount, 0),
+    );
+    return _cache!;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = backgroundColor);
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+
+    final mosaic = _ensureCache(size);
+    if (mosaic.paths.isEmpty) {
+      canvas.restore();
+      return;
+    }
+
+    final widgetCenter = Offset(size.width / 2, size.height / 2);
+    var bestIndex = 0;
+    var bestDist = double.infinity;
+    for (int i = 0; i < mosaic.centers.length; i++) {
+      final d = (mosaic.centers[i] - widgetCenter).distance;
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
+    }
+
+    canvas.drawPath(
+      mosaic.paths[bestIndex],
+      Paint()
+        ..style = PaintingStyle.fill
+        ..color = tileColor,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(VoronoiSingleTilePainter old) =>
+      tileColor != old.tileColor || seed != old.seed || tileCount != old.tileCount;
 }
