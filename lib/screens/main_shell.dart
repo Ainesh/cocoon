@@ -51,6 +51,9 @@ class _MainShellState extends State<MainShell> {
     _tabs = [
       DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
       MomentsTab(spaceId: widget.spaceId),
+      const _ComingSoonPage(),
+      const _ComingSoonPage(),
+      const _ComingSoonPage(),
     ];
     _loadSpaceName();
     _registerFcmToken();
@@ -162,7 +165,7 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          _spaceName ?? 'Home',
+          _selectedTab == 1 ? 'Moments' : (_spaceName ?? 'Home'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.w700,
             fontSize: 22,
@@ -171,20 +174,39 @@ class _MainShellState extends State<MainShell> {
         ),
         centerTitle: true,
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: const Icon(Icons.settings_rounded, color: _dimText),
-              tooltip: 'Settings',
-              onPressed: () => _showSettings(context),
-              style: IconButton.styleFrom(
-                backgroundColor: _cardVariant,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          if (_selectedTab == 0)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                icon: const Icon(Icons.settings_rounded, color: _dimText),
+                tooltip: 'Settings',
+                onPressed: () => _showSettings(context),
+                style: IconButton.styleFrom(
+                  backgroundColor: _cardVariant,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            )
+          else if (_selectedTab == 1)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.add_circle_outline_rounded,
+                  color: _dimText,
+                ),
+                tooltip: 'Plan a moment',
+                onPressed: () => context.push('/moment/${widget.spaceId}'),
+                style: IconButton.styleFrom(
+                  backgroundColor: _cardVariant,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
       body: IndexedStack(index: _selectedTab, children: _tabs),
@@ -192,8 +214,18 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  static const _tabIcons = [
+    Icons.space_dashboard_rounded,
+    Icons.calendar_today_rounded,
+    Icons.hardware_rounded,
+    Icons.hardware_rounded,
+    Icons.hardware_rounded,
+  ];
+
   Widget _buildNavBar() {
+    const tabCount = 5;
     const height = 48.0;
+    const gap = 4.0;
 
     return SafeArea(
       child: Padding(
@@ -201,57 +233,55 @@ class _MainShellState extends State<MainShell> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final totalWidth = constraints.maxWidth;
-            const dashWidth = 52.0;
-            final comingSoonWidth = totalWidth - dashWidth - 8;
+            final tabWidth =
+                (totalWidth - gap * (tabCount - 1)) / tabCount;
+
+            int tabForX(double x) {
+              for (int i = 0; i < tabCount; i++) {
+                final left = i * (tabWidth + gap);
+                if (x < left + tabWidth + gap / 2) return i;
+              }
+              return tabCount - 1;
+            }
 
             final isDragging = _dragPosition != null;
             double highlightLeft;
             double highlightWidth;
 
             if (isDragging) {
-              final dragX = _dragPosition!;
-              final overSecond = dragX > dashWidth + 4;
-              if (overSecond) {
-                highlightLeft = dashWidth + 8;
-                highlightWidth = comingSoonWidth;
-              } else {
-                highlightLeft = 0;
-                highlightWidth = dashWidth;
-              }
-              // Stretch toward drag
+              final dragTab = tabForX(_dragPosition!);
+              highlightLeft = dragTab * (tabWidth + gap);
+              highlightWidth = tabWidth;
               final tabCenter = highlightLeft + highlightWidth / 2;
-              if (dragX < tabCenter) {
-                final newLeft = dragX.clamp(0.0, highlightLeft);
+              if (_dragPosition! < tabCenter) {
+                final newLeft =
+                    _dragPosition!.clamp(0.0, highlightLeft);
                 highlightWidth += (highlightLeft - newLeft);
                 highlightLeft = newLeft;
               } else {
-                final newRight = dragX.clamp(
+                final newRight = _dragPosition!.clamp(
                   highlightLeft + highlightWidth,
                   totalWidth,
                 );
                 highlightWidth = newRight - highlightLeft;
               }
             } else {
-              if (_selectedTab == 0) {
-                highlightLeft = 0;
-                highlightWidth = dashWidth;
-              } else {
-                highlightLeft = dashWidth + 8;
-                highlightWidth = comingSoonWidth;
-              }
+              highlightLeft = _selectedTab * (tabWidth + gap);
+              highlightWidth = tabWidth;
             }
 
             return GestureDetector(
               onHorizontalDragStart: (d) {
                 setState(
-                  () => _dragPosition = d.localPosition.dx.clamp(0, totalWidth),
+                  () => _dragPosition =
+                      d.localPosition.dx.clamp(0, totalWidth),
                 );
               },
               onHorizontalDragUpdate: (d) {
                 final pos = d.localPosition.dx.clamp(0.0, totalWidth);
                 setState(() => _dragPosition = pos);
 
-                final newTab = pos > dashWidth + 4 ? 1 : 0;
+                final newTab = tabForX(pos);
                 if (_selectedTab != newTab) {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedTab = newTab);
@@ -261,7 +291,7 @@ class _MainShellState extends State<MainShell> {
                 setState(() => _dragPosition = null);
               },
               onTapDown: (d) {
-                final newTab = d.localPosition.dx > dashWidth + 4 ? 1 : 0;
+                final newTab = tabForX(d.localPosition.dx);
                 if (_selectedTab != newTab) {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedTab = newTab);
@@ -271,16 +301,20 @@ class _MainShellState extends State<MainShell> {
                 height: height,
                 child: Stack(
                   children: [
-                    // Stretchy highlight — solid red, same as time selector
                     AnimatedPositioned(
-                      duration: Duration(milliseconds: isDragging ? 80 : 350),
-                      curve: isDragging ? Curves.easeOut : Curves.easeOutCubic,
+                      duration: Duration(
+                        milliseconds: isDragging ? 80 : 350,
+                      ),
+                      curve:
+                          isDragging ? Curves.easeOut : Curves.easeOutCubic,
                       left: highlightLeft,
                       top: 0,
                       bottom: 0,
                       width: highlightWidth,
                       child: AnimatedContainer(
-                        duration: Duration(milliseconds: isDragging ? 80 : 300),
+                        duration: Duration(
+                          milliseconds: isDragging ? 80 : 300,
+                        ),
                         curve: isDragging
                             ? Curves.easeOut
                             : Curves.easeOutCubic,
@@ -296,32 +330,26 @@ class _MainShellState extends State<MainShell> {
                         ),
                       ),
                     ),
-                    // Tab labels
                     Row(
-                      children: [
-                        // Dashboard icon
-                        SizedBox(
-                          width: dashWidth,
-                          child: Center(
-                            child: Icon(
-                              Icons.space_dashboard_rounded,
-                              color: _selectedTab == 0 ? _pureBlack : _dimText,
-                              size: 22,
+                      children: List.generate(tabCount, (i) {
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              left: i == 0 ? 0 : gap / 2,
+                              right: i == tabCount - 1 ? 0 : gap / 2,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                _tabIcons[i],
+                                color: _selectedTab == i
+                                    ? _pureBlack
+                                    : _dimText,
+                                size: 20,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Moments
-                        Expanded(
-                          child: Center(
-                            child: Icon(
-                              Icons.event_rounded,
-                              color: _selectedTab == 1 ? _pureBlack : _dimText,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ],
+                        );
+                      }),
                     ),
                   ],
                 ),
@@ -772,3 +800,47 @@ class _PulseAttributePickerSheetState
   }
 }
 
+/// Coming Soon placeholder page.
+class _ComingSoonPage extends StatelessWidget {
+  const _ComingSoonPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.hardware_rounded,
+              color: _refinedRed.withValues(alpha: 0.6),
+              size: 48,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'More features are\non the way',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                color: _lightText,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'The team is working on new features to help you grow together. Look out for updates!',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                color: _dimText,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

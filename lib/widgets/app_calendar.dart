@@ -517,10 +517,12 @@ class _MonthGrid extends StatelessWidget {
                   '${day.day}',
                   style: GoogleFonts.outfit(
                     color: isPast
-                        ? AppColors.warmMuted.withValues(alpha: 0.3)
-                        : AppColors.warmDim,
-                    fontSize: 13,
-                    fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                        ? AppColors.warmMuted.withValues(alpha: 0.35)
+                        : isToday
+                            ? AppColors.warmLight
+                            : AppColors.warmDim,
+                    fontSize: 14,
+                    fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),
               if (markers != null && markers!.containsKey(markerKey))

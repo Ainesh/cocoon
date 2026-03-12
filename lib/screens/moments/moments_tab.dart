@@ -16,6 +16,7 @@ import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/app_calendar.dart';
+import '../../widgets/moment_type_icon.dart';
 import '../../widgets/neumorphic_container.dart';
 import '../moment/moment_details_sheet.dart';
 
@@ -168,22 +169,26 @@ class _MomentsTabState extends State<MomentsTab> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: () async => _subscribe(),
-      color: AppColors.accentRed,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.screenPadding,
-          AppSpacing.lg,
-          AppSpacing.screenPadding,
-          AppSpacing.xxxl,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: _buildCalendarCard(),
         ),
-        children: [
-          _buildCalendarCard(),
-          const SizedBox(height: AppSpacing.lg),
-          _buildMonthMomentsList(),
-        ],
-      ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: () async => _subscribe(),
+            color: AppColors.accentRed,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              children: [
+                _buildMonthMomentsList(),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -193,17 +198,39 @@ class _MomentsTabState extends State<MomentsTab> {
 
   Widget _buildCalendarCard() {
     final byDay = _momentsByDay;
+    final rangePositions = _computeRangePositions();
 
     final markers = <DateTime, Widget>{};
     for (final entry in byDay.entries) {
       final day = entry.key;
       final moments = entry.value;
-      final hasMultiDay = moments.any((m) => m.endDate != null);
-      markers[day] = hasMultiDay ? _dashMarker() : _dotMarker(moments.length);
+      final pos = rangePositions[day];
+
+      if (pos != null) {
+        markers[day] = _rangeMarker(pos, moments.length);
+      } else {
+        markers[day] = _dotMarker(moments.length);
+      }
     }
 
-    return PremiumCard(
-      margin: EdgeInsets.zero,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.warmMuted.withValues(alpha: 0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentRed.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: AppDateCalendar(
         focusedDay: DateTime(_focusedMonth.year, _focusedMonth.month, 1),
         firstDay: DateTime(2024, 1),
@@ -222,6 +249,37 @@ class _MomentsTabState extends State<MomentsTab> {
         markers: markers,
       ),
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Range position computation
+  // ---------------------------------------------------------------------------
+
+  /// For each day that belongs to a multi-day moment, compute its position
+  /// within the range: start, middle, or end.
+  Map<DateTime, _RangePos> _computeRangePositions() {
+    final map = <DateTime, _RangePos>{};
+    for (final m in _allMoments) {
+      if (m.endDate == null) continue;
+      final start =
+          DateTime(m.startDate.year, m.startDate.month, m.startDate.day);
+      final end = DateTime(m.endDate!.year, m.endDate!.month, m.endDate!.day);
+      if (start == end) continue;
+
+      for (var d = start;
+          !d.isAfter(end);
+          d = d.add(const Duration(days: 1))) {
+        final key = DateTime(d.year, d.month, d.day);
+        if (d == start) {
+          map[key] = _RangePos.start;
+        } else if (d == end) {
+          map.putIfAbsent(key, () => _RangePos.end);
+        } else {
+          map.putIfAbsent(key, () => _RangePos.middle);
+        }
+      }
+    }
+    return map;
   }
 
   // ---------------------------------------------------------------------------
@@ -254,21 +312,50 @@ class _MomentsTabState extends State<MomentsTab> {
     );
   }
 
-  Widget _dashMarker() {
-    return Container(
-      width: 18,
-      height: 3,
-      margin: const EdgeInsets.only(top: 1),
-      decoration: BoxDecoration(
-        color: AppColors.accentRed,
-        borderRadius: BorderRadius.circular(2),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accentRed.withValues(alpha: 0.6),
-            blurRadius: 4,
-            spreadRadius: 1,
+  /// Renders a connected line segment for multi-day moments.
+  ///
+  /// start  → rounded left cap, extends to right edge
+  /// middle → full width, no rounding
+  /// end    → extends from left edge, rounded right cap
+  Widget _rangeMarker(_RangePos pos, int momentCount) {
+    const h = 3.0;
+
+    final borderRadius = switch (pos) {
+      _RangePos.start => const BorderRadius.horizontal(
+          left: Radius.circular(2),
+        ),
+      _RangePos.end => const BorderRadius.horizontal(
+          right: Radius.circular(2),
+        ),
+      _RangePos.middle => BorderRadius.zero,
+    };
+
+    final alignment = switch (pos) {
+      _RangePos.start => Alignment.centerRight,
+      _RangePos.end => Alignment.centerLeft,
+      _RangePos.middle => Alignment.center,
+    };
+
+    final widthFraction = pos == _RangePos.middle ? 1.0 : 0.6;
+
+    return Align(
+      alignment: alignment,
+      child: FractionallySizedBox(
+        widthFactor: widthFraction,
+        child: Container(
+          height: h,
+          decoration: BoxDecoration(
+            color: AppColors.accentRed,
+            borderRadius: borderRadius,
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accentRed.withValues(alpha: 0.6),
+                blurRadius: 4,
+                spreadRadius: 1,
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -335,31 +422,63 @@ class _MomentsTabState extends State<MomentsTab> {
     final moments = _monthMoments;
 
     if (moments.isEmpty) {
-      return PremiumCard(
-        margin: EdgeInsets.zero,
-        padding: const EdgeInsets.all(AppSpacing.sheetPadding),
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppColors.darkCardLight,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: AppColors.warmMuted.withValues(alpha: 0.15),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accentRed.withValues(alpha: 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: EmptyState(
-          icon: Icons.event_busy_rounded,
+          icon: Icons.calendar_today_outlined,
           title: 'No moments this month',
           subtitle: 'Plan a moment from the dashboard to get started.',
         ),
       );
     }
 
-    return PremiumCard(
-      margin: EdgeInsets.zero,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.warmMuted.withValues(alpha: 0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentRed.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            icon: Icons.list_rounded,
-            title: 'This Month',
-            trailing: Text(
-              '${moments.length} moment${moments.length == 1 ? '' : 's'}',
-              style: AppTypography.bodySmall(color: AppColors.warmDim),
+          Text(
+            'THIS MONTH',
+            style: GoogleFonts.outfit(
+              color: AppColors.warmMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
             ),
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: 14),
           ...moments.map(
             (m) => _MomentTile(
               moment: m,
@@ -458,17 +577,18 @@ class _MomentTileState extends State<_MomentTile> {
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: AppColors.cardVariant,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-                  border: Border.all(
-                    color: AppColors.accentRed.withValues(alpha: 0.2),
-                  ),
+                  color: AppColors.accentRed.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
-                  widget.moment.type.emoji,
-                  style: const TextStyle(fontSize: 20),
+                child: Center(
+                  child: getMomentTypeIconWidget(
+                    widget.moment.type,
+                    size: 20,
+                    color: AppColors.accentRed,
+                  ),
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -494,11 +614,6 @@ class _MomentTileState extends State<_MomentTile> {
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.accentRed.withValues(alpha: 0.6),
-                size: 20,
-              ),
             ],
           ),
         ),
@@ -506,3 +621,6 @@ class _MomentTileState extends State<_MomentTile> {
     );
   }
 }
+
+/// Position of a day within a multi-day moment range.
+enum _RangePos { start, middle, end }
