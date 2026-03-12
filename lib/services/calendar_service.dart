@@ -23,7 +23,10 @@ class CalendarService {
   final FirestoreService _firestore;
 
   static final _googleSignIn = GoogleSignIn(
-    scopes: ['https://www.googleapis.com/auth/calendar.events'],
+    scopes: [
+      'https://www.googleapis.com/auth/calendar',
+      'https://www.googleapis.com/auth/calendar.events',
+    ],
   );
 
   final _deviceCalendarPlugin = DeviceCalendarPlugin();
@@ -34,17 +37,23 @@ class CalendarService {
 
   /// Signs in with Google and requests calendar scope.
   /// Returns the linked [CalendarIntegration] or null on cancel/failure.
-  Future<CalendarIntegration?> linkGoogle({required String userId}) async {
+  Future<CalendarIntegration?> linkGoogle({
+    required String userId,
+    required String spaceName,
+  }) async {
     try {
       await _googleSignIn.signOut();
       final account = await _googleSignIn.signIn();
       if (account == null) return null;
+
+      final calendarId = await _getOrCreateGoogleCalendar(spaceName);
 
       final integration = CalendarIntegration(
         provider: CalendarProvider.google,
         enabled: true,
         linkedAt: DateTime.now(),
         email: account.email,
+        calendarId: calendarId,
       );
 
       await _firestore.saveCalendarIntegration(userId, integration);
@@ -55,13 +64,45 @@ class CalendarService {
     }
   }
 
+  /// Finds or creates a Google Calendar with the given name.
+  /// Returns the calendar ID.
+  Future<String?> _getOrCreateGoogleCalendar(String spaceName) async {
+    try {
+      final authHeaders = await _googleSignIn.currentUser!.authHeaders;
+      final client = _GoogleAuthClient(authHeaders);
+      final calApi = gcal.CalendarApi(client);
+
+      final existing = await calApi.calendarList.list();
+      final match = existing.items?.where(
+        (c) => c.summary?.toLowerCase() == spaceName.toLowerCase(),
+      );
+      if (match != null && match.isNotEmpty) {
+        client.close();
+        return match.first.id;
+      }
+
+      final newCal = gcal.Calendar()
+        ..summary = spaceName
+        ..description = 'Moments from $spaceName';
+
+      final created = await calApi.calendars.insert(newCal);
+      client.close();
+      return created.id;
+    } catch (e) {
+      debugPrint('Error creating Google Calendar: $e');
+      return null;
+    }
+  }
+
   /// Creates a Google Calendar event for the given moment.
-  /// Returns the external event ID on success.
-  Future<String?> syncToGoogle(Moment moment) async {
+  /// Uses the space's dedicated calendar if available, falls back to primary.
+  Future<String?> syncToGoogle(
+    Moment moment,
+    String? calendarId,
+  ) async {
     try {
       final account = await _googleSignIn.signInSilently();
       if (account == null) {
-        debugPrint('Google sign-in expired, re-authenticating');
         final reAuth = await _googleSignIn.signIn();
         if (reAuth == null) return null;
       }
@@ -86,7 +127,8 @@ class CalendarService {
         );
       }
 
-      final created = await calApi.events.insert(event, 'primary');
+      final targetCalendar = calendarId ?? 'primary';
+      final created = await calApi.events.insert(event, targetCalendar);
       client.close();
       return created.id;
     } catch (e) {
@@ -99,23 +141,34 @@ class CalendarService {
   // Apple Calendar (device_calendar)
   // ---------------------------------------------------------------------------
 
-  /// Requests calendar permission and returns available calendars.
+  /// Requests calendar permission and returns available writable calendars.
   Future<List<Calendar>> getDeviceCalendars() async {
     final permResult = await _deviceCalendarPlugin.requestPermissions();
     if (permResult.isSuccess && permResult.data == true) {
       final result = await _deviceCalendarPlugin.retrieveCalendars();
-      return result.data ?? [];
+      return (result.data ?? <Calendar>[])
+          .where((c) => c.isReadOnly == false)
+          .toList();
     }
     return [];
   }
 
-  /// Links to an Apple device calendar.
+  /// Links to Apple Calendar. Creates a local calendar named after the space
+  /// or reuses one if it already exists.
   Future<CalendarIntegration?> linkApple({
     required String userId,
-    required String calendarId,
-    String? calendarName,
+    required String spaceName,
   }) async {
     try {
+      final permResult = await _deviceCalendarPlugin.requestPermissions();
+      if (!permResult.isSuccess || permResult.data != true) {
+        debugPrint('Apple Calendar permission denied');
+        return null;
+      }
+
+      final calendarId = await _getOrCreateAppleCalendar(spaceName);
+      if (calendarId == null) return null;
+
       final integration = CalendarIntegration(
         provider: CalendarProvider.apple,
         enabled: true,
@@ -131,21 +184,49 @@ class CalendarService {
     }
   }
 
+  /// Finds or creates a local calendar with the given space name.
+  Future<String?> _getOrCreateAppleCalendar(String spaceName) async {
+    try {
+      final result = await _deviceCalendarPlugin.retrieveCalendars();
+      final calendars = result.data ?? [];
+
+      final match = calendars.where(
+        (c) => c.name?.toLowerCase() == spaceName.toLowerCase(),
+      );
+      if (match.isNotEmpty && match.first.id != null) {
+        return match.first.id;
+      }
+
+      final createResult = await _deviceCalendarPlugin.createCalendar(
+        spaceName,
+        localAccountName: spaceName,
+      );
+      if (createResult.isSuccess && createResult.data != null) {
+        return createResult.data;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error creating Apple Calendar: $e');
+      return null;
+    }
+  }
+
   /// Creates a device calendar event for the given moment.
   Future<String?> syncToApple(Moment moment, String calendarId) async {
     try {
+      final startDate = moment.startDate;
+      final endDate =
+          moment.endDate ?? moment.startDate.add(const Duration(days: 1));
+
       final event = Event(calendarId)
         ..title = moment.name
         ..description = moment.notes
-        ..start = TZDateTime.from(moment.startDate, local)
-        ..end = TZDateTime.from(
-          moment.endDate ?? moment.startDate.add(const Duration(hours: 1)),
-          local,
-        )
+        ..start = TZDateTime.from(startDate, local)
+        ..end = TZDateTime.from(endDate, local)
         ..allDay = true;
 
       final result = await _deviceCalendarPlugin.createOrUpdateEvent(event);
-      if (result?.isSuccess == true) {
+      if (result?.isSuccess == true && result?.data != null) {
         return result!.data;
       }
       return null;
@@ -169,7 +250,7 @@ class CalendarService {
     String? eventId;
 
     if (integration.provider == CalendarProvider.google) {
-      eventId = await syncToGoogle(moment);
+      eventId = await syncToGoogle(moment, integration.calendarId);
     } else if (integration.provider == CalendarProvider.apple) {
       final calId = integration.calendarId;
       if (calId != null) {
@@ -215,5 +296,6 @@ class _GoogleAuthClient extends http.BaseClient {
     return _inner.send(request);
   }
 
+  @override
   void close() => _inner.close();
 }

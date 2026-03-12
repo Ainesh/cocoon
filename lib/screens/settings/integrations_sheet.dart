@@ -17,9 +17,14 @@ import 'calendar_link_sheet.dart';
 
 /// Bottom sheet showing the list of available integrations.
 class IntegrationsSheet extends StatefulWidget {
-  const IntegrationsSheet({super.key, required this.userId});
+  const IntegrationsSheet({
+    super.key,
+    required this.userId,
+    required this.spaceName,
+  });
 
   final String userId;
+  final String spaceName;
 
   @override
   State<IntegrationsSheet> createState() => _IntegrationsSheetState();
@@ -72,6 +77,7 @@ class _IntegrationsSheetState extends State<IntegrationsSheet> {
         ),
         builder: (_) => CalendarLinkSheet(
           userId: widget.userId,
+          spaceName: widget.spaceName,
           calendarService: _calendarService,
         ),
       );

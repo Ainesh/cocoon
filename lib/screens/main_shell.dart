@@ -467,7 +467,10 @@ class _MainShellState extends State<MainShell> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => IntegrationsSheet(userId: _authService.currentUser!.uid),
+      builder: (context) => IntegrationsSheet(
+        userId: _authService.currentUser!.uid,
+        spaceName: _spaceName ?? 'Cocoon',
+      ),
     );
   }
 
