@@ -17,7 +17,7 @@ import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
 import '../../widgets/app_calendar.dart';
 import '../../widgets/moment_type_icon.dart';
-import '../../widgets/neumorphic_container.dart';
+import '../dashboard/widgets/event_cards.dart';
 import '../moment/moment_details_sheet.dart';
 
 /// Moments tab displayed as the second tab in [MainShell].
@@ -422,29 +422,8 @@ class _MomentsTabState extends State<MomentsTab> {
     final moments = _monthMoments;
 
     if (moments.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: AppColors.darkCardLight,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: AppColors.warmMuted.withValues(alpha: 0.15),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accentRed.withValues(alpha: 0.08),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: EmptyState(
-          icon: Icons.calendar_today_outlined,
-          title: 'No moments this month',
-          subtitle: 'Plan a moment from the dashboard to get started.',
-        ),
+      return PlanMomentCard(
+        onTap: () => context.push('/moment/${widget.spaceId}'),
       );
     }
 
@@ -479,13 +458,19 @@ class _MomentsTabState extends State<MomentsTab> {
             ),
           ),
           const SizedBox(height: 14),
-          ...moments.map(
-            (m) => _MomentTile(
-              moment: m,
+          for (int i = 0; i < moments.length; i++) ...[
+            _MomentTile(
+              moment: moments[i],
               showDate: true,
-              onTap: () => _showMomentDetails(m),
+              onTap: () => _showMomentDetails(moments[i]),
             ),
-          ),
+            if (i < moments.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.warmMuted.withValues(alpha: 0.15),
+              ),
+          ],
         ],
       ),
     );

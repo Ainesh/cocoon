@@ -52,8 +52,6 @@ class _MainShellState extends State<MainShell> {
       DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
       MomentsTab(spaceId: widget.spaceId),
       const _ComingSoonPage(),
-      const _ComingSoonPage(),
-      const _ComingSoonPage(),
     ];
     _loadSpaceName();
     _registerFcmToken();
@@ -194,8 +192,8 @@ class _MainShellState extends State<MainShell> {
               margin: const EdgeInsets.only(right: 8),
               child: IconButton(
                 icon: const Icon(
-                  Icons.add_circle_outline_rounded,
-                  color: _dimText,
+                  Icons.add_circle_rounded,
+                  color: _refinedRed,
                 ),
                 tooltip: 'Plan a moment',
                 onPressed: () => context.push('/moment/${widget.spaceId}'),
@@ -214,7 +212,9 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  static const _tabIcons = [
+  /// 5 visual slots in the nav bar. Slots 0-1 map to tabs 0-1.
+  /// Slots 2-4 all map to tab 2 (Coming Soon) as one wide region.
+  static const _slotIcons = [
     Icons.space_dashboard_rounded,
     Icons.calendar_today_rounded,
     Icons.hardware_rounded,
@@ -222,8 +222,11 @@ class _MainShellState extends State<MainShell> {
     Icons.hardware_rounded,
   ];
 
+  /// Maps a visual slot index to the logical tab index.
+  static int _slotToTab(int slot) => slot >= 2 ? 2 : slot;
+
   Widget _buildNavBar() {
-    const tabCount = 5;
+    const slotCount = 5;
     const height = 48.0;
     const gap = 4.0;
 
@@ -233,15 +236,27 @@ class _MainShellState extends State<MainShell> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final totalWidth = constraints.maxWidth;
-            final tabWidth =
-                (totalWidth - gap * (tabCount - 1)) / tabCount;
+            final slotWidth =
+                (totalWidth - gap * (slotCount - 1)) / slotCount;
 
-            int tabForX(double x) {
-              for (int i = 0; i < tabCount; i++) {
-                final left = i * (tabWidth + gap);
-                if (x < left + tabWidth + gap / 2) return i;
+            int slotForX(double x) {
+              for (int i = 0; i < slotCount; i++) {
+                final left = i * (slotWidth + gap);
+                if (x < left + slotWidth + gap / 2) return i;
               }
-              return tabCount - 1;
+              return slotCount - 1;
+            }
+
+            // Compute highlight position. Tabs 0 and 1 span 1 slot each.
+            // Tab 2 spans slots 2-4 (the full remaining width).
+            double leftForTab(int tab) {
+              if (tab <= 1) return tab * (slotWidth + gap);
+              return 2 * (slotWidth + gap);
+            }
+
+            double widthForTab(int tab) {
+              if (tab <= 1) return slotWidth;
+              return slotWidth * 3 + gap * 2;
             }
 
             final isDragging = _dragPosition != null;
@@ -249,9 +264,10 @@ class _MainShellState extends State<MainShell> {
             double highlightWidth;
 
             if (isDragging) {
-              final dragTab = tabForX(_dragPosition!);
-              highlightLeft = dragTab * (tabWidth + gap);
-              highlightWidth = tabWidth;
+              final dragSlot = slotForX(_dragPosition!);
+              final dragTab = _slotToTab(dragSlot);
+              highlightLeft = leftForTab(dragTab);
+              highlightWidth = widthForTab(dragTab);
               final tabCenter = highlightLeft + highlightWidth / 2;
               if (_dragPosition! < tabCenter) {
                 final newLeft =
@@ -266,8 +282,8 @@ class _MainShellState extends State<MainShell> {
                 highlightWidth = newRight - highlightLeft;
               }
             } else {
-              highlightLeft = _selectedTab * (tabWidth + gap);
-              highlightWidth = tabWidth;
+              highlightLeft = leftForTab(_selectedTab);
+              highlightWidth = widthForTab(_selectedTab);
             }
 
             return GestureDetector(
@@ -281,7 +297,7 @@ class _MainShellState extends State<MainShell> {
                 final pos = d.localPosition.dx.clamp(0.0, totalWidth);
                 setState(() => _dragPosition = pos);
 
-                final newTab = tabForX(pos);
+                final newTab = _slotToTab(slotForX(pos));
                 if (_selectedTab != newTab) {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedTab = newTab);
@@ -291,7 +307,7 @@ class _MainShellState extends State<MainShell> {
                 setState(() => _dragPosition = null);
               },
               onTapDown: (d) {
-                final newTab = tabForX(d.localPosition.dx);
+                final newTab = _slotToTab(slotForX(d.localPosition.dx));
                 if (_selectedTab != newTab) {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedTab = newTab);
@@ -331,17 +347,19 @@ class _MainShellState extends State<MainShell> {
                       ),
                     ),
                     Row(
-                      children: List.generate(tabCount, (i) {
+                      children: List.generate(slotCount, (i) {
+                        final tab = _slotToTab(i);
                         return Expanded(
                           child: Padding(
                             padding: EdgeInsets.only(
                               left: i == 0 ? 0 : gap / 2,
-                              right: i == tabCount - 1 ? 0 : gap / 2,
+                              right:
+                                  i == slotCount - 1 ? 0 : gap / 2,
                             ),
                             child: Center(
                               child: Icon(
-                                _tabIcons[i],
-                                color: _selectedTab == i
+                                _slotIcons[i],
+                                color: _selectedTab == tab
                                     ? _pureBlack
                                     : _dimText,
                                 size: 20,

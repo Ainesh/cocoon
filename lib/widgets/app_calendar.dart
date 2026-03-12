@@ -469,10 +469,12 @@ class _MonthGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-    // Monday = 1, so offset is weekday - 1
     final firstWeekday = DateTime(month.year, month.month, 1).weekday;
-    final offset = firstWeekday - 1;
+    final offset = firstWeekday - 1; // empty cells before day 1
     final totalCells = ((daysInMonth + offset + 6) ~/ 7) * 7;
+    final prevMonth = DateTime(month.year, month.month - 1);
+    final daysInPrevMonth = DateTime(prevMonth.year, prevMonth.month + 1, 0).day;
+
     final now = DateTime.now();
     final todayLocal = DateTime(now.year, now.month, now.day);
 
@@ -486,8 +488,35 @@ class _MonthGrid extends StatelessWidget {
       itemCount: totalCells,
       itemBuilder: (_, index) {
         final dayNum = index - offset + 1;
-        if (dayNum < 1 || dayNum > daysInMonth) {
-          return const SizedBox.shrink();
+
+        // Previous month's trailing days
+        if (dayNum < 1) {
+          final prevDay = daysInPrevMonth + dayNum;
+          return Center(
+            child: Text(
+              '$prevDay',
+              style: GoogleFonts.outfit(
+                color: AppColors.warmMuted.withValues(alpha: 0.25),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          );
+        }
+
+        // Next month's leading days
+        if (dayNum > daysInMonth) {
+          final nextDay = dayNum - daysInMonth;
+          return Center(
+            child: Text(
+              '$nextDay',
+              style: GoogleFonts.outfit(
+                color: AppColors.warmMuted.withValues(alpha: 0.25),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          );
         }
 
         final day = DateTime(month.year, month.month, dayNum);
@@ -517,10 +546,10 @@ class _MonthGrid extends StatelessWidget {
                   '${day.day}',
                   style: GoogleFonts.outfit(
                     color: isPast
-                        ? AppColors.warmMuted.withValues(alpha: 0.35)
+                        ? AppColors.warmMuted.withValues(alpha: 0.5)
                         : isToday
                             ? AppColors.warmLight
-                            : AppColors.warmDim,
+                            : AppColors.warmLight.withValues(alpha: 0.8),
                     fontSize: 14,
                     fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
                   ),
@@ -558,6 +587,10 @@ class _RangeMonthGrid extends StatelessWidget {
     final firstWeekday = DateTime(month.year, month.month, 1).weekday;
     final offset = firstWeekday - 1;
     final totalCells = ((daysInMonth + offset + 6) ~/ 7) * 7;
+
+    final prevMonth = DateTime(month.year, month.month - 1);
+    final daysInPrevMonth = DateTime(prevMonth.year, prevMonth.month + 1, 0).day;
+
     final now = DateTime.now();
     final todayLocal = DateTime(now.year, now.month, now.day);
 
@@ -571,8 +604,33 @@ class _RangeMonthGrid extends StatelessWidget {
       itemCount: totalCells,
       itemBuilder: (_, index) {
         final dayNum = index - offset + 1;
-        if (dayNum < 1 || dayNum > daysInMonth) {
-          return const SizedBox.shrink();
+
+        if (dayNum < 1) {
+          final prevDay = daysInPrevMonth + dayNum;
+          return Center(
+            child: Text(
+              '$prevDay',
+              style: GoogleFonts.outfit(
+                color: AppColors.warmMuted.withValues(alpha: 0.25),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          );
+        }
+
+        if (dayNum > daysInMonth) {
+          final nextDay = dayNum - daysInMonth;
+          return Center(
+            child: Text(
+              '$nextDay',
+              style: GoogleFonts.outfit(
+                color: AppColors.warmMuted.withValues(alpha: 0.25),
+                fontSize: 13,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          );
         }
 
         final day = DateTime(month.year, month.month, dayNum);
@@ -590,7 +648,7 @@ class _RangeMonthGrid extends StatelessWidget {
 
         Color? bgColor;
         Color textColor;
-        FontWeight fontWeight = FontWeight.w400;
+        FontWeight fontWeight = FontWeight.w600;
         BoxDecoration? decoration;
 
         if (isStart || isEnd) {
@@ -599,16 +657,17 @@ class _RangeMonthGrid extends StatelessWidget {
             shape: BoxShape.circle,
           );
           textColor = AppColors.pureBlack;
-          fontWeight = FontWeight.w600;
+          fontWeight = FontWeight.w700;
         } else if (isInRange) {
           bgColor = AppColors.accentRed.withValues(alpha: 0.25);
           textColor = AppColors.warmLight;
-          fontWeight = FontWeight.w500;
         } else if (isPast) {
-          textColor = AppColors.warmMuted.withValues(alpha: 0.3);
+          textColor = AppColors.warmMuted.withValues(alpha: 0.5);
         } else {
-          textColor = AppColors.warmDim;
-          if (isToday) fontWeight = FontWeight.w700;
+          textColor = isToday
+              ? AppColors.warmLight
+              : AppColors.warmLight.withValues(alpha: 0.8);
+          if (isToday) fontWeight = FontWeight.w800;
         }
 
         return GestureDetector(
@@ -626,7 +685,7 @@ class _RangeMonthGrid extends StatelessWidget {
                 '${day.day}',
                 style: GoogleFonts.outfit(
                   color: textColor,
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: fontWeight,
                 ),
               ),
