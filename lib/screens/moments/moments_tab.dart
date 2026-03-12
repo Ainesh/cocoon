@@ -54,6 +54,7 @@ class _MomentsTabState extends State<MomentsTab> {
   Set<String> _visibleCalendarIds = {};
   List<ExternalEvent> _externalEvents = [];
   bool _isSyncingCalendars = false;
+  bool _isCalendarCardExpanded = false;
 
   // Calendar
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month);
@@ -264,33 +265,19 @@ class _MomentsTabState extends State<MomentsTab> {
       );
     }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: _buildCalendarCard(),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () async {
-              _subscribe();
-              if (_calendarIntegration != null) await _fetchExternalEvents();
-            },
-            color: AppColors.accentRed,
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              children: [
-                if (_calendarIntegration != null) ...[
-                  _buildCalendarSyncCard(),
-                  const SizedBox(height: 12),
-                ],
-                _buildMonthMomentsList(),
-              ],
-            ),
-          ),
-        ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        children: [
+          _buildCalendarCard(),
+          const SizedBox(height: 12),
+          if (_calendarIntegration != null) ...[
+            _buildCalendarSyncCard(),
+            const SizedBox(height: 12),
+          ],
+          Expanded(child: _buildMonthMomentsList()),
+        ],
+      ),
     );
   }
 
@@ -298,103 +285,135 @@ class _MomentsTabState extends State<MomentsTab> {
   // Calendar card
   // ---------------------------------------------------------------------------
 
+  static final _cardDecoration = BoxDecoration(
+    color: AppColors.darkCardLight,
+    borderRadius: BorderRadius.circular(20),
+    border: Border.all(
+      color: AppColors.warmMuted.withValues(alpha: 0.15),
+      width: 1,
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: AppColors.accentRed.withValues(alpha: 0.08),
+        blurRadius: 12,
+        offset: const Offset(0, 4),
+      ),
+    ],
+  );
+
   Widget _buildCalendarSyncCard() {
     final cal = _calendarIntegration!;
     final accountLabel = cal.provider == CalendarProvider.google
         ? cal.email ?? 'Google Calendar'
         : 'Apple Calendar';
+    final calCount = _visibleCalendarIds.length;
+    final totalCount = _externalCalendars.length;
 
     return Container(
       width: double.infinity,
+      constraints: _isCalendarCardExpanded
+          ? const BoxConstraints(maxHeight: 200)
+          : null,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.warmMuted.withValues(alpha: 0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accentRed.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.calendar_today_rounded,
-                color: AppColors.accentRed,
-                size: 18,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'LINKED CALENDAR',
-                      style: GoogleFonts.outfit(
-                        color: AppColors.warmMuted,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      accountLabel,
-                      style: GoogleFonts.inter(
-                        color: AppColors.warmDim,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: _isSyncingCalendars ? null : _fetchExternalEvents,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardVariant,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _isSyncingCalendars
-                      ? SizedBox(
-                          width: 14,
-                          height: 14,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.accentRed,
-                          ),
-                        )
-                      : Icon(
-                          Icons.sync_rounded,
-                          color: AppColors.accentRed,
-                          size: 16,
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(
+                () => _isCalendarCardExpanded = !_isCalendarCardExpanded,
+              );
+            },
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'LINKED CALENDAR',
+                        style: GoogleFonts.outfit(
+                          color: AppColors.warmMuted,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
                         ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$accountLabel · $calCount/$totalCount calendars',
+                        style: GoogleFonts.inter(
+                          color: AppColors.warmDim,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                GestureDetector(
+                  onTap: _isSyncingCalendars ? null : () {
+                    HapticFeedback.selectionClick();
+                    _fetchExternalEvents();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardVariant,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: _isSyncingCalendars
+                        ? SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.accentRed,
+                            ),
+                          )
+                        : Icon(
+                            Icons.sync_rounded,
+                            color: AppColors.accentRed,
+                            size: 16,
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                AnimatedRotation(
+                  turns: _isCalendarCardExpanded ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: AppColors.warmMuted,
+                    size: 20,
+                  ),
+                ),
+              ],
+            ),
           ),
-          if (_externalCalendars.isNotEmpty) ...[
-            const SizedBox(height: 12),
+          if (_isCalendarCardExpanded && _externalCalendars.isNotEmpty) ...[
+            const SizedBox(height: 10),
             Divider(
               height: 1,
               thickness: 1,
               color: AppColors.warmMuted.withValues(alpha: 0.15),
             ),
-            const SizedBox(height: 8),
-            ..._externalCalendars.map((c) => _buildCalendarToggleRow(c)),
+            const SizedBox(height: 6),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: _externalCalendars.length,
+                itemBuilder: (_, i) =>
+                    _buildCalendarToggleRow(_externalCalendars[i]),
+              ),
+            ),
           ],
         ],
       ),
@@ -407,12 +426,12 @@ class _MomentsTabState extends State<MomentsTab> {
         cal.color != null ? Color(cal.color!) : AppColors.warmMuted;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
           Container(
-            width: 10,
-            height: 10,
+            width: 8,
+            height: 8,
             decoration: BoxDecoration(
               color: dotColor,
               shape: BoxShape.circle,
@@ -423,14 +442,14 @@ class _MomentsTabState extends State<MomentsTab> {
             child: Text(
               cal.name,
               style: GoogleFonts.inter(
-                color: AppColors.warmLight,
+                color: isVisible ? AppColors.warmLight : AppColors.warmMuted,
                 fontSize: 13,
               ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          SizedBox(
-            height: 24,
+          Transform.scale(
+            scale: 0.5,
             child: Switch.adaptive(
               value: isVisible,
               onChanged: (v) => _toggleCalendarVisibility(cal.id, v),
@@ -464,21 +483,7 @@ class _MomentsTabState extends State<MomentsTab> {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.warmMuted.withValues(alpha: 0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accentRed.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration,
       child: AppDateCalendar(
         focusedDay: DateTime(_focusedMonth.year, _focusedMonth.month, 1),
         firstDay: DateTime(2024, 1),
@@ -672,7 +677,6 @@ class _MomentsTabState extends State<MomentsTab> {
   Widget _buildMonthMomentsList() {
     final moments = _monthMoments;
     final hasExternalEvents = _externalEvents.isNotEmpty;
-    final totalItems = moments.length + _externalEvents.length;
 
     if (moments.isEmpty && !hasExternalEvents) {
       return PlanMomentCard(
@@ -680,26 +684,27 @@ class _MomentsTabState extends State<MomentsTab> {
       );
     }
 
+    final items = <Widget>[];
+    for (int i = 0; i < moments.length; i++) {
+      items.add(
+        _MomentTile(
+          moment: moments[i],
+          showDate: true,
+          onTap: () => _showMomentDetails(moments[i]),
+        ),
+      );
+    }
+    for (int i = 0; i < _externalEvents.length; i++) {
+      items.add(_ExternalEventTile(event: _externalEvents[i]));
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.warmMuted.withValues(alpha: 0.15),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accentRed.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             'THIS MONTH',
@@ -711,28 +716,19 @@ class _MomentsTabState extends State<MomentsTab> {
             ),
           ),
           const SizedBox(height: 14),
-          for (int i = 0; i < moments.length; i++) ...[
-            _MomentTile(
-              moment: moments[i],
-              showDate: true,
-              onTap: () => _showMomentDetails(moments[i]),
+          Flexible(
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              itemCount: items.length,
+              separatorBuilder: (_, __) => Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.warmMuted.withValues(alpha: 0.15),
+              ),
+              itemBuilder: (_, i) => items[i],
             ),
-            if (i < totalItems - 1)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: AppColors.warmMuted.withValues(alpha: 0.15),
-              ),
-          ],
-          for (int i = 0; i < _externalEvents.length; i++) ...[
-            _ExternalEventTile(event: _externalEvents[i]),
-            if (moments.length + i < totalItems - 1)
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: AppColors.warmMuted.withValues(alpha: 0.15),
-              ),
-          ],
+          ),
         ],
       ),
     );
