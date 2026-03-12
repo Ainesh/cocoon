@@ -11,6 +11,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/calendar/v3.dart' as gcal;
 import 'package:http/http.dart' as http;
 
+import '../models/external_calendar.dart';
 import '../models/integration_config.dart';
 import '../models/moment.dart';
 import 'firestore_service.dart';
@@ -232,6 +233,175 @@ class CalendarService {
       return null;
     } catch (e) {
       debugPrint('Apple Calendar sync error: $e');
+      return null;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // List calendars (unified)
+  // ---------------------------------------------------------------------------
+
+  /// Returns all calendars from the linked provider as [ExternalCalendar].
+  Future<List<ExternalCalendar>> listCalendars(
+    CalendarIntegration integration,
+  ) async {
+    if (integration.provider == CalendarProvider.google) {
+      return _listGoogleCalendars();
+    } else {
+      return _listAppleCalendars();
+    }
+  }
+
+  Future<List<ExternalCalendar>> _listGoogleCalendars() async {
+    try {
+      final account = await _googleSignIn.signInSilently();
+      if (account == null) return [];
+
+      final authHeaders = await _googleSignIn.currentUser!.authHeaders;
+      final client = _GoogleAuthClient(authHeaders);
+      final calApi = gcal.CalendarApi(client);
+
+      final list = await calApi.calendarList.list();
+      client.close();
+
+      return (list.items ?? []).map((c) {
+        return ExternalCalendar(
+          id: c.id ?? '',
+          name: c.summary ?? c.id ?? '',
+          color: c.backgroundColor != null
+              ? _parseHexColor(c.backgroundColor!)
+              : null,
+          isReadOnly: c.accessRole == 'reader',
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('Error listing Google calendars: $e');
+      return [];
+    }
+  }
+
+  Future<List<ExternalCalendar>> _listAppleCalendars() async {
+    try {
+      final result = await _deviceCalendarPlugin.retrieveCalendars();
+      return (result.data ?? <Calendar>[]).map((c) {
+        return ExternalCalendar(
+          id: c.id ?? '',
+          name: c.name ?? '',
+          color: c.color,
+          isReadOnly: c.isReadOnly ?? false,
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('Error listing Apple calendars: $e');
+      return [];
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Fetch events (unified)
+  // ---------------------------------------------------------------------------
+
+  /// Fetches events from the specified calendars for a given month.
+  Future<List<ExternalEvent>> fetchEvents({
+    required CalendarIntegration integration,
+    required List<String> calendarIds,
+    required int year,
+    required int month,
+  }) async {
+    final start = DateTime(year, month, 1);
+    final end = DateTime(year, month + 1, 0, 23, 59, 59);
+
+    if (integration.provider == CalendarProvider.google) {
+      return _fetchGoogleEvents(calendarIds, start, end);
+    } else {
+      return _fetchAppleEvents(calendarIds, start, end);
+    }
+  }
+
+  Future<List<ExternalEvent>> _fetchGoogleEvents(
+    List<String> calendarIds,
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      final account = await _googleSignIn.signInSilently();
+      if (account == null) return [];
+
+      final authHeaders = await _googleSignIn.currentUser!.authHeaders;
+      final client = _GoogleAuthClient(authHeaders);
+      final calApi = gcal.CalendarApi(client);
+
+      final events = <ExternalEvent>[];
+      for (final calId in calendarIds) {
+        final result = await calApi.events.list(
+          calId,
+          timeMin: start.toUtc(),
+          timeMax: end.toUtc(),
+          singleEvents: true,
+          orderBy: 'startTime',
+        );
+        final calName =
+            (await calApi.calendarList.get(calId)).summary ?? calId;
+        for (final e in result.items ?? <gcal.Event>[]) {
+          final eStart = e.start?.dateTime ?? e.start?.date;
+          if (eStart == null) continue;
+          events.add(ExternalEvent(
+            id: e.id ?? '',
+            title: e.summary ?? '(No title)',
+            startDate: eStart,
+            endDate: e.end?.dateTime ?? e.end?.date,
+            calendarId: calId,
+            calendarName: calName,
+            isAllDay: e.start?.date != null && e.start?.dateTime == null,
+            description: e.description,
+          ));
+        }
+      }
+
+      client.close();
+      return events;
+    } catch (e) {
+      debugPrint('Error fetching Google events: $e');
+      return [];
+    }
+  }
+
+  Future<List<ExternalEvent>> _fetchAppleEvents(
+    List<String> calendarIds,
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      final events = <ExternalEvent>[];
+      for (final calId in calendarIds) {
+        final result = await _deviceCalendarPlugin.retrieveEvents(
+          calId,
+          RetrieveEventsParams(startDate: start, endDate: end),
+        );
+        for (final e in result.data ?? <Event>[]) {
+          events.add(ExternalEvent(
+            id: e.eventId ?? '',
+            title: e.title ?? '(No title)',
+            startDate: e.start?.toLocal() ?? start,
+            endDate: e.end?.toLocal(),
+            calendarId: calId,
+            isAllDay: e.allDay ?? false,
+            description: e.description,
+          ));
+        }
+      }
+      return events;
+    } catch (e) {
+      debugPrint('Error fetching Apple events: $e');
+      return [];
+    }
+  }
+
+  static int? _parseHexColor(String hex) {
+    try {
+      final cleaned = hex.replaceFirst('#', '');
+      return int.parse('FF$cleaned', radix: 16);
+    } catch (_) {
       return null;
     }
   }

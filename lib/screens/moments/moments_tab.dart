@@ -11,12 +11,14 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../models/external_calendar.dart';
 import '../../models/integration_config.dart';
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
+import '../../services/calendar_service.dart';
 import '../../services/firestore_service.dart';
-
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/theme.dart';
 import '../../widgets/app_calendar.dart';
 import '../../widgets/moment_type_icon.dart';
@@ -38,13 +40,20 @@ class _MomentsTabState extends State<MomentsTab> {
   final _firestoreService = FirestoreService();
   final _authService = AuthService();
 
+  final _calendarService = CalendarService();
+
   // State
   StreamSubscription<List<Moment>>? _momentsSub;
   StreamSubscription<IntegrationConfig>? _integrationSub;
   List<Moment> _allMoments = [];
   bool _isLoading = true;
-  bool _hasCalendarIntegration = false;
-  bool _showExternalEvents = false;
+
+  // Integration state
+  CalendarIntegration? _calendarIntegration;
+  List<ExternalCalendar> _externalCalendars = [];
+  Set<String> _visibleCalendarIds = {};
+  List<ExternalEvent> _externalEvents = [];
+  bool _isSyncingCalendars = false;
 
   // Calendar
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month);
@@ -96,26 +105,78 @@ class _MomentsTabState extends State<MomentsTab> {
     final userId = _authService.currentUser?.uid;
     if (userId == null) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final savedToggle = prefs.getBool('show_external_events') ?? false;
-
     _integrationSub = _firestoreService.watchIntegrationConfig(userId).listen(
-      (config) {
+      (config) async {
         if (!mounted) return;
-        setState(() {
-          _hasCalendarIntegration = config.hasCalendar;
-          _showExternalEvents = _hasCalendarIntegration && savedToggle;
-        });
+        final cal = config.calendar;
+        setState(() => _calendarIntegration = cal?.enabled == true ? cal : null);
+
+        if (_calendarIntegration != null && _externalCalendars.isEmpty) {
+          await _loadCalendars();
+        }
       },
       onError: (_) {},
     );
   }
 
-  Future<void> _toggleExternalEvents(bool value) async {
-    HapticFeedback.selectionClick();
-    setState(() => _showExternalEvents = value);
+  Future<void> _loadCalendars() async {
+    if (_calendarIntegration == null) return;
+    final calendars =
+        await _calendarService.listCalendars(_calendarIntegration!);
+    if (!mounted) return;
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('show_external_events', value);
+    final saved = prefs.getStringList('visible_calendar_ids');
+
+    setState(() {
+      _externalCalendars = calendars;
+      _visibleCalendarIds = saved != null
+          ? saved.toSet()
+          : calendars.map((c) => c.id).toSet();
+    });
+
+    if (_visibleCalendarIds.isNotEmpty) {
+      await _fetchExternalEvents();
+    }
+  }
+
+  Future<void> _fetchExternalEvents() async {
+    if (_calendarIntegration == null || _visibleCalendarIds.isEmpty) {
+      setState(() => _externalEvents = []);
+      return;
+    }
+
+    setState(() => _isSyncingCalendars = true);
+    final events = await _calendarService.fetchEvents(
+      integration: _calendarIntegration!,
+      calendarIds: _visibleCalendarIds.toList(),
+      year: _focusedMonth.year,
+      month: _focusedMonth.month,
+    );
+    if (!mounted) return;
+    setState(() {
+      _externalEvents = events;
+      _isSyncingCalendars = false;
+    });
+  }
+
+  Future<void> _toggleCalendarVisibility(String calendarId, bool visible) async {
+    HapticFeedback.selectionClick();
+    setState(() {
+      if (visible) {
+        _visibleCalendarIds.add(calendarId);
+      } else {
+        _visibleCalendarIds.remove(calendarId);
+      }
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(
+      'visible_calendar_ids',
+      _visibleCalendarIds.toList(),
+    );
+
+    await _fetchExternalEvents();
   }
 
   void _subscribe() {
@@ -209,18 +270,21 @@ class _MomentsTabState extends State<MomentsTab> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: _buildCalendarCard(),
         ),
-        if (_hasCalendarIntegration) ...[
-          const SizedBox(height: 8),
-          _buildExternalEventsToggle(),
-        ],
         const SizedBox(height: 12),
         Expanded(
           child: RefreshIndicator(
-            onRefresh: () async => _subscribe(),
+            onRefresh: () async {
+              _subscribe();
+              if (_calendarIntegration != null) await _fetchExternalEvents();
+            },
             color: AppColors.accentRed,
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
               children: [
+                if (_calendarIntegration != null) ...[
+                  _buildCalendarSyncCard(),
+                  const SizedBox(height: 12),
+                ],
                 _buildMonthMomentsList(),
               ],
             ),
@@ -234,31 +298,142 @@ class _MomentsTabState extends State<MomentsTab> {
   // Calendar card
   // ---------------------------------------------------------------------------
 
-  Widget _buildExternalEventsToggle() {
+  Widget _buildCalendarSyncCard() {
+    final cal = _calendarIntegration!;
+    final accountLabel = cal.provider == CalendarProvider.google
+        ? cal.email ?? 'Google Calendar'
+        : 'Apple Calendar';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.warmMuted.withValues(alpha: 0.15),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentRed.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_rounded,
+                color: AppColors.accentRed,
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'LINKED CALENDAR',
+                      style: GoogleFonts.outfit(
+                        color: AppColors.warmMuted,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      accountLabel,
+                      style: GoogleFonts.inter(
+                        color: AppColors.warmDim,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              GestureDetector(
+                onTap: _isSyncingCalendars ? null : _fetchExternalEvents,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _isSyncingCalendars
+                      ? SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.accentRed,
+                          ),
+                        )
+                      : Icon(
+                          Icons.sync_rounded,
+                          color: AppColors.accentRed,
+                          size: 16,
+                        ),
+                ),
+              ),
+            ],
+          ),
+          if (_externalCalendars.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.warmMuted.withValues(alpha: 0.15),
+            ),
+            const SizedBox(height: 8),
+            ..._externalCalendars.map((c) => _buildCalendarToggleRow(c)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalendarToggleRow(ExternalCalendar cal) {
+    final isVisible = _visibleCalendarIds.contains(cal.id);
+    final dotColor =
+        cal.color != null ? Color(cal.color!) : AppColors.warmMuted;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         children: [
-          Icon(
-            Icons.sync_rounded,
-            color: AppColors.warmMuted,
-            size: 16,
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Show external events',
+              cal.name,
               style: GoogleFonts.inter(
-                color: AppColors.warmMuted,
+                color: AppColors.warmLight,
                 fontSize: 13,
               ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           SizedBox(
-            height: 28,
+            height: 24,
             child: Switch.adaptive(
-              value: _showExternalEvents,
-              onChanged: _toggleExternalEvents,
+              value: isVisible,
+              onChanged: (v) => _toggleCalendarVisibility(cal.id, v),
               activeColor: AppColors.accentRed,
               activeTrackColor: AppColors.accentRed.withValues(alpha: 0.3),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -318,6 +493,9 @@ class _MomentsTabState extends State<MomentsTab> {
         },
         onPageChanged: (month) {
           setState(() => _focusedMonth = DateTime(month.year, month.month));
+          if (_calendarIntegration != null && _visibleCalendarIds.isNotEmpty) {
+            _fetchExternalEvents();
+          }
         },
         markers: markers,
       ),
@@ -493,8 +671,10 @@ class _MomentsTabState extends State<MomentsTab> {
 
   Widget _buildMonthMomentsList() {
     final moments = _monthMoments;
+    final hasExternalEvents = _externalEvents.isNotEmpty;
+    final totalItems = moments.length + _externalEvents.length;
 
-    if (moments.isEmpty) {
+    if (moments.isEmpty && !hasExternalEvents) {
       return PlanMomentCard(
         onTap: () => context.push('/moment/${widget.spaceId}'),
       );
@@ -537,7 +717,16 @@ class _MomentsTabState extends State<MomentsTab> {
               showDate: true,
               onTap: () => _showMomentDetails(moments[i]),
             ),
-            if (i < moments.length - 1)
+            if (i < totalItems - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.warmMuted.withValues(alpha: 0.15),
+              ),
+          ],
+          for (int i = 0; i < _externalEvents.length; i++) ...[
+            _ExternalEventTile(event: _externalEvents[i]),
+            if (moments.length + i < totalItems - 1)
               Divider(
                 height: 1,
                 thickness: 1,
@@ -700,6 +889,81 @@ class _MomentTileState extends State<_MomentTile> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// External event tile (gray styling)
+// =============================================================================
+
+class _ExternalEventTile extends StatelessWidget {
+  const _ExternalEventTile({required this.event});
+
+  final ExternalEvent event;
+
+  String get _subtitle {
+    final parts = <String>[];
+    if (event.calendarName != null) parts.add(event.calendarName!);
+    if (event.isAllDay) {
+      parts.add('All day');
+    } else if (event.startDate != event.endDate) {
+      final h = event.startDate.hour;
+      final m = event.startDate.minute;
+      final period = h >= 12 ? 'PM' : 'AM';
+      final hour = h > 12 ? h - 12 : (h == 0 ? 12 : h);
+      parts.add('$hour${m > 0 ? ':${m.toString().padLeft(2, '0')}' : ''} $period');
+    }
+    return parts.join(' · ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.warmMuted.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Center(
+              child: Icon(
+                Icons.event_outlined,
+                size: 20,
+                color: AppColors.warmMuted,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.title,
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.warmMuted,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  _subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
+                    color: AppColors.warmMuted.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
