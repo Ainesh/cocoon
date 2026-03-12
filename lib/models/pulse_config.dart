@@ -140,10 +140,7 @@ enum PulseAttribute {
 /// }
 /// ```
 class PulseConfig {
-  const PulseConfig({
-    required this.userPicks,
-    this.updatedAt,
-  });
+  const PulseConfig({required this.userPicks, this.updatedAt});
 
   /// Each user's selected attribute IDs. Key = userId, value = list of
   /// attribute IDs (1-3 items per user).
@@ -211,9 +208,7 @@ class PulseConfig {
 
   Map<String, dynamic> toJson() {
     return {
-      'userPicks': userPicks.map(
-        (uid, picks) => MapEntry(uid, picks),
-      ),
+      'userPicks': userPicks.map((uid, picks) => MapEntry(uid, picks)),
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
   }

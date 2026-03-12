@@ -118,8 +118,7 @@ class _PulseScreenState extends State<PulseScreen>
           .toList();
       if (!mounted) return;
       setState(() {
-        _picks =
-            picks.isEmpty ? PulseAttribute.values.take(3).toList() : picks;
+        _picks = picks.isEmpty ? PulseAttribute.values.take(3).toList() : picks;
         for (final p in _picks) {
           _scores.putIfAbsent(p.id, () => 50.0);
         }
@@ -210,10 +209,7 @@ class _PulseScreenState extends State<PulseScreen>
 
       final compactScores = <String, dynamic>{};
       for (final p in _picks) {
-        compactScores[p.id] = {
-          'value': intScores[p.id],
-          'weight': equalWeight,
-        };
+        compactScores[p.id] = {'value': intScores[p.id], 'weight': equalWeight};
       }
 
       await _firestoreService.logCheckInActivity(
@@ -301,9 +297,7 @@ class _PulseScreenState extends State<PulseScreen>
                   child: Text(
                     'Your space will be alive\nand breathing. Its pulse will\nbe driven by periodic,\nintentional check-ins',
                     textAlign: TextAlign.center,
-                    style: AppTypography.bodyLarge(
-                      color: AppColors.warmDim,
-                    ),
+                    style: AppTypography.bodyLarge(color: AppColors.warmDim),
                   ),
                 ),
               ),

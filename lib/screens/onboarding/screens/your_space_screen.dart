@@ -211,9 +211,7 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
 
                     // --- Middle slot: subtitle → input (typing) → name (done) ---
                     AnimatedSwitcher(
-                      duration: Duration(
-                        milliseconds: _isFocused ? 0 : 600,
-                      ),
+                      duration: Duration(milliseconds: _isFocused ? 0 : 600),
                       child: _showTagline && !_isFocused
                           ? FadeTransition(
                               key: const ValueKey('name'),
@@ -243,130 +241,122 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
                               ),
                             )
                           : showField
-                              ? SizedBox(
-                                  key: const ValueKey('input'),
-                                  width: 220,
-                                  child: TextFormField(
-                                    controller: _nameController,
-                                    focusNode: _focusNode,
-                                    textAlign: TextAlign.center,
-                                    autofocus: true,
-                                    cursorColor: AppColors.refinedRed,
-                                    style: GoogleFonts.drSugiyama(
-                                      fontSize: 38,
+                          ? SizedBox(
+                              key: const ValueKey('input'),
+                              width: 220,
+                              child: TextFormField(
+                                controller: _nameController,
+                                focusNode: _focusNode,
+                                textAlign: TextAlign.center,
+                                autofocus: true,
+                                cursorColor: AppColors.refinedRed,
+                                style: GoogleFonts.drSugiyama(
+                                  fontSize: 38,
+                                  color: AppColors.refinedRed,
+                                ),
+                                decoration: const InputDecoration(
+                                  isDense: true,
+                                  filled: false,
+                                  border: InputBorder.none,
+                                  focusedBorder: UnderlineInputBorder(
+                                    borderSide: BorderSide(
                                       color: AppColors.refinedRed,
+                                      width: 1.5,
                                     ),
-                                    decoration: const InputDecoration(
-                                      isDense: true,
-                                      filled: false,
-                                      border: InputBorder.none,
-                                      focusedBorder: UnderlineInputBorder(
-                                        borderSide: BorderSide(
-                                          color: AppColors.refinedRed,
-                                          width: 1.5,
+                                  ),
+                                  enabledBorder: InputBorder.none,
+                                  contentPadding: EdgeInsets.only(bottom: 8),
+                                ),
+                                onChanged: _onTextChanged,
+                              ),
+                            )
+                          : AnimatedOpacity(
+                              key: const ValueKey('subtitle'),
+                              duration: Duration(
+                                milliseconds: _isFocused ? 0 : 600,
+                              ),
+                              opacity: _middleOpacity,
+                              child: SizedBox(
+                                width: 280,
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      'Your journey starts by\ncreating a shared space\nfor your relationship',
+                                      textAlign: TextAlign.center,
+                                      style: AppTypography.bodyLarge(
+                                        color: AppColors.warmDim,
+                                      ),
+                                    ),
+                                    const SizedBox(height: AppSpacing.lg),
+                                    AnimatedOpacity(
+                                      duration: Duration(
+                                        milliseconds: _isFocused ? 0 : 600,
+                                      ),
+                                      opacity: _isFocused ? 0.0 : _subtitle2Op,
+                                      child: Text(
+                                        'This is where you\ngrow, together',
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.inter(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w500,
+                                          color: AppColors.lightText,
+                                          height: 1.6,
                                         ),
                                       ),
-                                      enabledBorder: InputBorder.none,
-                                      contentPadding:
-                                          EdgeInsets.only(bottom: 8),
                                     ),
-                                    onChanged: _onTextChanged,
-                                  ),
-                                )
-                              : AnimatedOpacity(
-                                  key: const ValueKey('subtitle'),
-                                  duration: Duration(
-                                    milliseconds: _isFocused ? 0 : 600,
-                                  ),
-                                  opacity: _middleOpacity,
-                                  child: SizedBox(
-                                    width: 280,
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          'Your journey starts by\ncreating a shared space\nfor your relationship',
-                                          textAlign: TextAlign.center,
-                                          style: AppTypography.bodyLarge(
-                                            color: AppColors.warmDim,
-                                          ),
-                                        ),
-                                        const SizedBox(
-                                          height: AppSpacing.lg,
-                                        ),
-                                        AnimatedOpacity(
-                                          duration: Duration(
-                                            milliseconds:
-                                                _isFocused ? 0 : 600,
-                                          ),
-                                          opacity: _isFocused
-                                              ? 0.0
-                                              : _subtitle2Op,
-                                          child: Text(
-                                            'This is where you\ngrow, together',
-                                            textAlign: TextAlign.center,
-                                            style: GoogleFonts.inter(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.lightText,
-                                              height: 1.6,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                  ],
                                 ),
+                              ),
+                            ),
                     ),
 
                     const Spacer(flex: 2),
 
                     // --- Bottom slot: prompt → tagline (after naming) ---
                     AnimatedSwitcher(
-                      duration: Duration(
-                        milliseconds: _isFocused ? 0 : 600,
-                      ),
+                      duration: Duration(milliseconds: _isFocused ? 0 : 600),
                       child: _isExiting
                           ? const SizedBox.shrink(key: ValueKey('exit'))
                           : _showTagline && !_isFocused
-                              ? FadeTransition(
-                                  key: const ValueKey('tagline'),
-                                  opacity: CurvedAnimation(
-                                    parent: _taglineController,
-                                    curve: Curves.easeOut,
-                                  ),
-                                  child: SizedBox(
-                                    width: 280,
-                                    child: Text(
-                                      'Your personal, intimate, and\nsafe place to express\nand build memories',
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w500,
-                                        color: AppColors.lightText,
-                                        height: 1.6,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : AnimatedOpacity(
-                                  key: const ValueKey('prompt'),
-                                  duration: Duration(
-                                    milliseconds: _isFocused ? 0 : 600,
-                                  ),
-                                  opacity: _isFocused ? 0.0 : _promptOp,
-                                  child: GestureDetector(
-                                    onTap: _tapPrompt,
-                                    child: Text(
-                                      'tap to name your space',
-                                      textAlign: TextAlign.center,
-                                      style: GoogleFonts.outfit(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w400,
-                                        color: AppColors.refinedRed,
-                                      ),
-                                    ),
+                          ? FadeTransition(
+                              key: const ValueKey('tagline'),
+                              opacity: CurvedAnimation(
+                                parent: _taglineController,
+                                curve: Curves.easeOut,
+                              ),
+                              child: SizedBox(
+                                width: 280,
+                                child: Text(
+                                  'Your personal, intimate, and\nsafe place to express\nand build memories',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.lightText,
+                                    height: 1.6,
                                   ),
                                 ),
+                              ),
+                            )
+                          : AnimatedOpacity(
+                              key: const ValueKey('prompt'),
+                              duration: Duration(
+                                milliseconds: _isFocused ? 0 : 600,
+                              ),
+                              opacity: _isFocused ? 0.0 : _promptOp,
+                              child: GestureDetector(
+                                onTap: _tapPrompt,
+                                child: Text(
+                                  'tap to name your space',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    color: AppColors.refinedRed,
+                                  ),
+                                ),
+                              ),
+                            ),
                     ),
 
                     // Bottom zone (bands + padding)
@@ -394,15 +384,15 @@ class _YourSpaceScreenState extends State<YourSpaceScreen>
                   onTap: _hasText && !_isExiting ? _continue : null,
                   child: Text(
                     'tap to continue',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.outfit(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.warmDim,
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.warmDim,
+                    ),
                   ),
                 ),
               ),
-            ),
             ),
           ),
         ],

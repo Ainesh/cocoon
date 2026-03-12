@@ -968,7 +968,10 @@ class VoronoiBreathingPainter extends CustomPainter {
 
     final paths = allPaths.sublist(0, interiorCount);
     final order = List<int>.generate(interiorCount, (i) => i)..shuffle(rng);
-    final randoms = List<double>.generate(interiorCount, (_) => rng.nextDouble());
+    final randoms = List<double>.generate(
+      interiorCount,
+      (_) => rng.nextDouble(),
+    );
 
     _cache = _CachedMosaic(
       key: seed,
@@ -996,8 +999,8 @@ class VoronoiBreathingPainter extends CustomPainter {
     final halfHeight = size.height / 2;
 
     final s = targetScore.clamp(0.0, 1.0);
-    final warmCount =
-        (n * (_Config.warmFloor + s * (1.0 - _Config.warmFloor))).round();
+    final warmCount = (n * (_Config.warmFloor + s * (1.0 - _Config.warmFloor)))
+        .round();
 
     final tileOrder = List<int>.filled(n, 0);
     for (int i = 0; i < n; i++) {
@@ -1037,8 +1040,8 @@ class VoronoiBreathingPainter extends CustomPainter {
       final edgeRange = effectiveExclusion > 0.001
           ? (1.0 - effectiveExclusion)
           : 1.0;
-      final radialDim = 1.0 -
-          ((distNorm - effectiveExclusion) / edgeRange).clamp(0.0, 1.0);
+      final radialDim =
+          1.0 - ((distNorm - effectiveExclusion) / edgeRange).clamp(0.0, 1.0);
 
       // Fill dissolves the radial gradient, outer tiles first
       var gradientStrength = 1.0;
@@ -1057,11 +1060,8 @@ class VoronoiBreathingPainter extends CustomPainter {
       // the fill direction). Center tiles go to black; top/bottom edge tiles
       // settle at a resting breathing opacity.
       if (bandsProgress > 0) {
-        final verticalDist =
-            ((center.dy - screenCenter.dy).abs() / halfHeight).clamp(
-              0.0,
-              1.0,
-            );
+        final verticalDist = ((center.dy - screenCenter.dy).abs() / halfHeight)
+            .clamp(0.0, 1.0);
 
         // Band membership: 0 for center tiles, 1 for top/bottom ~20%
         final band = ((verticalDist - 0.6) / 0.3).clamp(0.0, 1.0);
@@ -1069,11 +1069,12 @@ class VoronoiBreathingPainter extends CustomPainter {
 
         // Radial stagger: center tiles transition first, outer tiles last
         final tileDelay = distNorm;
-        final tileBandsT =
-            ((bandsProgress - tileDelay * 0.55) / 0.45).clamp(0.0, 1.0);
+        final tileBandsT = ((bandsProgress - tileDelay * 0.55) / 0.45).clamp(
+          0.0,
+          1.0,
+        );
 
-        baseOpacity =
-            baseOpacity * (1.0 - tileBandsT) + bandBase * tileBandsT;
+        baseOpacity = baseOpacity * (1.0 - tileBandsT) + bandBase * tileBandsT;
       }
 
       // Breathing amplitude: continuous across fill→bands transition
@@ -1090,8 +1091,8 @@ class VoronoiBreathingPainter extends CustomPainter {
       // Entrance: tiles fade in from outer edges inward
       if (entranceProgress < 1.0) {
         final entranceDelay = 1.0 - distNorm; // outer=0 (first), inner=1 (last)
-        final tileEntrance =
-            ((entranceProgress - entranceDelay * 0.6) / 0.4).clamp(0.0, 1.0);
+        final tileEntrance = ((entranceProgress - entranceDelay * 0.6) / 0.4)
+            .clamp(0.0, 1.0);
         opacity *= tileEntrance;
       }
 
@@ -1212,5 +1213,7 @@ class VoronoiSingleTilePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(VoronoiSingleTilePainter old) =>
-      tileColor != old.tileColor || seed != old.seed || tileCount != old.tileCount;
+      tileColor != old.tileColor ||
+      seed != old.seed ||
+      tileCount != old.tileCount;
 }

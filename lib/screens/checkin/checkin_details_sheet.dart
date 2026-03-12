@@ -62,7 +62,6 @@ class _CheckinDetailsContent extends StatelessWidget {
       ) ??
       AppColors.nightColor;
 
-
   @override
   Widget build(BuildContext context) {
     final activeAttrs = configSnapshot.activeAttributes
@@ -191,13 +190,16 @@ class _CheckinDetailsContent extends StatelessWidget {
                                   crossAxisAlignment:
                                       CrossAxisAlignment.stretch,
                                   children: [
-                                    for (int i = 0;
-                                        i < activeAttrs.length;
-                                        i++) ...[
+                                    for (
+                                      int i = 0;
+                                      i < activeAttrs.length;
+                                      i++
+                                    ) ...[
                                       if (i > 0)
                                         SizedBox(
-                                          width:
-                                              activeAttrs.length <= 3 ? 24 : 12,
+                                          width: activeAttrs.length <= 3
+                                              ? 24
+                                              : 12,
                                         ),
                                       Expanded(
                                         child: _buildStaticBar(

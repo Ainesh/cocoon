@@ -32,8 +32,7 @@ class StoryProgressBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final active = activeColor ?? AppColors.refinedRed;
-    final inactive =
-        inactiveColor ?? AppColors.dimText.withValues(alpha: 0.2);
+    final inactive = inactiveColor ?? AppColors.dimText.withValues(alpha: 0.2);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),

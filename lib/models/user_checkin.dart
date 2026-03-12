@@ -63,9 +63,7 @@ class UserCheckIn {
   /// ```
   factory UserCheckIn.fromJson(String id, Map<String, dynamic> json) {
     try {
-      final rawScores = Map<String, dynamic>.from(
-        json['scores'] as Map? ?? {},
-      );
+      final rawScores = Map<String, dynamic>.from(json['scores'] as Map? ?? {});
 
       final scores = rawScores.map(
         (k, v) => MapEntry(k, ((v as Map)['value'] as num).toInt()),
@@ -91,10 +89,7 @@ class UserCheckIn {
             ? (json['timestamp'] as Timestamp).toDate()
             : DateTime.now(),
         scores: const {},
-        configSnapshot: const ConfigSnapshot(
-          activeAttributes: [],
-          weights: {},
-        ),
+        configSnapshot: const ConfigSnapshot(activeAttributes: [], weights: {}),
         notes: '',
       );
     }

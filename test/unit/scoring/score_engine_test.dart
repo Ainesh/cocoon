@@ -27,7 +27,8 @@ void main() {
       userId: userId,
       timestamp: timestamp,
       attributeScores: scores,
-      configSnapshot: config ??
+      configSnapshot:
+          config ??
           ConfigSnapshot(
             activeAttributes: attrs,
             weights: {for (final a in attrs) a: 1.0 / attrs.length},
@@ -36,11 +37,7 @@ void main() {
   }
 
   final refDate = DateTime(2026, 2, 23);
-  final equalWeights = {
-    'connection': 1 / 3,
-    'intimacy': 1 / 3,
-    'peace': 1 / 3,
-  };
+  final equalWeights = {'connection': 1 / 3, 'intimacy': 1 / 3, 'peace': 1 / 3};
 
   // ===========================================================================
   // Daily score computation
@@ -147,16 +144,20 @@ void main() {
       final contributions = <ScoreContribution>[];
       for (int d = 0; d < 3; d++) {
         final day = refDate.subtract(Duration(days: d));
-        contributions.add(contribution(
-          userId: 'u1',
-          timestamp: day,
-          scores: {'connection': 100, 'intimacy': 100, 'peace': 100},
-        ));
-        contributions.add(contribution(
-          userId: 'u2',
-          timestamp: day,
-          scores: {'connection': 80, 'intimacy': 80, 'peace': 80},
-        ));
+        contributions.add(
+          contribution(
+            userId: 'u1',
+            timestamp: day,
+            scores: {'connection': 100, 'intimacy': 100, 'peace': 100},
+          ),
+        );
+        contributions.add(
+          contribution(
+            userId: 'u2',
+            timestamp: day,
+            scores: {'connection': 80, 'intimacy': 80, 'peace': 80},
+          ),
+        );
       }
 
       final result = engine.computeScoreResult(
@@ -216,7 +217,12 @@ void main() {
             'intimacy': 30,
           },
           config: ConfigSnapshot(
-            activeAttributes: ['connection', 'trust', 'communication', 'intimacy'],
+            activeAttributes: [
+              'connection',
+              'trust',
+              'communication',
+              'intimacy',
+            ],
             weights: weights,
           ),
         ),
@@ -290,8 +296,7 @@ void main() {
       );
 
       // Weeks 1-3 should have no data
-      final emptyWeeks =
-          result.weeklyScores.where((w) => !w.hasData).toList();
+      final emptyWeeks = result.weeklyScores.where((w) => !w.hasData).toList();
       expect(emptyWeeks.length, greaterThanOrEqualTo(2));
     });
   });
@@ -305,11 +310,13 @@ void main() {
       final contributions = <ScoreContribution>[];
       for (int w = 0; w < 4; w++) {
         final day = refDate.subtract(Duration(days: w * 7));
-        contributions.add(contribution(
-          userId: 'u1',
-          timestamp: day,
-          scores: {'connection': 60 + w * 10}, // 60, 70, 80, 90
-        ));
+        contributions.add(
+          contribution(
+            userId: 'u1',
+            timestamp: day,
+            scores: {'connection': 60 + w * 10}, // 60, 70, 80, 90
+          ),
+        );
       }
 
       final result = engine.computeScoreResult(
@@ -320,8 +327,10 @@ void main() {
 
       // Weekly scores vary; monthly = mean of weeks with data
       expect(result.overallScore, greaterThan(0));
-      expect(result.weeklyScores.where((w) => w.hasData).length,
-          greaterThanOrEqualTo(3));
+      expect(
+        result.weeklyScores.where((w) => w.hasData).length,
+        greaterThanOrEqualTo(3),
+      );
     });
   });
 
@@ -402,11 +411,13 @@ void main() {
     test('clearly improving: positive trend', () {
       final contributions = <ScoreContribution>[];
       for (int d = 0; d < 10; d++) {
-        contributions.add(contribution(
-          userId: 'u1',
-          timestamp: refDate.subtract(Duration(days: 9 - d)),
-          scores: {'connection': 30 + d * 7}, // 30 → 93
-        ));
+        contributions.add(
+          contribution(
+            userId: 'u1',
+            timestamp: refDate.subtract(Duration(days: 9 - d)),
+            scores: {'connection': 30 + d * 7}, // 30 → 93
+          ),
+        );
       }
 
       final result = engine.computeScoreResult(
@@ -422,11 +433,13 @@ void main() {
     test('clearly declining: negative trend', () {
       final contributions = <ScoreContribution>[];
       for (int d = 0; d < 10; d++) {
-        contributions.add(contribution(
-          userId: 'u1',
-          timestamp: refDate.subtract(Duration(days: 9 - d)),
-          scores: {'connection': 93 - d * 7}, // 93 → 30
-        ));
+        contributions.add(
+          contribution(
+            userId: 'u1',
+            timestamp: refDate.subtract(Duration(days: 9 - d)),
+            scores: {'connection': 93 - d * 7}, // 93 → 30
+          ),
+        );
       }
 
       final result = engine.computeScoreResult(
@@ -441,11 +454,13 @@ void main() {
     test('flat/stable: trend near 0', () {
       final contributions = <ScoreContribution>[];
       for (int d = 0; d < 8; d++) {
-        contributions.add(contribution(
-          userId: 'u1',
-          timestamp: refDate.subtract(Duration(days: d)),
-          scores: {'connection': 70},
-        ));
+        contributions.add(
+          contribution(
+            userId: 'u1',
+            timestamp: refDate.subtract(Duration(days: d)),
+            scores: {'connection': 70},
+          ),
+        );
       }
 
       final result = engine.computeScoreResult(
@@ -507,11 +522,13 @@ void main() {
     test('high score + stable -> Thriving', () {
       final contributions = <ScoreContribution>[];
       for (int d = 0; d < 10; d++) {
-        contributions.add(contribution(
-          userId: 'u1',
-          timestamp: refDate.subtract(Duration(days: d)),
-          scores: {'connection': 85},
-        ));
+        contributions.add(
+          contribution(
+            userId: 'u1',
+            timestamp: refDate.subtract(Duration(days: d)),
+            scores: {'connection': 85},
+          ),
+        );
       }
 
       final result = engine.computeScoreResult(
@@ -526,11 +543,13 @@ void main() {
     test('low scores -> Needs Care', () {
       final contributions = <ScoreContribution>[];
       for (int d = 0; d < 8; d++) {
-        contributions.add(contribution(
-          userId: 'u1',
-          timestamp: refDate.subtract(Duration(days: d)),
-          scores: {'connection': 25},
-        ));
+        contributions.add(
+          contribution(
+            userId: 'u1',
+            timestamp: refDate.subtract(Duration(days: d)),
+            scores: {'connection': 25},
+          ),
+        );
       }
 
       final result = engine.computeScoreResult(
@@ -680,11 +699,13 @@ void main() {
     test('only one user ever checked in', () {
       final contributions = <ScoreContribution>[];
       for (int d = 0; d < 5; d++) {
-        contributions.add(contribution(
-          userId: 'u1',
-          timestamp: refDate.subtract(Duration(days: d)),
-          scores: {'connection': 70},
-        ));
+        contributions.add(
+          contribution(
+            userId: 'u1',
+            timestamp: refDate.subtract(Duration(days: d)),
+            scores: {'connection': 70},
+          ),
+        );
       }
 
       final result = engine.computeScoreResult(
@@ -716,8 +737,7 @@ void main() {
       );
 
       expect(result.checkInCount, 5);
-      final weeksWithData =
-          result.weeklyScores.where((w) => w.hasData).length;
+      final weeksWithData = result.weeklyScores.where((w) => w.hasData).length;
       expect(weeksWithData, 1);
     });
   });
@@ -729,13 +749,21 @@ void main() {
   group('User count tracking', () {
     test('user and partner counts are correct', () {
       final contributions = [
-        contribution(userId: 'u1', timestamp: refDate,
-            scores: {'connection': 80}),
-        contribution(userId: 'u1',
-            timestamp: refDate.subtract(const Duration(days: 1)),
-            scores: {'connection': 80}),
-        contribution(userId: 'u2', timestamp: refDate,
-            scores: {'connection': 80}),
+        contribution(
+          userId: 'u1',
+          timestamp: refDate,
+          scores: {'connection': 80},
+        ),
+        contribution(
+          userId: 'u1',
+          timestamp: refDate.subtract(const Duration(days: 1)),
+          scores: {'connection': 80},
+        ),
+        contribution(
+          userId: 'u2',
+          timestamp: refDate,
+          scores: {'connection': 80},
+        ),
       ];
 
       final result = engine.computeScoreResult(

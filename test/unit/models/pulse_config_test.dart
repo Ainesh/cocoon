@@ -15,10 +15,12 @@ void main() {
 
   group('PulseConfig — weight computation', () {
     test('all overlap: both users pick same 3 -> equal weight', () {
-      final config = PulseConfig(userPicks: {
-        'u1': ['connection', 'intimacy', 'peace'],
-        'u2': ['connection', 'intimacy', 'peace'],
-      });
+      final config = PulseConfig(
+        userPicks: {
+          'u1': ['connection', 'intimacy', 'peace'],
+          'u2': ['connection', 'intimacy', 'peace'],
+        },
+      );
 
       final w = config.weights;
       expect(w.length, 3);
@@ -29,10 +31,12 @@ void main() {
     });
 
     test('partial overlap: 2 shared + 1 unique each -> 4 attrs', () {
-      final config = PulseConfig(userPicks: {
-        'u1': ['connection', 'trust', 'communication'],
-        'u2': ['connection', 'intimacy', 'trust'],
-      });
+      final config = PulseConfig(
+        userPicks: {
+          'u1': ['connection', 'trust', 'communication'],
+          'u2': ['connection', 'intimacy', 'trust'],
+        },
+      );
 
       final w = config.weights;
       expect(w.length, 4);
@@ -44,10 +48,12 @@ void main() {
     });
 
     test('minimal overlap: 1 shared + 2 unique each -> 5 attrs', () {
-      final config = PulseConfig(userPicks: {
-        'u1': ['connection', 'trust', 'communication'],
-        'u2': ['connection', 'intimacy', 'peace'],
-      });
+      final config = PulseConfig(
+        userPicks: {
+          'u1': ['connection', 'trust', 'communication'],
+          'u2': ['connection', 'intimacy', 'peace'],
+        },
+      );
 
       final w = config.weights;
       expect(w.length, 5);
@@ -61,18 +67,24 @@ void main() {
 
     test('weights sum to 1.0', () {
       final configs = [
-        PulseConfig(userPicks: {
-          'u1': ['connection'],
-          'u2': ['connection'],
-        }),
-        PulseConfig(userPicks: {
-          'u1': ['connection', 'trust', 'communication'],
-          'u2': ['connection', 'intimacy', 'trust'],
-        }),
-        PulseConfig(userPicks: {
-          'u1': ['connection', 'trust', 'communication'],
-          'u2': ['connection', 'intimacy', 'peace'],
-        }),
+        PulseConfig(
+          userPicks: {
+            'u1': ['connection'],
+            'u2': ['connection'],
+          },
+        ),
+        PulseConfig(
+          userPicks: {
+            'u1': ['connection', 'trust', 'communication'],
+            'u2': ['connection', 'intimacy', 'trust'],
+          },
+        ),
+        PulseConfig(
+          userPicks: {
+            'u1': ['connection', 'trust', 'communication'],
+            'u2': ['connection', 'intimacy', 'peace'],
+          },
+        ),
       ];
 
       for (final config in configs) {
@@ -93,25 +105,35 @@ void main() {
 
   group('PulseConfig — active attributes', () {
     test('active set is union of both users picks', () {
-      final config = PulseConfig(userPicks: {
-        'u1': ['connection', 'trust', 'communication'],
-        'u2': ['connection', 'intimacy', 'trust'],
-      });
+      final config = PulseConfig(
+        userPicks: {
+          'u1': ['connection', 'trust', 'communication'],
+          'u2': ['connection', 'intimacy', 'trust'],
+        },
+      );
 
       final active = config.activeAttributes;
-      expect(active, containsAll(['connection', 'trust', 'communication', 'intimacy']));
+      expect(
+        active,
+        containsAll(['connection', 'trust', 'communication', 'intimacy']),
+      );
       expect(active.length, 4);
     });
 
     test('active set preserves canonical enum order', () {
-      final config = PulseConfig(userPicks: {
-        'u1': ['communication', 'connection', 'peace'],
-      });
+      final config = PulseConfig(
+        userPicks: {
+          'u1': ['communication', 'connection', 'peace'],
+        },
+      );
 
       final active = config.activeAttributes;
       // Should be in PulseAttribute enum order: connection, peace, communication
       expect(active.indexOf('connection'), lessThan(active.indexOf('peace')));
-      expect(active.indexOf('peace'), lessThan(active.indexOf('communication')));
+      expect(
+        active.indexOf('peace'),
+        lessThan(active.indexOf('communication')),
+      );
     });
   });
 
@@ -135,9 +157,12 @@ void main() {
 
     test('reject more than 3 picks', () {
       expect(
-        PulseConfig.isValidUserPicks(
-          ['connection', 'trust', 'peace', 'intimacy'],
-        ),
+        PulseConfig.isValidUserPicks([
+          'connection',
+          'trust',
+          'peace',
+          'intimacy',
+        ]),
         isFalse,
       );
     });
@@ -174,9 +199,11 @@ void main() {
     });
 
     test('single user -> their 3 picks with equal weight', () {
-      final config = PulseConfig(userPicks: {
-        'u1': ['connection', 'trust', 'peace'],
-      });
+      final config = PulseConfig(
+        userPicks: {
+          'u1': ['connection', 'trust', 'peace'],
+        },
+      );
 
       final w = config.weights;
       expect(w.length, 3);
@@ -210,12 +237,18 @@ void main() {
     });
 
     test('copyWithUserPicks updates only the specified user', () {
-      final original = PulseConfig(userPicks: {
-        'u1': ['connection', 'trust', 'communication'],
-        'u2': ['connection', 'intimacy', 'trust'],
-      });
+      final original = PulseConfig(
+        userPicks: {
+          'u1': ['connection', 'trust', 'communication'],
+          'u2': ['connection', 'intimacy', 'trust'],
+        },
+      );
 
-      final updated = original.copyWithUserPicks('u1', ['peace', 'trust', 'intimacy']);
+      final updated = original.copyWithUserPicks('u1', [
+        'peace',
+        'trust',
+        'intimacy',
+      ]);
 
       expect(updated.userPicks['u1'], ['peace', 'trust', 'intimacy']);
       expect(updated.userPicks['u2'], original.userPicks['u2']);

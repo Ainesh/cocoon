@@ -17,9 +17,7 @@ void main() {
     setUp(() => tapped = false);
 
     Future<void> pump(WidgetTester tester) async {
-      await tester.pumpApp(
-        TheWordScreen(onTap: () => tapped = true),
-      );
+      await tester.pumpApp(TheWordScreen(onTap: () => tapped = true));
     }
 
     testWidgets('renders logo text "Kairos"', (tester) async {
@@ -48,9 +46,7 @@ void main() {
 
     testWidgets('second tap does not fire onTap again', (tester) async {
       var tapCount = 0;
-      await tester.pumpApp(
-        TheWordScreen(onTap: () => tapCount++),
-      );
+      await tester.pumpApp(TheWordScreen(onTap: () => tapCount++));
 
       await tester.tap(find.byType(TheWordScreen));
       await tester.pump();

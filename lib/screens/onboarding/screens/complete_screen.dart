@@ -198,22 +198,22 @@ class _CompleteScreenState extends State<CompleteScreen> {
                                     textAlign: TextAlign.center,
                                   )
                                 : _isDesaturated
-                                    ? Text(
-                                        'Without you, the colors fade.',
-                                        key: const ValueKey('fade'),
-                                        style: AppTypography.titleMedium(
-                                          color: AppColors.warmMuted,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      )
-                                    : Text(
-                                        'Stay present. Stay vivid.',
-                                        key: const ValueKey('vivid'),
-                                        style: AppTypography.titleMedium(
-                                          color: AppColors.lightText,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
+                                ? Text(
+                                    'Without you, the colors fade.',
+                                    key: const ValueKey('fade'),
+                                    style: AppTypography.titleMedium(
+                                      color: AppColors.warmMuted,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  )
+                                : Text(
+                                    'Stay present. Stay vivid.',
+                                    key: const ValueKey('vivid'),
+                                    style: AppTypography.titleMedium(
+                                      color: AppColors.lightText,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           if (!_notifRequested)
@@ -253,16 +253,14 @@ class _CompleteScreenState extends State<CompleteScreen> {
                                             MainAxisAlignment.center,
                                         children: [
                                           const Icon(
-                                            Icons
-                                                .notifications_active_rounded,
+                                            Icons.notifications_active_rounded,
                                             size: 18,
                                             color: AppColors.pureBlack,
                                           ),
                                           const SizedBox(width: 8),
                                           Text(
                                             'Keep My Mosaic Alive',
-                                            style:
-                                                AppTypography.labelLarge(
+                                            style: AppTypography.labelLarge(
                                               color: AppColors.pureBlack,
                                             ),
                                           ),
@@ -305,8 +303,7 @@ class _CompleteScreenState extends State<CompleteScreen> {
                   height: AppSpacing.buttonHeightLarge,
                   decoration: BoxDecoration(
                     color: AppColors.refinedRed,
-                    borderRadius:
-                        BorderRadius.circular(AppSpacing.cardRadius),
+                    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                   ),
                   alignment: Alignment.center,
                   child: Text(

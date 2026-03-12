@@ -89,10 +89,7 @@ void main() {
         restored.configSnapshot.weights['connection'],
         closeTo(0.667, 0.001),
       );
-      expect(
-        restored.configSnapshot.weights['trust'],
-        closeTo(0.333, 0.001),
-      );
+      expect(restored.configSnapshot.weights['trust'], closeTo(0.333, 0.001));
     });
   });
 

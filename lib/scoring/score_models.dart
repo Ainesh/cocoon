@@ -104,10 +104,7 @@ class WeeklyScore {
 
 /// Aggregated score for the full 30-day period.
 class MonthlyScore {
-  const MonthlyScore({
-    required this.overallScore,
-    required this.weeklyScores,
-  });
+  const MonthlyScore({required this.overallScore, required this.weeklyScores});
 
   /// Average of weekly overall scores.
   final double overallScore;
@@ -129,10 +126,7 @@ class MonthlyScore {
 /// ```
 /// Active attributes = keys. Weights = the `weight` field per entry.
 class ConfigSnapshot {
-  const ConfigSnapshot({
-    required this.activeAttributes,
-    required this.weights,
-  });
+  const ConfigSnapshot({required this.activeAttributes, required this.weights});
 
   /// Ordered list of attribute IDs that were active.
   final List<String> activeAttributes;

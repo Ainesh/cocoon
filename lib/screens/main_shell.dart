@@ -562,8 +562,7 @@ class _PulseAttributePickerSheetState
   }
 
   Future<void> _loadConfig() async {
-    final config =
-        await widget.firestoreService.getPulseConfig(widget.spaceId);
+    final config = await widget.firestoreService.getPulseConfig(widget.spaceId);
     if (!mounted) return;
     setState(() {
       _config = config;
@@ -576,7 +575,8 @@ class _PulseAttributePickerSheetState
 
   Future<void> _saveIfChanged() async {
     if (_myPicks.isEmpty || _myPicks.length > 3) return;
-    final changed = _myPicks.length != _originalPicks.length ||
+    final changed =
+        _myPicks.length != _originalPicks.length ||
         !_myPicks.every((p) => _originalPicks.contains(p));
     if (!changed) return;
 
@@ -604,9 +604,7 @@ class _PulseAttributePickerSheetState
     if (_config == null) {
       return const SizedBox(
         height: 200,
-        child: Center(
-          child: CircularProgressIndicator(color: _refinedRed),
-        ),
+        child: Center(child: CircularProgressIndicator(color: _refinedRed)),
       );
     }
 

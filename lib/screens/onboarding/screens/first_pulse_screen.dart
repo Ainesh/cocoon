@@ -163,10 +163,7 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
 
       final compactScores = <String, dynamic>{};
       for (final p in picks) {
-        compactScores[p.id] = {
-          'value': intScores[p.id],
-          'weight': equalWeight,
-        };
+        compactScores[p.id] = {'value': intScores[p.id], 'weight': equalWeight};
       }
 
       await _firestoreService.logCheckInActivity(
@@ -238,8 +235,7 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
           Text(
             'Pick 3  ·  ${_selected.length} / 3',
             style: AppTypography.labelMedium(
-              color:
-                  _attrsReady ? AppColors.refinedRed : AppColors.warmMuted,
+              color: _attrsReady ? AppColors.refinedRed : AppColors.warmMuted,
             ),
             textAlign: TextAlign.center,
           ),
@@ -272,10 +268,8 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
                             color: isSelected
-                                ? AppColors.refinedRed
-                                    .withValues(alpha: 0.5)
-                                : AppColors.warmMuted
-                                    .withValues(alpha: 0.1),
+                                ? AppColors.refinedRed.withValues(alpha: 0.5)
+                                : AppColors.warmMuted.withValues(alpha: 0.1),
                             width: isSelected ? 1.5 : 1.0,
                           ),
                         ),
@@ -290,8 +284,7 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
                             const SizedBox(width: 14),
                             Expanded(
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     attr.displayName,
@@ -350,15 +343,12 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
                 height: AppSpacing.buttonHeightLarge,
                 decoration: BoxDecoration(
                   color: AppColors.refinedRed,
-                  borderRadius:
-                      BorderRadius.circular(AppSpacing.cardRadius),
+                  borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   'Continue',
-                  style: AppTypography.titleMedium(
-                    color: AppColors.pureBlack,
-                  ),
+                  style: AppTypography.titleMedium(color: AppColors.pureBlack),
                 ),
               ),
             ),
@@ -373,8 +363,9 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
 
   Widget _buildCheckInPhase() {
     final picks = _picks;
-    final groupColors =
-        picks.map((a) => _scoreColor(_scores[a.id] ?? 50)).toList();
+    final groupColors = picks
+        .map((a) => _scoreColor(_scores[a.id] ?? 50))
+        .toList();
 
     return Column(
       children: [
@@ -410,12 +401,14 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
                   builder: (context, _) => Container(
                     decoration: BoxDecoration(
                       color: AppColors.darkCardLight,
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.cardRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.cardRadius,
+                      ),
                     ),
                     child: ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.cardRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppSpacing.cardRadius,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -430,11 +423,9 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
                                     painter: VoronoiGroupedPainter(
                                       groupColors: groupColors,
                                       seed: _mosaicSeed,
-                                      animationProgress:
-                                          _tileController.value,
+                                      animationProgress: _tileController.value,
                                       tileCount: 50,
-                                      backgroundColor:
-                                          AppColors.darkCardLight,
+                                      backgroundColor: AppColors.darkCardLight,
                                       staggerSpread: 0.4,
                                     ),
                                   ),
@@ -445,15 +436,15 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
                                 child: Text(
                                   'PULSE CHECK',
                                   style: GoogleFonts.outfit(
-                                    color: Colors.white
-                                        .withValues(alpha: 0.9),
+                                    color: Colors.white.withValues(alpha: 0.9),
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 1.5,
                                     shadows: [
                                       Shadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.6),
+                                        color: Colors.black.withValues(
+                                          alpha: 0.6,
+                                        ),
                                         blurRadius: 4,
                                       ),
                                     ],
@@ -464,8 +455,7 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
                           ),
 
                           Padding(
-                            padding:
-                                const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
                             child: Text(
                               'Slide the bars to express how things feel.',
                               style: AppTypography.helperText(),
@@ -474,26 +464,19 @@ class _FirstPulseScreenState extends State<FirstPulseScreen>
 
                           // Sliders
                           Padding(
-                            padding: const EdgeInsets.fromLTRB(
-                              16, 12, 16, 16,
-                            ),
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                             child: SizedBox(
                               height: 265,
                               child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  for (int i = 0;
-                                      i < picks.length;
-                                      i++) ...[
+                                  for (int i = 0; i < picks.length; i++) ...[
                                     if (i > 0) const SizedBox(width: 24),
                                     Expanded(
                                       child: VerticalBarSlider(
-                                        value:
-                                            _scores[picks[i].id] ?? 50,
+                                        value: _scores[picks[i].id] ?? 50,
                                         onChanged: (v) => setState(
-                                          () =>
-                                              _scores[picks[i].id] = v,
+                                          () => _scores[picks[i].id] = v,
                                         ),
                                         icon: picks[i].icon,
                                         iconAsset: picks[i].iconAsset,

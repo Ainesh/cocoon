@@ -45,13 +45,14 @@ class YourTrendChart extends StatelessWidget {
         .toList();
     final List<double>? secondaryValues = secondaryAttrId != null
         ? displayCheckIns
-            .map((c) => (c.scores[secondaryAttrId] ?? 50).toDouble())
-            .toList()
+              .map((c) => (c.scores[secondaryAttrId] ?? 50).toDouble())
+              .toList()
         : null;
 
     final primaryAttr = PulseAttribute.fromId(primaryAttrId);
-    final secondaryAttr =
-        secondaryAttrId != null ? PulseAttribute.fromId(secondaryAttrId) : null;
+    final secondaryAttr = secondaryAttrId != null
+        ? PulseAttribute.fromId(secondaryAttrId)
+        : null;
 
     return PremiumCard(
       child: Column(

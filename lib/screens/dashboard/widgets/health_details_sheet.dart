@@ -406,7 +406,6 @@ class _HealthDetailsContent extends StatelessWidget {
       ) ??
       AppColors.nightColor;
 
-
   Widget _buildAttributesColumn() {
     // Dynamic attribute rows from ScoreResult
     final attrIds = scoreResult.attributeScores.keys.toList();
@@ -487,8 +486,7 @@ class _HealthDetailsContent extends StatelessWidget {
     final weeklyScores = scoreResult.weeklyScores;
     final hasData = weeklyScores.any((w) => w.hasData);
 
-    final weeklyValues =
-        weeklyScores.map((w) => w.overallScore).toList();
+    final weeklyValues = weeklyScores.map((w) => w.overallScore).toList();
 
     return Container(
       padding: const EdgeInsets.all(16),

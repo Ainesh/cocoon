@@ -17,10 +17,7 @@ import '../../../helpers/pump_app.dart';
 
 /// Minimal test wrapper that mirrors PulseScreen's UI phases without Firebase.
 class _TestCheckInScreen extends StatefulWidget {
-  const _TestCheckInScreen({
-    required this.onComplete,
-    required this.onSkip,
-  });
+  const _TestCheckInScreen({required this.onComplete, required this.onSkip});
 
   final VoidCallback onComplete;
   final VoidCallback onSkip;
@@ -101,81 +98,81 @@ class _TestCheckInScreenState extends State<_TestCheckInScreen> {
       children: [
         SingleChildScrollView(
           child: Column(
-          children: [
-            const SizedBox(height: AppSpacing.xxl),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 800),
-              opacity: _titleOp,
-              child: Text(
-                'Check-in',
-                style: GoogleFonts.outfit(
-                  fontSize: 56,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.lightText,
-                ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            AnimatedOpacity(
-              duration: const Duration(milliseconds: 600),
-              opacity: _subtitleOp,
-              child: Text(
-                'Your space will be alive\nand breathing. Its pulse will\nbe driven by periodic,\nintentional check-ins',
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyLarge(color: AppColors.warmDim),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            if (!_showCard)
+            children: [
+              const SizedBox(height: AppSpacing.xxl),
               AnimatedOpacity(
-                duration: const Duration(milliseconds: 600),
-                opacity: _promptOp,
-                child: GestureDetector(
-                  onTap: _onPromptTap,
-                  child: Text(
-                    'tap to check-in',
-                    style: GoogleFonts.outfit(
-                      fontSize: 14,
-                      color: AppColors.refinedRed,
-                    ),
+                duration: const Duration(milliseconds: 800),
+                opacity: _titleOp,
+                child: Text(
+                  'Check-in',
+                  style: GoogleFonts.outfit(
+                    fontSize: 56,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.lightText,
                   ),
                 ),
               ),
-            if (_showCard && !_isCompleted)
-              Column(
-                children: [
-                  Container(
-                    key: const ValueKey('mosaic-card'),
-                    height: 160,
-                    width: double.infinity,
-                    color: AppColors.darkCardLight,
-                  ),
-                  const SizedBox(height: 16),
-                  GestureDetector(
-                    onTap: _onSliderInteract,
-                    child: const SizedBox(
-                      height: 200,
-                      child: Center(child: Text('Sliders placeholder')),
-                    ),
-                  ),
-                ],
-              ),
-            if (_isCompleted) ...[
-              Container(
-                key: const ValueKey('mosaic-card-done'),
-                height: 160,
-                width: double.infinity,
-                color: AppColors.darkCardLight,
-              ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               AnimatedOpacity(
                 duration: const Duration(milliseconds: 600),
-                opacity: _congratsOp,
-                child: const Text('Congrats on your first check-in'),
+                opacity: _subtitleOp,
+                child: Text(
+                  'Your space will be alive\nand breathing. Its pulse will\nbe driven by periodic,\nintentional check-ins',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.bodyLarge(color: AppColors.warmDim),
+                ),
               ),
+              const SizedBox(height: AppSpacing.xl),
+              if (!_showCard)
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 600),
+                  opacity: _promptOp,
+                  child: GestureDetector(
+                    onTap: _onPromptTap,
+                    child: Text(
+                      'tap to check-in',
+                      style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        color: AppColors.refinedRed,
+                      ),
+                    ),
+                  ),
+                ),
+              if (_showCard && !_isCompleted)
+                Column(
+                  children: [
+                    Container(
+                      key: const ValueKey('mosaic-card'),
+                      height: 160,
+                      width: double.infinity,
+                      color: AppColors.darkCardLight,
+                    ),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: _onSliderInteract,
+                      child: const SizedBox(
+                        height: 200,
+                        child: Center(child: Text('Sliders placeholder')),
+                      ),
+                    ),
+                  ],
+                ),
+              if (_isCompleted) ...[
+                Container(
+                  key: const ValueKey('mosaic-card-done'),
+                  height: 160,
+                  width: double.infinity,
+                  color: AppColors.darkCardLight,
+                ),
+                const SizedBox(height: 16),
+                AnimatedOpacity(
+                  duration: const Duration(milliseconds: 600),
+                  opacity: _congratsOp,
+                  child: const Text('Congrats on your first check-in'),
+                ),
+              ],
             ],
-          ],
-        ),
+          ),
         ),
         if (_showCard && _hasInteracted && !_isCompleted)
           Positioned(
@@ -276,8 +273,7 @@ void main() {
       expect(find.text('tap to check-in'), findsOneWidget);
     });
 
-    testWidgets('tapping prompt shows card and hides subtitle',
-        (tester) async {
+    testWidgets('tapping prompt shows card and hides subtitle', (tester) async {
       await pump(tester);
       await tester.pump(const Duration(milliseconds: 4600));
 
@@ -313,8 +309,9 @@ void main() {
       await drainTimers(tester);
     });
 
-    testWidgets('interacting with sliders shows slide-to-action',
-        (tester) async {
+    testWidgets('interacting with sliders shows slide-to-action', (
+      tester,
+    ) async {
       await pump(tester);
       await tester.pump(const Duration(milliseconds: 4600));
       await tester.tap(find.text('tap to check-in'));
@@ -328,8 +325,9 @@ void main() {
       await drainTimers(tester);
     });
 
-    testWidgets('after check-in: mosaic stays, congrats appears',
-        (tester) async {
+    testWidgets('after check-in: mosaic stays, congrats appears', (
+      tester,
+    ) async {
       await pump(tester);
       await tester.pump(const Duration(milliseconds: 4600));
       await tester.tap(find.text('tap to check-in'));
@@ -349,8 +347,7 @@ void main() {
       await drainTimers(tester);
     });
 
-    testWidgets('tap to continue appears and calls onComplete',
-        (tester) async {
+    testWidgets('tap to continue appears and calls onComplete', (tester) async {
       await pump(tester);
       await tester.pump(const Duration(milliseconds: 4600));
       await tester.tap(find.text('tap to check-in'));

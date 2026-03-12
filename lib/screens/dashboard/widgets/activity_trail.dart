@@ -663,7 +663,8 @@ class _ActivityItem extends StatelessWidget {
 
   /// Extracts scores from activity metadata. Returns empty on malformed data.
   static Map<String, int> _parseScoresFromMetadata(
-      Map<String, dynamic>? metadata) {
+    Map<String, dynamic>? metadata,
+  ) {
     try {
       if (metadata == null || metadata['scores'] is! Map) return {};
       final raw = Map<String, dynamic>.from(metadata['scores'] as Map);

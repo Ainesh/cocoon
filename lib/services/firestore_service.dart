@@ -950,16 +950,16 @@ class FirestoreService {
         .doc(spaceId)
         .snapshots()
         .map((doc) {
-      if (!doc.exists) return PulseConfig.defaultConfig();
-      final data = doc.data()!;
-      if (data.containsKey('pulseConfig') && data['pulseConfig'] is Map) {
-        return PulseConfig.fromJson(
-          Map<String, dynamic>.from(data['pulseConfig'] as Map),
-        );
-      }
-      final memberIds = List<String>.from(data['memberIds'] ?? []);
-      return PulseConfig.defaultConfig(memberIds: memberIds);
-    });
+          if (!doc.exists) return PulseConfig.defaultConfig();
+          final data = doc.data()!;
+          if (data.containsKey('pulseConfig') && data['pulseConfig'] is Map) {
+            return PulseConfig.fromJson(
+              Map<String, dynamic>.from(data['pulseConfig'] as Map),
+            );
+          }
+          final memberIds = List<String>.from(data['memberIds'] ?? []);
+          return PulseConfig.defaultConfig(memberIds: memberIds);
+        });
   }
 
   /// Updates a single user's attribute picks in the pulse configuration.

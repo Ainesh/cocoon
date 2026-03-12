@@ -43,9 +43,11 @@ class ScoreEngine {
 
     // Filter to 30-day window (cutoff .. today inclusive)
     final inWindow = contributions
-        .where((c) =>
-            !c.timestamp.isBefore(cutoff) &&
-            c.timestamp.isBefore(today.add(const Duration(days: 1))))
+        .where(
+          (c) =>
+              !c.timestamp.isBefore(cutoff) &&
+              c.timestamp.isBefore(today.add(const Duration(days: 1))),
+        )
         .toList();
 
     if (inWindow.isEmpty) {
@@ -72,8 +74,12 @@ class ScoreEngine {
     final partnerCount = totalCount - userCount;
 
     // Step 1: Compute daily scores
-    final dailyScores =
-        _computeDailyScores(inWindow, currentWeights, cutoff, today);
+    final dailyScores = _computeDailyScores(
+      inWindow,
+      currentWeights,
+      cutoff,
+      today,
+    );
 
     // Step 2: Compute weekly scores
     final weeklyScores = _computeWeeklyScores(dailyScores, cutoff);
@@ -138,12 +144,14 @@ class ScoreEngine {
       final dayContributions = byDay[key];
 
       if (dayContributions == null || dayContributions.isEmpty) {
-        result.add(DailyScore(
-          date: date,
-          overallScore: 0,
-          attributeScores: {},
-          hasCheckIn: false,
-        ));
+        result.add(
+          DailyScore(
+            date: date,
+            overallScore: 0,
+            attributeScores: {},
+            hasCheckIn: false,
+          ),
+        );
         continue;
       }
 
@@ -171,8 +179,7 @@ class ScoreEngine {
           for (final attrEntry in c.attributeScores.entries) {
             attrSums[attrEntry.key] =
                 (attrSums[attrEntry.key] ?? 0) + attrEntry.value;
-            attrCounts[attrEntry.key] =
-                (attrCounts[attrEntry.key] ?? 0) + 1;
+            attrCounts[attrEntry.key] = (attrCounts[attrEntry.key] ?? 0) + 1;
           }
 
           // Per-check-in overall using THIS check-in's saved config
@@ -184,8 +191,7 @@ class ScoreEngine {
             ciWeightedSum += attrEntry.value * w;
             ciWeightTotal += w;
           }
-          overallSum +=
-              ciWeightTotal > 0 ? ciWeightedSum / ciWeightTotal : 0.0;
+          overallSum += ciWeightTotal > 0 ? ciWeightedSum / ciWeightTotal : 0.0;
         }
 
         // User's attribute averages
@@ -220,16 +226,17 @@ class ScoreEngine {
 
       // Combined daily overall = avg of user overalls (each user weighted equally)
       final combinedOverall = userOveralls.values.isNotEmpty
-          ? userOveralls.values.reduce((a, b) => a + b) /
-              userOveralls.length
+          ? userOveralls.values.reduce((a, b) => a + b) / userOveralls.length
           : 0.0;
 
-      result.add(DailyScore(
-        date: date,
-        overallScore: combinedOverall,
-        attributeScores: combinedAttrs,
-        hasCheckIn: true,
-      ));
+      result.add(
+        DailyScore(
+          date: date,
+          overallScore: combinedOverall,
+          attributeScores: combinedAttrs,
+          hasCheckIn: true,
+        ),
+      );
     }
 
     return result;
@@ -262,7 +269,7 @@ class ScoreEngine {
       final hasData = weekDays.isNotEmpty;
       final avgScore = hasData
           ? weekDays.map((d) => d.overallScore).reduce((a, b) => a + b) /
-              weekDays.length
+                weekDays.length
           : 0.0;
 
       return WeeklyScore(
@@ -283,13 +290,10 @@ class ScoreEngine {
     final withData = weeklyScores.where((w) => w.hasData).toList();
     final overall = withData.isNotEmpty
         ? withData.map((w) => w.overallScore).reduce((a, b) => a + b) /
-            withData.length
+              withData.length
         : 0.0;
 
-    return MonthlyScore(
-      overallScore: overall,
-      weeklyScores: weeklyScores,
-    );
+    return MonthlyScore(overallScore: overall, weeklyScores: weeklyScores);
   }
 
   // -------------------------------------------------------------------------
@@ -339,21 +343,25 @@ class ScoreEngine {
 
     final trends = <String, double>{};
     for (final attr in allAttrs) {
-      final olderScores =
-          olderHalf.where((d) => d.attributeScores.containsKey(attr)).toList();
-      final newerScores =
-          newerHalf.where((d) => d.attributeScores.containsKey(attr)).toList();
+      final olderScores = olderHalf
+          .where((d) => d.attributeScores.containsKey(attr))
+          .toList();
+      final newerScores = newerHalf
+          .where((d) => d.attributeScores.containsKey(attr))
+          .toList();
 
       if (olderScores.isEmpty || newerScores.isEmpty) {
         trends[attr] = 0;
         continue;
       }
 
-      final olderAvg = olderScores
+      final olderAvg =
+          olderScores
               .map((d) => d.attributeScores[attr]!)
               .reduce((a, b) => a + b) /
           olderScores.length;
-      final newerAvg = newerScores
+      final newerAvg =
+          newerScores
               .map((d) => d.attributeScores[attr]!)
               .reduce((a, b) => a + b) /
           newerScores.length;
@@ -382,9 +390,7 @@ class ScoreEngine {
       weightedSum += attrTrends[attr]! * w;
       weightTotal += w;
     }
-    return weightTotal > 0
-        ? (weightedSum / weightTotal).clamp(-1.0, 1.0)
-        : 0.0;
+    return weightTotal > 0 ? (weightedSum / weightTotal).clamp(-1.0, 1.0) : 0.0;
   }
 
   // -------------------------------------------------------------------------
@@ -403,11 +409,11 @@ class ScoreEngine {
     final daysWithData = dailyScores.where((d) => d.hasCheckIn).toList();
     double variance = 0;
     if (daysWithData.length >= 2) {
-      final mean = daysWithData
-              .map((d) => d.overallScore)
-              .reduce((a, b) => a + b) /
+      final mean =
+          daysWithData.map((d) => d.overallScore).reduce((a, b) => a + b) /
           daysWithData.length;
-      variance = daysWithData
+      variance =
+          daysWithData
               .map((d) => (d.overallScore - mean) * (d.overallScore - mean))
               .reduce((a, b) => a + b) /
           daysWithData.length;

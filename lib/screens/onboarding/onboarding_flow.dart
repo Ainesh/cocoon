@@ -76,19 +76,21 @@ class _OnboardingFlowState extends State<OnboardingFlow>
       duration: const Duration(milliseconds: 1800),
     )..forward();
 
-    _breathController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 4000),
-    )
-      ..addListener(_onBreathTick)
-      ..repeat();
+    _breathController =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 4000),
+          )
+          ..addListener(_onBreathTick)
+          ..repeat();
 
-    _fillController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1800),
-    )
-      ..addListener(_onFillTick)
-      ..addStatusListener(_onFillDone);
+    _fillController =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 1800),
+          )
+          ..addListener(_onFillTick)
+          ..addStatusListener(_onFillDone);
 
     _bandsController = AnimationController(
       vsync: this,
@@ -218,8 +220,9 @@ class _OnboardingFlowState extends State<OnboardingFlow>
     _bandsHapticTick = -1;
 
     // Start tiles filling — old screen exit overlaps with this
-    final reverseFuture =
-        _bandsController.reverse().orCancel.catchError((_) {});
+    final reverseFuture = _bandsController.reverse().orCancel.catchError(
+      (_) {},
+    );
 
     // After 600ms, remove old screen content (name has had time to fade)
     await Future.delayed(const Duration(milliseconds: 600));
@@ -293,8 +296,7 @@ class _OnboardingFlowState extends State<OnboardingFlow>
       fit: StackFit.expand,
       children: [
         // Screen 0 — splash text overlay
-        if (_currentScreen == 0)
-          TheWordScreen(onTap: _onSplashTap),
+        if (_currentScreen == 0) TheWordScreen(onTap: _onSplashTap),
 
         // Screen 1 — space name
         if (_currentScreen >= 1)
@@ -339,11 +341,7 @@ class _OnboardingFlowState extends State<OnboardingFlow>
 
         // Screen 4 — invite + notifications
         if (_currentScreen >= 4)
-          CompleteScreen(
-            inviteCode: _inviteCode ?? '',
-            onFinish: _finish,
-          ),
-
+          CompleteScreen(inviteCode: _inviteCode ?? '', onFinish: _finish),
       ],
     );
   }

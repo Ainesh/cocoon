@@ -26,7 +26,7 @@ class AboutYouScreen extends StatefulWidget {
 
   final String spaceName;
   final void Function(String spaceId, String inviteCode, String userName)
-      onSpaceCreated;
+  onSpaceCreated;
 
   /// Called immediately on continue tap so the parent can start tile fill
   /// while the API call runs in parallel.
@@ -412,10 +412,7 @@ class _AboutYouScreenState extends State<AboutYouScreen>
             filled: false,
             border: InputBorder.none,
             focusedBorder: UnderlineInputBorder(
-              borderSide: BorderSide(
-                color: AppColors.refinedRed,
-                width: 1.5,
-              ),
+              borderSide: BorderSide(color: AppColors.refinedRed, width: 1.5),
             ),
             enabledBorder: InputBorder.none,
             contentPadding: EdgeInsets.only(bottom: 8),
@@ -569,8 +566,7 @@ class _AboutYouScreenState extends State<AboutYouScreen>
                 style: GoogleFonts.outfit(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color:
-                      isSelected ? AppColors.pureBlack : AppColors.warmMuted,
+                  color: isSelected ? AppColors.pureBlack : AppColors.warmMuted,
                 ),
                 textAlign: TextAlign.center,
               ),

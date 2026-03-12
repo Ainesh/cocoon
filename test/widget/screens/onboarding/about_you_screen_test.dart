@@ -54,94 +54,96 @@ class _TestAboutYouScreenState extends State<_TestAboutYouScreen> {
       onTap: () => FocusScope.of(context).unfocus(),
       child: SingleChildScrollView(
         child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'You',
-            style: GoogleFonts.outfit(
-              fontSize: 56,
-              fontWeight: FontWeight.w700,
-              color: AppColors.lightText,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          if (!_showAttributes && !_showField)
-            Column(
-              children: [
-                Text(
-                  'Next, establish your\npresence in the space',
-                  textAlign: TextAlign.center,
-                  style: AppTypography.bodyLarge(color: AppColors.warmDim),
-                ),
-                const SizedBox(height: AppSpacing.xxxl),
-                GestureDetector(
-                  onTap: () => setState(() => _showField = true),
-                  child: Text(
-                    'tap to enter your name',
-                    style: AppTypography.bodyLarge(color: AppColors.refinedRed),
-                  ),
-                ),
-              ],
-            ),
-          if (!_showAttributes && _showField)
-            SizedBox(
-              width: 220,
-              child: TextFormField(
-                controller: _nameController,
-                autofocus: true,
-                onChanged: (v) {
-                  setState(() => _hasName = v.trim().isNotEmpty);
-                },
-                onFieldSubmitted: (_) {
-                  if (_hasName) setState(() => _showAttributes = true);
-                },
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'You',
+              style: GoogleFonts.outfit(
+                fontSize: 56,
+                fontWeight: FontWeight.w700,
+                color: AppColors.lightText,
               ),
             ),
-          if (_showAttributes) ...[
-            Text(_nameController.text.trim()),
-            const SizedBox(height: 16),
-            Text(
-              'Select what pulse attributes\nare the most important\nto you',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final attr in PulseAttribute.values)
+            const SizedBox(height: AppSpacing.lg),
+            if (!_showAttributes && !_showField)
+              Column(
+                children: [
+                  Text(
+                    'Next, establish your\npresence in the space',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.bodyLarge(color: AppColors.warmDim),
+                  ),
+                  const SizedBox(height: AppSpacing.xxxl),
                   GestureDetector(
-                    onTap: () => _toggleAttribute(attr.id),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      color: _selectedAttrs.contains(attr.id)
-                          ? AppColors.accentRed
-                          : AppColors.cardVariant,
-                      child: Text(attr.displayName),
+                    onTap: () => setState(() => _showField = true),
+                    child: Text(
+                      'tap to enter your name',
+                      style: AppTypography.bodyLarge(
+                        color: AppColors.refinedRed,
+                      ),
                     ),
                   ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text('${_selectedAttrs.length} of 3'),
-            if (_selectedAttrs.length == 3) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'All members get to pick these.\nOverlapping attributes are\nconsidered more important',
+                ],
+              ),
+            if (!_showAttributes && _showField)
+              SizedBox(
+                width: 220,
+                child: TextFormField(
+                  controller: _nameController,
+                  autofocus: true,
+                  onChanged: (v) {
+                    setState(() => _hasName = v.trim().isNotEmpty);
+                  },
+                  onFieldSubmitted: (_) {
+                    if (_hasName) setState(() => _showAttributes = true);
+                  },
+                ),
+              ),
+            if (_showAttributes) ...[
+              Text(_nameController.text.trim()),
+              const SizedBox(height: 16),
+              Text(
+                'Select what pulse attributes\nare the most important\nto you',
                 textAlign: TextAlign.center,
               ),
-            ],
-            if (_selectedAttrs.isNotEmpty)
-              TextButton(
-                onPressed: () => widget.onDone(
-                  _nameController.text.trim(),
-                  _selectedAttrs.toList(),
-                ),
-                child: const Text('tap to continue'),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final attr in PulseAttribute.values)
+                    GestureDetector(
+                      onTap: () => _toggleAttribute(attr.id),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        color: _selectedAttrs.contains(attr.id)
+                            ? AppColors.accentRed
+                            : AppColors.cardVariant,
+                        child: Text(attr.displayName),
+                      ),
+                    ),
+                ],
               ),
+              const SizedBox(height: 16),
+              Text('${_selectedAttrs.length} of 3'),
+              if (_selectedAttrs.length == 3) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'All members get to pick these.\nOverlapping attributes are\nconsidered more important',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              if (_selectedAttrs.isNotEmpty)
+                TextButton(
+                  onPressed: () => widget.onDone(
+                    _nameController.text.trim(),
+                    _selectedAttrs.toList(),
+                  ),
+                  child: const Text('tap to continue'),
+                ),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }
@@ -189,8 +191,9 @@ void main() {
       expect(find.byType(TextFormField), findsOneWidget);
     });
 
-    testWidgets('entering name and submitting shows attribute grid',
-        (tester) async {
+    testWidgets('entering name and submitting shows attribute grid', (
+      tester,
+    ) async {
       await pump(tester);
       await tester.tap(find.text('tap to enter your name'));
       await tester.pump();
@@ -201,7 +204,9 @@ void main() {
 
       expect(find.text('Alice'), findsOneWidget);
       expect(
-        find.text('Select what pulse attributes\nare the most important\nto you'),
+        find.text(
+          'Select what pulse attributes\nare the most important\nto you',
+        ),
         findsOneWidget,
       );
     });
@@ -219,8 +224,9 @@ void main() {
       }
     });
 
-    testWidgets('selecting 3 attributes shows overlap subtitle',
-        (tester) async {
+    testWidgets('selecting 3 attributes shows overlap subtitle', (
+      tester,
+    ) async {
       await pump(tester);
       await tester.tap(find.text('tap to enter your name'));
       await tester.pump();
@@ -265,8 +271,9 @@ void main() {
       expect(find.text('3 of 3'), findsOneWidget);
     });
 
-    testWidgets('tap to continue calls onDone with name + picks',
-        (tester) async {
+    testWidgets('tap to continue calls onDone with name + picks', (
+      tester,
+    ) async {
       await pump(tester);
       await tester.tap(find.text('tap to enter your name'));
       await tester.pump();
