@@ -16,7 +16,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
 import '../../utils/date_utils.dart';
-import '../../widgets/inline_calendar.dart';
+import '../../widgets/app_calendar.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
@@ -616,7 +616,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   }
 
   Widget _buildInlineCalendar() {
-    return InlineDateCalendar(
+    return AppDateCalendar(
       focusedDay: _focusedDay,
       selectedDay: _startDate,
       onDaySelected: (selected, focused) {
@@ -752,7 +752,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
   }
 
   Widget _buildRangeCalendar() {
-    return InlineRangeCalendar(
+    return AppRangeCalendar(
       focusedDay: _focusedDay,
       rangeStartDay: _rangeStart ?? _startDate,
       rangeEndDay: _rangeEnd ?? _endDate,
