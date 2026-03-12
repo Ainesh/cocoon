@@ -146,7 +146,7 @@ class Moment {
     this.createdAt,
     this.updatedAt,
     this.version = 1,
-    this.externalEventId,
+    this.externalEventIds,
   });
 
   /// Unique identifier (Firestore document ID).
@@ -185,8 +185,8 @@ class Moment {
   /// Optimistic lock version — incremented on each update.
   final int version;
 
-  /// External calendar event ID after syncing (Google/Apple).
-  final String? externalEventId;
+  /// Per-user external calendar event IDs after syncing (userId → eventId).
+  final Map<String, String>? externalEventIds;
 
   // ---------------------------------------------------------------------------
   // Factory Constructors
@@ -225,7 +225,9 @@ class Moment {
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
       version: json['version'] as int? ?? 1,
-      externalEventId: json['externalEventId'] as String?,
+      externalEventIds: json['externalEventIds'] != null
+          ? Map<String, String>.from(json['externalEventIds'] as Map)
+          : null,
     );
   }
 
@@ -249,7 +251,7 @@ class Moment {
           : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'version': version,
-      if (externalEventId != null) 'externalEventId': externalEventId,
+      if (externalEventIds != null) 'externalEventIds': externalEventIds,
     };
   }
 
@@ -289,8 +291,13 @@ class Moment {
   /// Returns true if this moment is upcoming (in the future).
   bool get isUpcoming => !isPast;
 
-  /// Whether this moment has been synced to an external calendar.
-  bool get isSyncedToCalendar => externalEventId != null;
+  /// Whether this moment has been synced to an external calendar by [userId].
+  bool isSyncedByUser(String userId) =>
+      externalEventIds != null && externalEventIds!.containsKey(userId);
+
+  /// Whether any user has synced this moment.
+  bool get isSyncedToCalendar =>
+      externalEventIds != null && externalEventIds!.isNotEmpty;
 
   /// Returns the duration in days (for Escape moments).
   int get durationDays {
@@ -391,7 +398,7 @@ class Moment {
     DateTime? createdAt,
     DateTime? updatedAt,
     int? version,
-    String? externalEventId,
+    Map<String, String>? externalEventIds,
   }) {
     return Moment(
       id: id ?? this.id,
@@ -405,7 +412,7 @@ class Moment {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       version: version ?? this.version,
-      externalEventId: externalEventId ?? this.externalEventId,
+      externalEventIds: externalEventIds ?? this.externalEventIds,
     );
   }
 

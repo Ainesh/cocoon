@@ -1560,10 +1560,12 @@ class FirestoreService {
     });
   }
 
-  /// Sets the external event ID on a moment after syncing to calendar.
+  /// Sets the external event ID for a specific user on a moment.
+  /// Stored as a map: `externalEventIds.{userId} = eventId`.
   Future<void> updateMomentExternalEventId({
     required String spaceId,
     required String momentId,
+    required String userId,
     required String eventId,
   }) async {
     await _firestore
@@ -1571,6 +1573,6 @@ class FirestoreService {
         .doc(spaceId)
         .collection('moments')
         .doc(momentId)
-        .update({'externalEventId': eventId});
+        .update({'externalEventIds.$userId': eventId});
   }
 }

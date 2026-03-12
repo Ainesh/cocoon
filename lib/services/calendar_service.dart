@@ -246,6 +246,7 @@ class CalendarService {
     required Moment moment,
     required CalendarIntegration integration,
     required String spaceId,
+    required String userId,
   }) async {
     String? eventId;
 
@@ -262,6 +263,7 @@ class CalendarService {
       await _firestore.updateMomentExternalEventId(
         spaceId: spaceId,
         momentId: moment.id,
+        userId: userId,
         eventId: eventId,
       );
     }

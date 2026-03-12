@@ -929,7 +929,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   Widget _buildSyncButton() {
-    final isSynced = moment.isSyncedToCalendar;
+    final userId = _authService.currentUser?.uid ?? '';
+    final isSynced = moment.isSyncedByUser(userId);
     final label = _isSyncing
         ? 'Syncing...'
         : isSynced
@@ -996,13 +997,17 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       moment: moment,
       integration: _calendarIntegration!,
       spaceId: spaceId,
+      userId: userId,
     );
 
     if (!mounted) return;
     setState(() => _isSyncing = false);
 
     if (eventId != null) {
-      _liveMoment = moment.copyWith(externalEventId: eventId);
+      final updatedIds = Map<String, String>.from(
+        moment.externalEventIds ?? {},
+      )..[userId] = eventId;
+      _liveMoment = moment.copyWith(externalEventIds: updatedIds);
       HapticFeedback.heavyImpact();
       _showHint('Synced to calendar');
     } else {
