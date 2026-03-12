@@ -10,7 +10,7 @@ export 'avatar_selector.dart';
 export 'dotted_slider.dart';
 export 'moment_type_icon.dart'; // getMomentTypeIcon, getMomentTypeIconWidget
 export 'neumorphic_container.dart'; // Includes PremiumCard, SectionHeader
-export 'inline_calendar.dart';
+export 'app_calendar.dart';
 export 'slide_to_action.dart';
 
 // Painters

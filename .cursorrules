@@ -9,6 +9,26 @@
 
 ---
 
+## Reuse & Cleanup
+
+- Prefer reusing existing widgets and theme (`AppColors`, `AppTypography`, `AppSpacing`) over creating new one-off styles
+- After adding a feature, remove dead code and unused imports; leave no temporary or commented-out blocks
+- When replacing a library or widget, delete the old code and update barrel exports in the same change
+
+## Corner Cases & README TODOs
+
+- For every feature, explicitly handle corner cases: empty state, loading, error, disposed widget
+- If a corner case is unlikely or high-effort, add a TODO in `README.md` under **Tech Debt & Roadmap** with location and description (e.g. "Corner case: offline month data when swiping calendar")
+- Never silently ignore a known edge case — either handle it or document it
+
+## Tests with Features
+
+- When adding or changing behavior, add or update tests (unit and/or widget as appropriate)
+- Run `flutter test` before considering work done
+- Keep existing tests passing; if a change breaks a test, fix the test or the code — do not delete the test
+
+---
+
 ## Code Quality
 
 ### Async Safety

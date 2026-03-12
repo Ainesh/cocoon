@@ -14,6 +14,7 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import 'dashboard/dashboard_tab.dart';
+import 'moments/moments_tab.dart';
 
 // Theme constants for premium styling
 const _refinedRed = Color(0xFFFF4444);
@@ -49,6 +50,7 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _tabs = [
       DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
+      MomentsTab(spaceId: widget.spaceId),
       const _ComingSoonPage(),
     ];
     _loadSpaceName();
@@ -161,7 +163,7 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          _spaceName ?? 'Home',
+          _selectedTab == 1 ? 'Moments' : (_spaceName ?? 'Home'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.w700,
             fontSize: 22,
@@ -170,20 +172,39 @@ class _MainShellState extends State<MainShell> {
         ),
         centerTitle: true,
         actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: const Icon(Icons.settings_rounded, color: _dimText),
-              tooltip: 'Settings',
-              onPressed: () => _showSettings(context),
-              style: IconButton.styleFrom(
-                backgroundColor: _cardVariant,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+          if (_selectedTab == 0)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                icon: const Icon(Icons.settings_rounded, color: _dimText),
+                tooltip: 'Settings',
+                onPressed: () => _showSettings(context),
+                style: IconButton.styleFrom(
+                  backgroundColor: _cardVariant,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            )
+          else if (_selectedTab == 1)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.add_circle_rounded,
+                  color: _refinedRed,
+                ),
+                tooltip: 'Plan a moment',
+                onPressed: () => context.push('/moment/${widget.spaceId}'),
+                style: IconButton.styleFrom(
+                  backgroundColor: _cardVariant,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
       body: IndexedStack(index: _selectedTab, children: _tabs),
@@ -191,8 +212,23 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  /// 5 visual slots in the nav bar. Slots 0-1 map to tabs 0-1.
+  /// Slots 2-4 all map to tab 2 (Coming Soon) as one wide region.
+  static const _slotIcons = [
+    Icons.space_dashboard_rounded,
+    Icons.calendar_today_rounded,
+    Icons.hardware_rounded,
+    Icons.hardware_rounded,
+    Icons.hardware_rounded,
+  ];
+
+  /// Maps a visual slot index to the logical tab index.
+  static int _slotToTab(int slot) => slot >= 2 ? 2 : slot;
+
   Widget _buildNavBar() {
+    const slotCount = 5;
     const height = 48.0;
+    const gap = 4.0;
 
     return SafeArea(
       child: Padding(
@@ -200,57 +236,68 @@ class _MainShellState extends State<MainShell> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final totalWidth = constraints.maxWidth;
-            const dashWidth = 52.0;
-            final comingSoonWidth = totalWidth - dashWidth - 8;
+            final slotWidth =
+                (totalWidth - gap * (slotCount - 1)) / slotCount;
+
+            int slotForX(double x) {
+              for (int i = 0; i < slotCount; i++) {
+                final left = i * (slotWidth + gap);
+                if (x < left + slotWidth + gap / 2) return i;
+              }
+              return slotCount - 1;
+            }
+
+            // Compute highlight position. Tabs 0 and 1 span 1 slot each.
+            // Tab 2 spans slots 2-4 (the full remaining width).
+            double leftForTab(int tab) {
+              if (tab <= 1) return tab * (slotWidth + gap);
+              return 2 * (slotWidth + gap);
+            }
+
+            double widthForTab(int tab) {
+              if (tab <= 1) return slotWidth;
+              return slotWidth * 3 + gap * 2;
+            }
 
             final isDragging = _dragPosition != null;
             double highlightLeft;
             double highlightWidth;
 
             if (isDragging) {
-              final dragX = _dragPosition!;
-              final overSecond = dragX > dashWidth + 4;
-              if (overSecond) {
-                highlightLeft = dashWidth + 8;
-                highlightWidth = comingSoonWidth;
-              } else {
-                highlightLeft = 0;
-                highlightWidth = dashWidth;
-              }
-              // Stretch toward drag
+              final dragSlot = slotForX(_dragPosition!);
+              final dragTab = _slotToTab(dragSlot);
+              highlightLeft = leftForTab(dragTab);
+              highlightWidth = widthForTab(dragTab);
               final tabCenter = highlightLeft + highlightWidth / 2;
-              if (dragX < tabCenter) {
-                final newLeft = dragX.clamp(0.0, highlightLeft);
+              if (_dragPosition! < tabCenter) {
+                final newLeft =
+                    _dragPosition!.clamp(0.0, highlightLeft);
                 highlightWidth += (highlightLeft - newLeft);
                 highlightLeft = newLeft;
               } else {
-                final newRight = dragX.clamp(
+                final newRight = _dragPosition!.clamp(
                   highlightLeft + highlightWidth,
                   totalWidth,
                 );
                 highlightWidth = newRight - highlightLeft;
               }
             } else {
-              if (_selectedTab == 0) {
-                highlightLeft = 0;
-                highlightWidth = dashWidth;
-              } else {
-                highlightLeft = dashWidth + 8;
-                highlightWidth = comingSoonWidth;
-              }
+              highlightLeft = leftForTab(_selectedTab);
+              highlightWidth = widthForTab(_selectedTab);
             }
 
             return GestureDetector(
               onHorizontalDragStart: (d) {
                 setState(
-                  () => _dragPosition = d.localPosition.dx.clamp(0, totalWidth),
+                  () => _dragPosition =
+                      d.localPosition.dx.clamp(0, totalWidth),
                 );
               },
               onHorizontalDragUpdate: (d) {
                 final pos = d.localPosition.dx.clamp(0.0, totalWidth);
                 setState(() => _dragPosition = pos);
 
-                final newTab = pos > dashWidth + 4 ? 1 : 0;
+                final newTab = _slotToTab(slotForX(pos));
                 if (_selectedTab != newTab) {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedTab = newTab);
@@ -260,7 +307,7 @@ class _MainShellState extends State<MainShell> {
                 setState(() => _dragPosition = null);
               },
               onTapDown: (d) {
-                final newTab = d.localPosition.dx > dashWidth + 4 ? 1 : 0;
+                final newTab = _slotToTab(slotForX(d.localPosition.dx));
                 if (_selectedTab != newTab) {
                   HapticFeedback.selectionClick();
                   setState(() => _selectedTab = newTab);
@@ -270,16 +317,20 @@ class _MainShellState extends State<MainShell> {
                 height: height,
                 child: Stack(
                   children: [
-                    // Stretchy highlight — solid red, same as time selector
                     AnimatedPositioned(
-                      duration: Duration(milliseconds: isDragging ? 80 : 350),
-                      curve: isDragging ? Curves.easeOut : Curves.easeOutCubic,
+                      duration: Duration(
+                        milliseconds: isDragging ? 80 : 350,
+                      ),
+                      curve:
+                          isDragging ? Curves.easeOut : Curves.easeOutCubic,
                       left: highlightLeft,
                       top: 0,
                       bottom: 0,
                       width: highlightWidth,
                       child: AnimatedContainer(
-                        duration: Duration(milliseconds: isDragging ? 80 : 300),
+                        duration: Duration(
+                          milliseconds: isDragging ? 80 : 300,
+                        ),
                         curve: isDragging
                             ? Curves.easeOut
                             : Curves.easeOutCubic,
@@ -295,32 +346,28 @@ class _MainShellState extends State<MainShell> {
                         ),
                       ),
                     ),
-                    // Tab labels
                     Row(
-                      children: [
-                        // Dashboard icon
-                        SizedBox(
-                          width: dashWidth,
-                          child: Center(
-                            child: Icon(
-                              Icons.space_dashboard_rounded,
-                              color: _selectedTab == 0 ? _pureBlack : _dimText,
-                              size: 22,
+                      children: List.generate(slotCount, (i) {
+                        final tab = _slotToTab(i);
+                        return Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              left: i == 0 ? 0 : gap / 2,
+                              right:
+                                  i == slotCount - 1 ? 0 : gap / 2,
+                            ),
+                            child: Center(
+                              child: Icon(
+                                _slotIcons[i],
+                                color: _selectedTab == tab
+                                    ? _pureBlack
+                                    : _dimText,
+                                size: 20,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Coming Soon
-                        Expanded(
-                          child: Center(
-                            child: Icon(
-                              Icons.hardware_rounded,
-                              color: _selectedTab == 1 ? _pureBlack : _dimText,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ],
+                        );
+                      }),
                     ),
                   ],
                 ),
