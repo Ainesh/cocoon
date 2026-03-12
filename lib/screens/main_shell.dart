@@ -15,6 +15,7 @@ import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import 'dashboard/dashboard_tab.dart';
 import 'moments/moments_tab.dart';
+import 'settings/integrations_sheet.dart';
 
 // Theme constants for premium styling
 const _refinedRed = Color(0xFFFF4444);
@@ -431,6 +432,16 @@ class _MainShellState extends State<MainShell> {
               },
             ),
             const SizedBox(height: 12),
+            // Integrations
+            _buildSettingsItem(
+              icon: Icons.extension_rounded,
+              title: 'Integrations',
+              onTap: () {
+                Navigator.pop(context);
+                _showIntegrations(context);
+              },
+            ),
+            const SizedBox(height: 12),
             // Logout
             _buildSettingsItem(
               icon: Icons.logout_rounded,
@@ -445,6 +456,18 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showIntegrations(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: _darkGlass,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => IntegrationsSheet(userId: _authService.currentUser!.uid),
     );
   }
 

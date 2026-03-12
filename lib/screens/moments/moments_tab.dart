@@ -11,9 +11,12 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../models/integration_config.dart';
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../theme/theme.dart';
 import '../../widgets/app_calendar.dart';
 import '../../widgets/moment_type_icon.dart';
@@ -37,8 +40,11 @@ class _MomentsTabState extends State<MomentsTab> {
 
   // State
   StreamSubscription<List<Moment>>? _momentsSub;
+  StreamSubscription<IntegrationConfig>? _integrationSub;
   List<Moment> _allMoments = [];
   bool _isLoading = true;
+  bool _hasCalendarIntegration = false;
+  bool _showExternalEvents = false;
 
   // Calendar
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month);
@@ -76,12 +82,40 @@ class _MomentsTabState extends State<MomentsTab> {
   void initState() {
     super.initState();
     _subscribe();
+    _loadIntegrationState();
   }
 
   @override
   void dispose() {
     _momentsSub?.cancel();
+    _integrationSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadIntegrationState() async {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final savedToggle = prefs.getBool('show_external_events') ?? false;
+
+    _integrationSub = _firestoreService.watchIntegrationConfig(userId).listen(
+      (config) {
+        if (!mounted) return;
+        setState(() {
+          _hasCalendarIntegration = config.hasCalendar;
+          _showExternalEvents = _hasCalendarIntegration && savedToggle;
+        });
+      },
+      onError: (_) {},
+    );
+  }
+
+  Future<void> _toggleExternalEvents(bool value) async {
+    HapticFeedback.selectionClick();
+    setState(() => _showExternalEvents = value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_external_events', value);
   }
 
   void _subscribe() {
@@ -175,6 +209,10 @@ class _MomentsTabState extends State<MomentsTab> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: _buildCalendarCard(),
         ),
+        if (_hasCalendarIntegration) ...[
+          const SizedBox(height: 8),
+          _buildExternalEventsToggle(),
+        ],
         const SizedBox(height: 12),
         Expanded(
           child: RefreshIndicator(
@@ -195,6 +233,41 @@ class _MomentsTabState extends State<MomentsTab> {
   // ---------------------------------------------------------------------------
   // Calendar card
   // ---------------------------------------------------------------------------
+
+  Widget _buildExternalEventsToggle() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Icon(
+            Icons.sync_rounded,
+            color: AppColors.warmMuted,
+            size: 16,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Show external events',
+              style: GoogleFonts.inter(
+                color: AppColors.warmMuted,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 28,
+            child: Switch.adaptive(
+              value: _showExternalEvents,
+              onChanged: _toggleExternalEvents,
+              activeColor: AppColors.accentRed,
+              activeTrackColor: AppColors.accentRed.withValues(alpha: 0.3),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildCalendarCard() {
     final byDay = _momentsByDay;
@@ -581,13 +654,38 @@ class _MomentTileState extends State<_MomentTile> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      widget.moment.name,
-                      style: GoogleFonts.outfit(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.warmLight,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            widget.moment.name,
+                            style: GoogleFonts.outfit(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.warmLight,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (widget.moment.isSyncedToCalendar) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 7,
+                            height: 7,
+                            decoration: BoxDecoration(
+                              color: AppColors.accentRed,
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.accentRed.withValues(alpha: 0.6),
+                                  blurRadius: 4,
+                                  spreadRadius: 1,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                     Text(
                       _subtitle,

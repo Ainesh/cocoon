@@ -146,6 +146,7 @@ class Moment {
     this.createdAt,
     this.updatedAt,
     this.version = 1,
+    this.externalEventId,
   });
 
   /// Unique identifier (Firestore document ID).
@@ -184,6 +185,9 @@ class Moment {
   /// Optimistic lock version — incremented on each update.
   final int version;
 
+  /// External calendar event ID after syncing (Google/Apple).
+  final String? externalEventId;
+
   // ---------------------------------------------------------------------------
   // Factory Constructors
   // ---------------------------------------------------------------------------
@@ -221,6 +225,7 @@ class Moment {
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
       version: json['version'] as int? ?? 1,
+      externalEventId: json['externalEventId'] as String?,
     );
   }
 
@@ -244,6 +249,7 @@ class Moment {
           : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'version': version,
+      if (externalEventId != null) 'externalEventId': externalEventId,
     };
   }
 
@@ -282,6 +288,9 @@ class Moment {
 
   /// Returns true if this moment is upcoming (in the future).
   bool get isUpcoming => !isPast;
+
+  /// Whether this moment has been synced to an external calendar.
+  bool get isSyncedToCalendar => externalEventId != null;
 
   /// Returns the duration in days (for Escape moments).
   int get durationDays {
@@ -382,6 +391,7 @@ class Moment {
     DateTime? createdAt,
     DateTime? updatedAt,
     int? version,
+    String? externalEventId,
   }) {
     return Moment(
       id: id ?? this.id,
@@ -395,6 +405,7 @@ class Moment {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       version: version ?? this.version,
+      externalEventId: externalEventId ?? this.externalEventId,
     );
   }
 
