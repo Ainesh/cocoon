@@ -121,14 +121,16 @@ class _MainShellState extends State<MainShell> {
     );
 
     if (nav.isCheckIn) {
-      // Check-in notification → open check-in screen
       context.push('/checkin/$spaceId');
+    } else if (nav.isMemoryPrompt && nav.entityId.isNotEmpty) {
+      _navigateToMemoryCreate(spaceId, nav.entityId);
+    } else if ((nav.isMemoryCreated || nav.isMemoryReaction) &&
+        nav.entityId.isNotEmpty) {
+      context.push('/memory/$spaceId/${nav.entityId}');
     } else if (nav.isMoment && nav.entityId.isNotEmpty) {
-      // Moment notification → switch to dashboard tab and open moment details
       if (_selectedTab != 0) {
         setState(() => _selectedTab = 0);
       }
-      // Small delay to ensure dashboard is visible before showing sheet
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
         _dashboardKey.currentState?.openEntityById(
@@ -137,10 +139,29 @@ class _MainShellState extends State<MainShell> {
         );
       });
     } else {
-      // Default: go to dashboard
       if (_selectedTab != 0) {
         setState(() => _selectedTab = 0);
       }
+    }
+  }
+
+  /// Loads the moment and navigates to the memory creation screen.
+  Future<void> _navigateToMemoryCreate(String spaceId, String momentId) async {
+    try {
+      final moment = await _firestoreService.getMoment(
+        spaceId: spaceId,
+        momentId: momentId,
+      );
+      if (!mounted) return;
+      if (moment != null) {
+        context.push('/memory/$spaceId/create', extra: moment);
+      } else {
+        context.push('/memory/$spaceId/create');
+      }
+    } catch (e) {
+      debugPrint('Error loading moment for memory prompt: $e');
+      if (!mounted) return;
+      context.push('/memory/$spaceId/create');
     }
   }
 
