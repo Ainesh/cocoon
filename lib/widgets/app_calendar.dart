@@ -539,47 +539,53 @@ class _MonthGrid extends StatelessWidget {
         }
 
         final dimmedAlpha = isPast ? heatAlpha * 0.4 : heatAlpha;
+        final bgColor = hasEvents
+            ? AppColors.accentRed.withValues(alpha: dimmedAlpha)
+            : Colors.transparent;
+        final textColor = hasEvents
+            ? (isPast
+                ? AppColors.warmLight.withValues(alpha: 0.5)
+                : AppColors.pureBlack)
+            : isPast
+                ? AppColors.warmMuted.withValues(alpha: 0.5)
+                : isToday
+                    ? AppColors.warmLight
+                    : AppColors.warmLight.withValues(alpha: 0.8);
 
         return GestureDetector(
           onTap: () => onDaySelected(day),
           behavior: HitTestBehavior.opaque,
           child: Center(
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutCubic,
               width: 34,
               height: 34,
-              decoration: hasEvents
-                  ? BoxDecoration(
-                      color: AppColors.accentRed.withValues(alpha: dimmedAlpha),
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: isPast
-                          ? null
-                          : [
-                              BoxShadow(
-                                color: AppColors.accentRed.withValues(
-                                  alpha: heatAlpha * 0.5,
-                                ),
-                                blurRadius: 6,
-                                spreadRadius: 1,
-                              ),
-                            ],
-                    )
-                  : null,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: hasEvents && !isPast
+                    ? [
+                        BoxShadow(
+                          color: AppColors.accentRed.withValues(
+                            alpha: heatAlpha * 0.5,
+                          ),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ]
+                    : null,
+              ),
               alignment: Alignment.center,
-              child: Text(
-                '${day.day}',
+              child: AnimatedDefaultTextStyle(
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOutCubic,
                 style: GoogleFonts.outfit(
-                  color: hasEvents
-                      ? (isPast
-                          ? AppColors.warmLight.withValues(alpha: 0.5)
-                          : AppColors.pureBlack)
-                      : isPast
-                          ? AppColors.warmMuted.withValues(alpha: 0.5)
-                          : isToday
-                              ? AppColors.warmLight
-                              : AppColors.warmLight.withValues(alpha: 0.8),
+                  color: textColor,
                   fontSize: 14,
                   fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
                 ),
+                child: Text('${day.day}'),
               ),
             ),
           ),
