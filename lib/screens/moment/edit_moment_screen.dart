@@ -482,7 +482,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
       // Clear editing presence before leaving
       await _clearPresence();
 
-      // Create updated moment to return
+      // Create updated moment to return (preserve sync state)
       final updatedMoment = Moment(
         id: moment.id,
         createdBy: moment.createdBy,
@@ -498,6 +498,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         createdAt: moment.createdAt,
         updatedAt: DateTime.now().toUtc(),
         version: moment.version + 1,
+        externalEventIds: moment.externalEventIds,
       );
 
       // Update synced calendar event if it exists
