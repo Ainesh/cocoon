@@ -188,18 +188,39 @@ class CalendarService {
 
   Future<String?> syncToApple(Moment moment, String calendarId) async {
     try {
+      final permResult = await _deviceCalendarPlugin.requestPermissions();
+      if (!permResult.isSuccess || permResult.data != true) {
+        debugPrint('Apple Calendar permission denied during sync');
+        return null;
+      }
+
       final startDate = moment.startDate;
       final endDate =
           moment.endDate ?? moment.startDate.add(const Duration(days: 1));
 
+      final tzStart = TZDateTime(
+        local,
+        startDate.year,
+        startDate.month,
+        startDate.day,
+      );
+      final tzEnd = TZDateTime(
+        local,
+        endDate.year,
+        endDate.month,
+        endDate.day,
+        23, 59,
+      );
+
       final event = Event(calendarId)
         ..title = moment.name
         ..description = moment.notes
-        ..start = TZDateTime.from(startDate, local)
-        ..end = TZDateTime.from(endDate, local)
+        ..start = tzStart
+        ..end = tzEnd
         ..allDay = true;
 
       final result = await _deviceCalendarPlugin.createOrUpdateEvent(event);
+      debugPrint('Apple sync result: success=${result?.isSuccess}, data=${result?.data}, errors=${result?.errors}');
       if (result?.isSuccess == true && result?.data != null) {
         return result!.data;
       }

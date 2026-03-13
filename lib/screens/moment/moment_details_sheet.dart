@@ -945,11 +945,14 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   Widget _buildSyncButton() {
     final userId = _authService.currentUser?.uid ?? '';
     final isSynced = moment.isSyncedByUser(userId);
+    final providerName = _calendarIntegration?.provider == CalendarProvider.google
+        ? 'Google Calendar'
+        : 'Apple Calendar';
     final label = _isSyncing
         ? 'Syncing...'
         : isSynced
-            ? 'Synced to calendar'
-            : 'Sync to calendar';
+            ? 'Synced to $providerName'
+            : 'Sync to $providerName';
     final icon = isSynced ? Icons.check_circle_rounded : Icons.sync_rounded;
     final color = isSynced ? AppColors.warmMuted : AppColors.accentRed;
 
