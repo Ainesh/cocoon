@@ -536,6 +536,23 @@ class FirestoreService {
         });
   }
 
+  /// Watches ALL moments in a space (past + future), ordered by startDate.
+  ///
+  /// Used by the Moments tab calendar which needs to show past events too.
+  /// Excludes external-type moments and those with status == missed.
+  Stream<List<Moment>> watchAllMoments(String spaceId) {
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .orderBy('startDate')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Moment.fromFirestore(doc))
+            .where((m) => m.type != MomentType.external)
+            .toList());
+  }
+
   /// Gets the next upcoming moment for display on dashboard.
   Future<List<Moment>> getUpcomingMoments(
     String spaceId, {
@@ -1829,11 +1846,13 @@ class FirestoreService {
   /// Used by the dashboard prompt card and prompting system.
   /// Returns moments sorted newest-first by end date.
   Future<List<Moment>> getPastMomentsAwaitingMemory(String spaceId) async {
+    // Existing moments may not have a 'status' field at all (pre-Memories).
+    // Firestore where('status', '==', 'planned') won't match docs missing the
+    // field, so we fetch all moments and filter client-side.
     final snap = await _firestore
         .collection(_spacesCollection)
         .doc(spaceId)
         .collection('moments')
-        .where('status', isEqualTo: 'planned')
         .get();
 
     final now = DateTime.now().toUtc();
@@ -1843,6 +1862,7 @@ class FirestoreService {
     return snap.docs
         .map((doc) => Moment.fromFirestore(doc))
         .where((m) {
+          if (m.status != MomentStatus.planned) return false;
           final end = m.endDate ?? m.startDate;
           return end.isBefore(today) && end.isAfter(cutoff);
         })

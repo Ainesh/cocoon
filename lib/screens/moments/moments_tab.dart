@@ -184,7 +184,7 @@ class _MomentsTabState extends State<MomentsTab> {
     setState(() => _isLoading = true);
 
     _momentsSub = _firestoreService
-        .watchUpcomingMoments(widget.spaceId, daysAhead: 365)
+        .watchAllMoments(widget.spaceId)
         .listen(
       (moments) {
         if (!mounted) return;
