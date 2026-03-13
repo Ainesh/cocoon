@@ -12,6 +12,7 @@ import '../screens/checkin/checkin_screen.dart';
 import '../screens/join_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_shell.dart';
+import '../screens/memory/create_memory_screen.dart';
 import '../screens/moment/edit_moment_screen.dart';
 import '../screens/moment/plan_moment_screen.dart';
 import '../screens/onboarding_screen.dart';
@@ -113,6 +114,20 @@ abstract final class AppRouter {
       pageBuilder: (context, state) {
         final spaceId = state.pathParameters['spaceId'] ?? '';
         return _slideTransition(state, PlanMomentScreen(spaceId: spaceId));
+      },
+    ),
+
+    // Create Memory - Seal a new memory (moment passed via extra for linked)
+    GoRoute(
+      path: '/memory/:spaceId/create',
+      name: 'createMemory',
+      pageBuilder: (context, state) {
+        final spaceId = state.pathParameters['spaceId'] ?? '';
+        final moment = state.extra as Moment?;
+        return _slideTransition(
+          state,
+          CreateMemoryScreen(spaceId: spaceId, moment: moment),
+        );
       },
     ),
 
