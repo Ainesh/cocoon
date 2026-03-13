@@ -347,17 +347,17 @@ class _MomentsTabState extends State<MomentsTab> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          GestureDetector(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(
-                () => _isCalendarCardExpanded = !_isCalendarCardExpanded,
-              );
-            },
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              children: [
-                Expanded(
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(
+                      () => _isCalendarCardExpanded = !_isCalendarCardExpanded,
+                    );
+                  },
+                  behavior: HitTestBehavior.opaque,
                   child: Text(
                     'LINKED CALENDAR',
                     style: GoogleFonts.outfit(
@@ -368,33 +368,38 @@ class _MomentsTabState extends State<MomentsTab> {
                     ),
                   ),
                 ),
-                GestureDetector(
-                  onTap: _toggleExternalEventsVisibility,
-                  child: Padding(
-                    padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      _showExternalEvents
-                          ? Icons.visibility_rounded
-                          : Icons.visibility_off_rounded,
-                      color: _showExternalEvents
-                          ? AppColors.accentRed
-                          : AppColors.warmMuted,
-                      size: 18,
+              ),
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  _toggleExternalEventsVisibility();
+                },
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  child: AnimatedScale(
+                    scale: _showExternalEvents ? 1.0 : 0.85,
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeOutCubic,
+                    child: AnimatedOpacity(
+                      opacity: _showExternalEvents ? 1.0 : 0.3,
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeOutCubic,
+                      child: Icon(
+                        Icons.bolt_rounded,
+                        color: _showExternalEvents
+                            ? AppColors.accentRed
+                            : AppColors.warmMuted,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                AnimatedRotation(
-                  turns: _isCalendarCardExpanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: AppColors.warmMuted,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
           if (_isCalendarCardExpanded) ...[
             const SizedBox(height: 8),
