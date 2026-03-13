@@ -50,7 +50,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   // UI state
   bool _isSubmitting = false;
-  bool _isCalendarExpanded = false;
+  bool _isCalendarExpanded = true;
   bool _showSaveButton = false;
   DateTime _focusedDay = DateTime.now();
   final _scrollController = ScrollController();
@@ -65,14 +65,8 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     _nameController.addListener(() {
       setState(() {}); // Rebuild for validation
     });
-    _nameFocusNode.addListener(() {
-      if (_nameFocusNode.hasFocus) _isCalendarExpanded = false;
-      setState(() {});
-    });
-    _notesFocusNode.addListener(() {
-      if (_notesFocusNode.hasFocus) _isCalendarExpanded = false;
-      setState(() {});
-    });
+    _nameFocusNode.addListener(() => setState(() {}));
+    _notesFocusNode.addListener(() => setState(() {}));
   }
 
   @override
@@ -135,7 +129,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         'Beach Trip',
         '...',
       ],
-      null => [],
+      MomentType.external || null => [],
     };
   }
 
@@ -144,7 +138,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       MomentType.celebrate => 'Occasion',
       MomentType.connect => 'Activity',
       MomentType.escape => 'Your Escape',
-      null => 'Details',
+      MomentType.external || null => 'Details',
     };
   }
 
@@ -189,7 +183,6 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
     _dismissKeyboard();
     setState(() {
       _startDate = AppDateFormat.toUtcDate(date);
-      _isCalendarExpanded = false;
     });
     _scrollToBottom();
   }
@@ -357,7 +350,6 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
 
   void _dismissKeyboard() {
     FocusScope.of(context).unfocus();
-    if (_isCalendarExpanded) setState(() => _isCalendarExpanded = false);
   }
 
   // ---------------------------------------------------------------------------
@@ -369,6 +361,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       MomentType.celebrate => 'your special day',
       MomentType.connect => 'over a date',
       MomentType.escape => 'the everyday',
+      MomentType.external => '',
     };
   }
 
@@ -630,7 +623,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         });
         _scrollToBottom();
       },
-      onPageChanged: (focused) => _focusedDay = focused,
+      onPageChanged: (focused) => setState(() => _focusedDay = focused),
     );
   }
 
@@ -772,7 +765,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
           }
         });
       },
-      onPageChanged: (focused) => _focusedDay = focused,
+      onPageChanged: (focused) => setState(() => _focusedDay = focused),
     );
   }
 
@@ -1003,10 +996,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
             }
           },
           onHorizontalDragEnd: (_) {
-            setState(() {
-              _dragPosition = null;
-              _isCalendarExpanded = false;
-            });
+            setState(() => _dragPosition = null);
             FocusScope.of(context).unfocus();
           },
           child: Container(
@@ -1060,10 +1050,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
                           HapticFeedback.selectionClick();
                           _selectTimeSlot(slot);
                           FocusScope.of(context).unfocus();
-                          setState(() {
-                            _dragPosition = null;
-                            _isCalendarExpanded = false;
-                          });
+                          setState(() => _dragPosition = null);
                         },
                         behavior: HitTestBehavior.opaque,
                         child: Center(

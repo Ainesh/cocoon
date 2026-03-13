@@ -9,8 +9,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../models/integration_config.dart';
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
+import '../../services/calendar_service.dart';
 import '../../utils/date_utils.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
@@ -81,11 +83,18 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   String? _hintMessage;
   Timer? _hintTimer;
   Moment? _liveMoment; // Updated in real-time when partner edits
+  CalendarIntegration? _calendarIntegration;
+  bool _isSyncing = false;
   StreamSubscription<List<({String name, DateTime time})>>?
   _presenceSubscription;
   StreamSubscription<DocumentSnapshot>? _momentSubscription;
 
+  bool get _isExternal => widget.moment.type == MomentType.external;
+
   String get _plannedBySubtitle {
+    if (_isExternal) {
+      return 'Synced from ${widget.moment.createdBy}';
+    }
     final name = _plannedByName ?? '';
     final createdAt = widget.moment.createdAt;
     if (createdAt != null) {
@@ -118,7 +127,21 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       }
     });
     _loadPlannedByName();
-    _watchEditingPresence();
+    if (!_isExternal) {
+      _watchEditingPresence();
+      _loadCalendarIntegration();
+    }
+  }
+
+  Future<void> _loadCalendarIntegration() async {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+    try {
+      final config = await _firestoreService.getIntegrationConfig(userId);
+      if (mounted && config.hasCalendar) {
+        setState(() => _calendarIntegration = config.calendar);
+      }
+    } catch (_) {}
   }
 
   void _watchEditingPresence() {
@@ -173,6 +196,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   Future<void> _loadPlannedByName() async {
+    if (_isExternal) {
+      if (mounted) setState(() => _plannedByName = widget.moment.createdBy);
+      return;
+    }
     if (widget.moment.createdBy.isEmpty) return;
     final currentUserId = _authService.currentUser?.uid;
     if (widget.moment.createdBy == currentUserId) {
@@ -380,9 +407,12 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                     // Info cards row (long-press to edit)
                     _buildShakeable(_buildInfoRow()),
 
-                    // Notes section (always show, long-press to edit)
-                    const SizedBox(height: 12),
-                    _buildShakeable(_buildNotesSection()),
+                    // Notes section — hidden for external moments with no notes
+                    if (!_isExternal ||
+                        (moment.notes != null && moment.notes!.isNotEmpty)) ...[
+                      const SizedBox(height: 12),
+                      _buildShakeable(_buildNotesSection()),
+                    ],
 
                     const SizedBox(height: 12),
 
@@ -901,8 +931,104 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   Widget _buildActions(BuildContext context) {
-    if (onDelete == null) return const SizedBox.shrink();
-    return _buildHoldToDeleteButton();
+    return Column(
+      children: [
+        if (_calendarIntegration != null && !_isExternal) ...[
+          _buildSyncButton(),
+          const SizedBox(height: 8),
+        ],
+        if (onDelete != null) _buildHoldToDeleteButton(),
+      ],
+    );
+  }
+
+  Widget _buildSyncButton() {
+    final userId = _authService.currentUser?.uid ?? '';
+    final isSynced = moment.isSyncedByUser(userId);
+    final providerName = _calendarIntegration?.provider == CalendarProvider.google
+        ? 'Google Calendar'
+        : 'Apple Calendar';
+    final label = _isSyncing
+        ? 'Syncing...'
+        : isSynced
+            ? 'Synced to $providerName'
+            : 'Sync to $providerName';
+    final icon = isSynced ? Icons.check_circle_rounded : Icons.sync_rounded;
+    final color = isSynced ? AppColors.warmMuted : AppColors.accentRed;
+
+    return GestureDetector(
+      onTap: (isSynced || _isSyncing) ? null : _syncToCalendar,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: AppColors.darkCardLight,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (_isSyncing)
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.accentRed,
+                ),
+              )
+            else
+              Icon(icon, color: color, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                color: color,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _syncToCalendar() async {
+    if (_calendarIntegration == null || _isSyncing) return;
+    setState(() => _isSyncing = true);
+    HapticFeedback.mediumImpact();
+
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+
+    final spaceId = await _firestoreService.getUserSpaceId(userId);
+    if (spaceId == null || !mounted) {
+      setState(() => _isSyncing = false);
+      return;
+    }
+
+    final calendarService = CalendarService();
+    final eventId = await calendarService.syncMoment(
+      moment: moment,
+      integration: _calendarIntegration!,
+      spaceId: spaceId,
+      userId: userId,
+    );
+
+    if (!mounted) return;
+    setState(() => _isSyncing = false);
+
+    if (eventId != null) {
+      final updatedIds = Map<String, String>.from(
+        moment.externalEventIds ?? {},
+      )..[userId] = eventId;
+      _liveMoment = moment.copyWith(externalEventIds: updatedIds);
+      HapticFeedback.heavyImpact();
+    } else {
+      _showHint('Sync failed — try again');
+    }
   }
 
   Widget _buildHoldToDeleteButton() {

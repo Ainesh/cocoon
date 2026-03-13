@@ -143,7 +143,7 @@ class _ActivityTrailState extends State<ActivityTrail> {
           Text(
             'ACTIVITY',
             style: GoogleFonts.outfit(
-              color: AppColors.warmMuted,
+              color: AppColors.accentRed,
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,

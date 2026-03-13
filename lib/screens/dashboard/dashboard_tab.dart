@@ -18,6 +18,7 @@ import '../../scoring/checkin_score_source.dart';
 import '../../scoring/score_engine.dart';
 import '../../scoring/score_models.dart';
 import '../../services/auth_service.dart';
+import '../../services/calendar_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
 import '../../models/activity.dart';
@@ -355,6 +356,20 @@ class DashboardTabState extends State<DashboardTab> {
       },
       onDelete: () async {
         try {
+          // Remove from synced calendar first
+          if (moment.isSyncedToCalendar) {
+            final userId = _authService.currentUser?.uid;
+            if (userId != null) {
+              final config =
+                  await _firestoreService.getIntegrationConfig(userId);
+              if (config.hasCalendar) {
+                await CalendarService().deleteCalendarEvents(
+                  moment: moment,
+                  integration: config.calendar!,
+                );
+              }
+            }
+          }
           await _firestoreService.deleteMoment(
             spaceId: widget.spaceId,
             momentId: moment.id,

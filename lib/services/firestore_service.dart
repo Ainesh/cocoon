@@ -46,6 +46,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/activity.dart';
+import '../models/integration_config.dart';
 import '../models/moment.dart';
 import '../models/notification_preferences.dart';
 import '../models/pulse_config.dart';
@@ -1504,5 +1505,74 @@ class FirestoreService {
       debugPrint('Error getting partner user ID: $e');
       return null;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Integration Config
+  // ---------------------------------------------------------------------------
+
+  /// Saves a calendar integration config for the given user.
+  Future<void> saveCalendarIntegration(
+    String userId,
+    CalendarIntegration integration,
+  ) async {
+    await _firestore.collection(_usersCollection).doc(userId).set({
+      'integrations': {
+        'calendar': integration.toJson(),
+      },
+    }, SetOptions(merge: true));
+  }
+
+  /// Removes the calendar integration for the given user.
+  Future<void> removeCalendarIntegration(String userId) async {
+    await _firestore.collection(_usersCollection).doc(userId).update({
+      'integrations.calendar': FieldValue.delete(),
+    });
+  }
+
+  /// One-time read of the user's integration config.
+  Future<IntegrationConfig> getIntegrationConfig(String userId) async {
+    final doc =
+        await _firestore.collection(_usersCollection).doc(userId).get();
+    final data = doc.data();
+    if (data == null || data['integrations'] == null) {
+      return IntegrationConfig.empty;
+    }
+    return IntegrationConfig.fromJson(
+      Map<String, dynamic>.from(data['integrations'] as Map),
+    );
+  }
+
+  /// Real-time stream of the user's integration config.
+  Stream<IntegrationConfig> watchIntegrationConfig(String userId) {
+    return _firestore
+        .collection(_usersCollection)
+        .doc(userId)
+        .snapshots()
+        .map((snap) {
+      final data = snap.data();
+      if (data == null || data['integrations'] == null) {
+        return IntegrationConfig.empty;
+      }
+      return IntegrationConfig.fromJson(
+        Map<String, dynamic>.from(data['integrations'] as Map),
+      );
+    });
+  }
+
+  /// Sets the external event ID for a specific user on a moment.
+  /// Stored as a map: `externalEventIds.{userId} = eventId`.
+  Future<void> updateMomentExternalEventId({
+    required String spaceId,
+    required String momentId,
+    required String userId,
+    required String eventId,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
+        .update({'externalEventIds.$userId': eventId});
   }
 }

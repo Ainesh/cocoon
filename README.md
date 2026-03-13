@@ -192,6 +192,23 @@ The second tab alongside Dashboard — a dedicated view for all planned moments.
   - UTC midnight date normalization for consistent storage
 - **Data** — Uses `watchUpcomingMoments` with 365-day lookahead and in-memory month filter
 
+### 🔗 Calendar Integration
+External calendar sync — connect Google Calendar or Apple Calendar to sync moments as events.
+
+- **Integrations Settings** — New entry in Settings to manage external integrations
+  - Toggle to enable/disable Calendar integration
+  - Provider picker: Google Calendar (OAuth) or Apple Calendar (device permission)
+  - Per-user linking — each partner connects their own calendar independently
+- **Sync to Calendar** — Button on moment details sheet to push a moment as a calendar event
+  - Creates all-day event with moment name and notes
+  - Glowing red dot indicator on synced moments in the list
+  - "Synced to calendar" state shown with check icon
+- **External Events Toggle** — On the Moments tab, toggle to show external events
+  - Persisted via SharedPreferences
+  - Only visible when integration is linked
+- **Data** — `externalEventId` field on Moment model; `integrations.calendar` on user document
+- **Packages** — `googleapis`, `googleapis_auth`, `device_calendar`, `http`
+
 ### 🔔 Push Notifications
 Real-time notifications triggered by partner activities via Firebase Cloud Functions:
 
