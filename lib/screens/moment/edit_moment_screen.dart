@@ -403,7 +403,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
           }
         });
       },
-      onPageChanged: (focused) => _focusedDay = focused,
+      onPageChanged: (focused) => setState(() => _focusedDay = focused),
     );
   }
 
@@ -425,7 +425,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
           }
         });
       },
-      onPageChanged: (focused) => _focusedDay = focused,
+      onPageChanged: (focused) => setState(() => _focusedDay = focused),
     );
   }
 

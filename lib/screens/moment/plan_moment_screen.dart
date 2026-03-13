@@ -623,7 +623,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         });
         _scrollToBottom();
       },
-      onPageChanged: (focused) => _focusedDay = focused,
+      onPageChanged: (focused) => setState(() => _focusedDay = focused),
     );
   }
 
@@ -765,7 +765,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
           }
         });
       },
-      onPageChanged: (focused) => _focusedDay = focused,
+      onPageChanged: (focused) => setState(() => _focusedDay = focused),
     );
   }
 
