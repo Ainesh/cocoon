@@ -361,7 +361,7 @@ class _MomentsTabState extends State<MomentsTab> {
                   child: Text(
                     'LINKED CALENDAR',
                     style: GoogleFonts.outfit(
-                      color: AppColors.warmMuted,
+                      color: AppColors.accentRed,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.5,
@@ -753,7 +753,7 @@ class _MomentsTabState extends State<MomentsTab> {
           Text(
             'THIS MONTH',
             style: GoogleFonts.outfit(
-              color: AppColors.warmMuted,
+              color: AppColors.accentRed,
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,

@@ -62,7 +62,7 @@ class ComingUpCard extends StatelessWidget {
             child: Text(
               'COMING UP',
               style: GoogleFonts.outfit(
-                color: AppColors.warmMuted,
+                color: AppColors.accentRed,
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 1.5,

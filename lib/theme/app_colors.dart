@@ -32,6 +32,10 @@ abstract final class AppColors {
   // ---------------------------------------------------------------------------
 
   /// The single primary red used throughout the app (#E84545).
+  ///
+  /// IMPORTANT: All interactive card section labels (e.g. "COMING UP",
+  /// "THIS MONTH", "LINKED CALENDAR", "ACTIVITY") must use [accentRed]
+  /// as their text color to maintain visual consistency.
   static const accentRed = Color(0xFFE84545);
 
   /// Aliases — all resolve to [accentRed] for backward compatibility.
