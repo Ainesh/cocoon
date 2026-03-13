@@ -719,8 +719,8 @@ class _MomentTileState extends State<_MomentTile> {
         duration: const Duration(milliseconds: 100),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: const EdgeInsets.symmetric(vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: _isPressed ? AppColors.cardVariant : Colors.transparent,
             borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
@@ -733,21 +733,21 @@ class _MomentTileState extends State<_MomentTile> {
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 28,
+                height: 28,
                 decoration: BoxDecoration(
                   color: AppColors.accentRed.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(8),
                 ),
                 child: Center(
                   child: getMomentTypeIconWidget(
                     widget.moment.type,
-                    size: 20,
+                    size: 14,
                     color: AppColors.accentRed,
                   ),
                 ),
               ),
-              const SizedBox(width: AppSpacing.md),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -757,8 +757,8 @@ class _MomentTileState extends State<_MomentTile> {
                         Flexible(
                           child: Text(
                             widget.moment.name,
-                            style: GoogleFonts.outfit(
-                              fontSize: 16,
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
                               fontWeight: FontWeight.w500,
                               color: AppColors.warmLight,
                             ),
@@ -768,8 +768,8 @@ class _MomentTileState extends State<_MomentTile> {
                         if (widget.moment.isSyncedToCalendar) ...[
                           const SizedBox(width: 6),
                           Container(
-                            width: 7,
-                            height: 7,
+                            width: 5,
+                            height: 5,
                             decoration: BoxDecoration(
                               color: AppColors.accentRed,
                               shape: BoxShape.circle,
@@ -788,8 +788,8 @@ class _MomentTileState extends State<_MomentTile> {
                     Text(
                       _subtitle,
                       style: GoogleFonts.inter(
-                        fontSize: 14,
-                        color: AppColors.warmDim,
+                        fontSize: 11,
+                        color: AppColors.warmMuted,
                       ),
                     ),
                   ],
@@ -830,33 +830,33 @@ class _ExternalEventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 28,
+            height: 28,
             decoration: BoxDecoration(
               color: AppColors.warmMuted.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
               child: Icon(
                 Icons.event_outlined,
-                size: 20,
+                size: 14,
                 color: AppColors.warmMuted,
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   event.title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
+                  style: GoogleFonts.inter(
+                    fontSize: 13,
                     fontWeight: FontWeight.w500,
                     color: AppColors.warmMuted,
                   ),
@@ -865,7 +865,7 @@ class _ExternalEventTile extends StatelessWidget {
                 Text(
                   _subtitle,
                   style: GoogleFonts.inter(
-                    fontSize: 13,
+                    fontSize: 11,
                     color: AppColors.warmMuted.withValues(alpha: 0.7),
                   ),
                 ),

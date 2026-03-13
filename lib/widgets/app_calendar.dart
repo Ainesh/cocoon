@@ -537,11 +537,7 @@ class _MonthGrid extends StatelessWidget {
         }
 
         final heatAlpha = count > 0 ? _heatAlpha(count) : 0.0;
-        final textColor = count > 0
-            ? AppColors.warmLight
-            : isToday
-                ? AppColors.warmLight
-                : AppColors.warmLight.withValues(alpha: 0.8);
+        final hasEvents = count > 0;
 
         return GestureDetector(
           onTap: () => onDaySelected(day),
@@ -550,20 +546,32 @@ class _MonthGrid extends StatelessWidget {
             child: Container(
               width: 34,
               height: 34,
-              decoration: heatAlpha > 0
+              decoration: hasEvents
                   ? BoxDecoration(
                       color: AppColors.accentRed.withValues(alpha: heatAlpha),
                       borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accentRed.withValues(
+                            alpha: heatAlpha * 0.5,
+                          ),
+                          blurRadius: 6,
+                          spreadRadius: 1,
+                        ),
+                      ],
                     )
                   : null,
               alignment: Alignment.center,
               child: Text(
                 '${day.day}',
                 style: GoogleFonts.outfit(
-                  color: textColor,
+                  color: hasEvents
+                      ? AppColors.pureBlack
+                      : isToday
+                          ? AppColors.warmLight
+                          : AppColors.warmLight.withValues(alpha: 0.8),
                   fontSize: 14,
-                  fontWeight:
-                      (isToday || count > 0) ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
                 ),
               ),
             ),

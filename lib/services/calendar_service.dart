@@ -254,7 +254,8 @@ class CalendarService {
 
   Future<List<ExternalCalendar>> _listGoogleCalendars() async {
     try {
-      final account = await _googleSignIn.signInSilently();
+      var account = await _googleSignIn.signInSilently();
+      account ??= await _googleSignIn.signIn();
       if (account == null) return [];
 
       final authHeaders = await _googleSignIn.currentUser!.authHeaders;
@@ -324,7 +325,8 @@ class CalendarService {
     DateTime end,
   ) async {
     try {
-      final account = await _googleSignIn.signInSilently();
+      var account = await _googleSignIn.signInSilently();
+      account ??= await _googleSignIn.signIn();
       if (account == null) return [];
 
       final authHeaders = await _googleSignIn.currentUser!.authHeaders;
