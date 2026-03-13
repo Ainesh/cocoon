@@ -529,8 +529,8 @@ class _MomentsTabState extends State<MomentsTab> {
   /// Computes percentile-based alpha values from raw event counts.
   ///
   /// Top 10% of days (min 1) → 1.0 alpha
-  /// 50th–90th percentile    → 0.90 alpha
-  /// Below 50th percentile   → 0.70 alpha
+  /// 50th–90th percentile    → 0.80 alpha
+  /// Below 50th percentile   → 0.60 alpha
   static Map<DateTime, double> _computePercentileAlphas(
     Map<DateTime, int> rawCounts,
   ) {
@@ -546,9 +546,9 @@ class _MomentsTabState extends State<MomentsTab> {
       if (count >= p90 && p90 > 0) {
         alpha = 1.0;
       } else if (count >= p50 && p50 > 0) {
-        alpha = 0.90;
+        alpha = 0.80;
       } else {
-        alpha = 0.70;
+        alpha = 0.60;
       }
       return MapEntry(day, alpha);
     });
