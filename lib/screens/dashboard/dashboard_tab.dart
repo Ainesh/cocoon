@@ -707,6 +707,8 @@ class DashboardTabState extends State<DashboardTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildMainGrid(),
+            const SizedBox(height: 12),
             if (_promptMoment != null) ...[
               MemoryPromptCard(
                 moment: _promptMoment!,
@@ -716,8 +718,6 @@ class DashboardTabState extends State<DashboardTab> {
               ),
               const SizedBox(height: 12),
             ],
-            _buildMainGrid(),
-            const SizedBox(height: 12),
             _buildActivityTrail(),
           ],
         ),
