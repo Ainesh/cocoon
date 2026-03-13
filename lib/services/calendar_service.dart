@@ -1,16 +1,15 @@
 /// Calendar integration service for syncing moments to external calendars.
 ///
-/// Supports Google Calendar (via googleapis). Apple Calendar support
-/// uses URL scheme to open events in the native Calendar app.
+/// Supports Google Calendar (via googleapis) and Apple Calendar (via device_calendar).
 /// Per-user: each partner links their own calendar independently.
 /// Push-only: moments are synced out as events; no pull.
 library;
 
+import 'package:device_calendar/device_calendar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/calendar/v3.dart' as gcal;
 import 'package:http/http.dart' as http;
-import 'package:url_launcher/url_launcher.dart';
 
 import '../models/external_calendar.dart';
 import '../models/integration_config.dart';
@@ -30,6 +29,8 @@ class CalendarService {
       'https://www.googleapis.com/auth/calendar.events',
     ],
   );
+
+  final _deviceCalendarPlugin = DeviceCalendarPlugin();
 
   // ---------------------------------------------------------------------------
   // Google Calendar
@@ -127,20 +128,30 @@ class CalendarService {
   }
 
   // ---------------------------------------------------------------------------
-  // Apple Calendar (URL scheme — no native plugin needed)
+  // Apple Calendar (device_calendar)
   // ---------------------------------------------------------------------------
 
-  /// Links Apple Calendar. No OAuth needed — just saves the config.
   Future<CalendarIntegration?> linkApple({
     required String userId,
     required String spaceName,
   }) async {
     try {
+      final permResult = await _deviceCalendarPlugin.requestPermissions();
+      if (!permResult.isSuccess || permResult.data != true) {
+        debugPrint('Apple Calendar permission denied');
+        return null;
+      }
+
+      final calendarId = await _getOrCreateAppleCalendar(spaceName);
+      if (calendarId == null) return null;
+
       final integration = CalendarIntegration(
         provider: CalendarProvider.apple,
         enabled: true,
         linkedAt: DateTime.now(),
+        calendarId: calendarId,
       );
+
       await _firestore.saveCalendarIntegration(userId, integration);
       return integration;
     } catch (e) {
@@ -149,25 +160,48 @@ class CalendarService {
     }
   }
 
-  /// Syncs a moment to Apple Calendar by opening an .ics URL.
-  /// Returns a placeholder ID on success (URL launch doesn't return an event ID).
-  Future<String?> syncToApple(Moment moment) async {
+  Future<String?> _getOrCreateAppleCalendar(String spaceName) async {
     try {
-      final start = moment.startDate;
-      final end = moment.endDate ?? start.add(const Duration(days: 1));
+      final result = await _deviceCalendarPlugin.retrieveCalendars();
+      final calendars = result.data ?? [];
 
-      final startStr = _toIcsDate(start);
-      final endStr = _toIcsDate(end);
-      final title = Uri.encodeComponent(moment.name);
-      final notes = Uri.encodeComponent(moment.notes ?? '');
-
-      final url = Uri.parse(
-        'calshow://?title=$title&startDate=$startStr&endDate=$endStr&notes=$notes',
+      final match = calendars.where(
+        (c) => c.name?.toLowerCase() == spaceName.toLowerCase(),
       );
+      if (match.isNotEmpty && match.first.id != null) {
+        return match.first.id;
+      }
 
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url);
-        return 'apple_${DateTime.now().millisecondsSinceEpoch}';
+      final createResult = await _deviceCalendarPlugin.createCalendar(
+        spaceName,
+        localAccountName: spaceName,
+      );
+      if (createResult.isSuccess && createResult.data != null) {
+        return createResult.data;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error creating Apple Calendar: $e');
+      return null;
+    }
+  }
+
+  Future<String?> syncToApple(Moment moment, String calendarId) async {
+    try {
+      final startDate = moment.startDate;
+      final endDate =
+          moment.endDate ?? moment.startDate.add(const Duration(days: 1));
+
+      final event = Event(calendarId)
+        ..title = moment.name
+        ..description = moment.notes
+        ..start = TZDateTime.from(startDate, local)
+        ..end = TZDateTime.from(endDate, local)
+        ..allDay = true;
+
+      final result = await _deviceCalendarPlugin.createOrUpdateEvent(event);
+      if (result?.isSuccess == true && result?.data != null) {
+        return result!.data;
       }
       return null;
     } catch (e) {
@@ -175,12 +209,6 @@ class CalendarService {
       return null;
     }
   }
-
-  static String _toIcsDate(DateTime dt) {
-    return '${dt.year}${_pad(dt.month)}${_pad(dt.day)}';
-  }
-
-  static String _pad(int n) => n.toString().padLeft(2, '0');
 
   // ---------------------------------------------------------------------------
   // List calendars (unified)
@@ -191,9 +219,9 @@ class CalendarService {
   ) async {
     if (integration.provider == CalendarProvider.google) {
       return _listGoogleCalendars();
+    } else {
+      return _listAppleCalendars();
     }
-    // Apple Calendar via URL scheme doesn't support listing calendars
-    return [];
   }
 
   Future<List<ExternalCalendar>> _listGoogleCalendars() async {
@@ -225,6 +253,26 @@ class CalendarService {
     }
   }
 
+  Future<List<ExternalCalendar>> _listAppleCalendars() async {
+    try {
+      final permResult = await _deviceCalendarPlugin.requestPermissions();
+      if (!permResult.isSuccess || permResult.data != true) return [];
+
+      final result = await _deviceCalendarPlugin.retrieveCalendars();
+      return (result.data ?? <Calendar>[]).map((c) {
+        return ExternalCalendar(
+          id: c.id ?? '',
+          name: c.name ?? '',
+          color: c.color,
+          isReadOnly: c.isReadOnly ?? false,
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('Error listing Apple calendars: $e');
+      return [];
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Fetch events (unified)
   // ---------------------------------------------------------------------------
@@ -240,9 +288,9 @@ class CalendarService {
 
     if (integration.provider == CalendarProvider.google) {
       return _fetchGoogleEvents(calendarIds, start, end);
+    } else {
+      return _fetchAppleEvents(calendarIds, start, end);
     }
-    // Apple Calendar via URL scheme doesn't support fetching events
-    return [];
   }
 
   Future<List<ExternalEvent>> _fetchGoogleEvents(
@@ -294,6 +342,37 @@ class CalendarService {
     }
   }
 
+  Future<List<ExternalEvent>> _fetchAppleEvents(
+    List<String> calendarIds,
+    DateTime start,
+    DateTime end,
+  ) async {
+    try {
+      final events = <ExternalEvent>[];
+      for (final calId in calendarIds) {
+        final result = await _deviceCalendarPlugin.retrieveEvents(
+          calId,
+          RetrieveEventsParams(startDate: start, endDate: end),
+        );
+        for (final e in result.data ?? <Event>[]) {
+          events.add(ExternalEvent(
+            id: e.eventId ?? '',
+            title: e.title ?? '(No title)',
+            startDate: e.start?.toLocal() ?? start,
+            endDate: e.end?.toLocal(),
+            calendarId: calId,
+            isAllDay: e.allDay ?? false,
+            description: e.description,
+          ));
+        }
+      }
+      return events;
+    } catch (e) {
+      debugPrint('Error fetching Apple events: $e');
+      return [];
+    }
+  }
+
   static int? _parseHexColor(String hex) {
     try {
       final cleaned = hex.replaceFirst('#', '');
@@ -318,7 +397,10 @@ class CalendarService {
     if (integration.provider == CalendarProvider.google) {
       eventId = await syncToGoogle(moment, integration.calendarId);
     } else if (integration.provider == CalendarProvider.apple) {
-      eventId = await syncToApple(moment);
+      final calId = integration.calendarId;
+      if (calId != null) {
+        eventId = await syncToApple(moment, calId);
+      }
     }
 
     if (eventId != null) {
