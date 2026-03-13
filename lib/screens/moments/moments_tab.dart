@@ -348,27 +348,14 @@ class _MomentsTabState extends State<MomentsTab> {
             child: Row(
               children: [
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'LINKED CALENDAR',
-                        style: GoogleFonts.outfit(
-                          color: AppColors.warmMuted,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        accountLabel,
-                        style: GoogleFonts.inter(
-                          color: AppColors.warmDim,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                  child: Text(
+                    'LINKED CALENDAR',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.warmMuted,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
                   ),
                 ),
                 GestureDetector(
@@ -399,23 +386,33 @@ class _MomentsTabState extends State<MomentsTab> {
               ],
             ),
           ),
-          if (_isCalendarCardExpanded && _externalCalendars.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: AppColors.warmMuted.withValues(alpha: 0.15),
-            ),
-            const SizedBox(height: 6),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: EdgeInsets.zero,
-                itemCount: _externalCalendars.length,
-                itemBuilder: (_, i) =>
-                    _buildCalendarToggleRow(_externalCalendars[i]),
+          if (_isCalendarCardExpanded) ...[
+            const SizedBox(height: 8),
+            Text(
+              accountLabel,
+              style: GoogleFonts.inter(
+                color: AppColors.warmDim,
+                fontSize: 12,
               ),
             ),
+            if (_externalCalendars.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.warmMuted.withValues(alpha: 0.15),
+              ),
+              const SizedBox(height: 6),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: EdgeInsets.zero,
+                  itemCount: _externalCalendars.length,
+                  itemBuilder: (_, i) =>
+                      _buildCalendarToggleRow(_externalCalendars[i]),
+                ),
+              ),
+            ],
           ],
         ],
       ),
@@ -474,19 +471,10 @@ class _MomentsTabState extends State<MomentsTab> {
 
   Widget _buildCalendarCard() {
     final byDay = _momentsByDay;
-    final rangePositions = _computeRangePositions();
 
-    final markers = <DateTime, Widget>{};
+    final counts = <DateTime, int>{};
     for (final entry in byDay.entries) {
-      final day = entry.key;
-      final moments = entry.value;
-      final pos = rangePositions[day];
-
-      if (pos != null) {
-        markers[day] = _rangeMarker(pos, moments.length);
-      } else {
-        markers[day] = _dotMarker(moments.length);
-      }
+      counts[entry.key] = entry.value.length;
     }
 
     return Container(
@@ -499,11 +487,9 @@ class _MomentsTabState extends State<MomentsTab> {
         lastDay: DateTime(DateTime.now().year + 3, 12),
         selectedDay: null,
         onDaySelected: (day, _) {
-          final dayMoments = byDay[DateTime(day.year, day.month, day.day)];
-          if (dayMoments != null && dayMoments.isNotEmpty) {
-            HapticFeedback.selectionClick();
-            _showDaySheet(day, dayMoments);
-          }
+          HapticFeedback.selectionClick();
+          final dayMoments = byDay[DateTime(day.year, day.month, day.day)] ?? [];
+          _showDaySheet(day, dayMoments);
         },
         onPageChanged: (month) {
           setState(() => _focusedMonth = DateTime(month.year, month.month));
@@ -511,116 +497,7 @@ class _MomentsTabState extends State<MomentsTab> {
             _fetchExternalEvents();
           }
         },
-        markers: markers,
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Range position computation
-  // ---------------------------------------------------------------------------
-
-  /// For each day that belongs to a multi-day moment, compute its position
-  /// within the range: start, middle, or end.
-  Map<DateTime, _RangePos> _computeRangePositions() {
-    final map = <DateTime, _RangePos>{};
-    for (final m in _allMoments) {
-      if (m.endDate == null) continue;
-      final start =
-          DateTime(m.startDate.year, m.startDate.month, m.startDate.day);
-      final end = DateTime(m.endDate!.year, m.endDate!.month, m.endDate!.day);
-      if (start == end) continue;
-
-      for (var d = start;
-          !d.isAfter(end);
-          d = d.add(const Duration(days: 1))) {
-        final key = DateTime(d.year, d.month, d.day);
-        if (d == start) {
-          map[key] = _RangePos.start;
-        } else if (d == end) {
-          map.putIfAbsent(key, () => _RangePos.end);
-        } else {
-          map.putIfAbsent(key, () => _RangePos.middle);
-        }
-      }
-    }
-    return map;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Markers
-  // ---------------------------------------------------------------------------
-
-  Widget _dotMarker(int count) {
-    final clamped = count.clamp(1, 3);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(clamped, (_) {
-        return Container(
-          width: 5,
-          height: 5,
-          margin: const EdgeInsets.symmetric(horizontal: 1),
-          decoration: BoxDecoration(
-            color: AppColors.accentRed,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.accentRed.withValues(alpha: 0.6),
-                blurRadius: 4,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-        );
-      }),
-    );
-  }
-
-  /// Renders a connected line segment for multi-day moments.
-  ///
-  /// start  → rounded left cap, extends to right edge
-  /// middle → full width, no rounding
-  /// end    → extends from left edge, rounded right cap
-  Widget _rangeMarker(_RangePos pos, int momentCount) {
-    const h = 3.0;
-
-    final borderRadius = switch (pos) {
-      _RangePos.start => const BorderRadius.horizontal(
-          left: Radius.circular(2),
-        ),
-      _RangePos.end => const BorderRadius.horizontal(
-          right: Radius.circular(2),
-        ),
-      _RangePos.middle => BorderRadius.zero,
-    };
-
-    final alignment = switch (pos) {
-      _RangePos.start => Alignment.centerRight,
-      _RangePos.end => Alignment.centerLeft,
-      _RangePos.middle => Alignment.center,
-    };
-
-    final widthFraction = pos == _RangePos.middle ? 1.0 : 0.6;
-
-    return Align(
-      alignment: alignment,
-      child: FractionallySizedBox(
-        widthFactor: widthFraction,
-        child: Container(
-          height: h,
-          decoration: BoxDecoration(
-            color: AppColors.accentRed,
-            borderRadius: borderRadius,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.accentRed.withValues(alpha: 0.6),
-                blurRadius: 4,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-        ),
+        eventCounts: counts,
       ),
     );
   }
@@ -629,7 +506,19 @@ class _MomentsTabState extends State<MomentsTab> {
   // Day bottom sheet
   // ---------------------------------------------------------------------------
 
-  void _showDaySheet(DateTime day, List<Moment> moments) {
+  void _showDaySheet(DateTime day, List<Moment> dayMoments) {
+    final dayKey = DateTime(day.year, day.month, day.day);
+    final dayExternal = _showExternalEvents
+        ? _externalEvents.where((e) {
+            final eDay = DateTime(
+              e.startDate.year,
+              e.startDate.month,
+              e.startDate.day,
+            );
+            return eDay == dayKey;
+          }).toList()
+        : <ExternalEvent>[];
+
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.darkCardLight,
@@ -642,37 +531,50 @@ class _MomentsTabState extends State<MomentsTab> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(Icons.event_rounded, color: AppColors.accentRed, size: 24),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    _formatDayTitle(day),
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.warmLight,
-                    ),
-                  ),
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: AppColors.warmMuted.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(2),
                 ),
-                IconButton(
-                  icon: Icon(Icons.close_rounded, color: AppColors.warmDim),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            ...moments.map(
-              (m) => _MomentTile(
-                moment: m,
-                showDate: false,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showMomentDetails(m);
-                },
               ),
             ),
+            Text(
+              _formatDayTitle(day),
+              style: GoogleFonts.outfit(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.warmLight,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            if (dayMoments.isNotEmpty)
+              ...dayMoments.map(
+                (m) => _MomentTile(
+                  moment: m,
+                  showDate: false,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showMomentDetails(m);
+                  },
+                ),
+              ),
+            if (dayExternal.isNotEmpty)
+              ...dayExternal.map(
+                (e) => _ExternalEventTile(event: e),
+              ),
+            if (dayMoments.isEmpty && dayExternal.isEmpty) ...[
+              const SizedBox(height: 8),
+              PlanMomentCard(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/moment/${widget.spaceId}');
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -976,5 +878,3 @@ class _ExternalEventTile extends StatelessWidget {
   }
 }
 
-/// Position of a day within a multi-day moment range.
-enum _RangePos { start, middle, end }

@@ -29,7 +29,7 @@ class AppDateCalendar extends StatefulWidget {
     this.onPageChanged,
     this.firstDay,
     this.lastDay,
-    this.markers,
+    this.eventCounts,
     this.dayBuilder,
   });
 
@@ -44,8 +44,9 @@ class AppDateCalendar extends StatefulWidget {
   /// Latest selectable month. Defaults to 2 years from now.
   final DateTime? lastDay;
 
-  /// Map of dates to marker widgets shown below the day number.
-  final Map<DateTime, Widget>? markers;
+  /// Map of dates to event counts. Days with events get a red-tinted
+  /// background whose intensity scales with the count (heat-map style).
+  final Map<DateTime, int>? eventCounts;
 
   /// Optional custom builder for each day cell. When provided, replaces the
   /// default cell but still receives the selection/today state.
@@ -160,7 +161,7 @@ class _AppDateCalendarState extends State<AppDateCalendar> {
                   final utc = AppDateFormat.toUtcDate(day);
                   widget.onDaySelected(utc, day);
                 },
-                markers: widget.markers,
+                eventCounts: widget.eventCounts,
                 dayBuilder: widget.dayBuilder,
               );
             },
@@ -455,14 +456,14 @@ class _MonthGrid extends StatelessWidget {
     required this.month,
     required this.selectedDay,
     required this.onDaySelected,
-    this.markers,
+    this.eventCounts,
     this.dayBuilder,
   });
 
   final DateTime month;
   final DateTime? selectedDay;
   final void Function(DateTime day) onDaySelected;
-  final Map<DateTime, Widget>? markers;
+  final Map<DateTime, int>? eventCounts;
   final Widget Function(DateTime day, bool isSelected, bool isToday)?
       dayBuilder;
 
@@ -489,31 +490,25 @@ class _MonthGrid extends StatelessWidget {
       itemBuilder: (_, index) {
         final dayNum = index - offset + 1;
 
-        // Previous month's trailing days
-        if (dayNum < 1) {
-          final prevDay = daysInPrevMonth + dayNum;
-          return Center(
-            child: Text(
-              '$prevDay',
-              style: GoogleFonts.outfit(
-                color: AppColors.warmMuted.withValues(alpha: 0.25),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          );
-        }
-
-        // Next month's leading days
-        if (dayNum > daysInMonth) {
-          final nextDay = dayNum - daysInMonth;
-          return Center(
-            child: Text(
-              '$nextDay',
-              style: GoogleFonts.outfit(
-                color: AppColors.warmMuted.withValues(alpha: 0.25),
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
+        // Neighboring month days — dimmed but visible
+        if (dayNum < 1 || dayNum > daysInMonth) {
+          final displayNum = dayNum < 1
+              ? daysInPrevMonth + dayNum
+              : dayNum - daysInMonth;
+          final neighborDay = dayNum < 1
+              ? DateTime(prevMonth.year, prevMonth.month, displayNum)
+              : DateTime(month.year, month.month + 1, displayNum);
+          return GestureDetector(
+            onTap: () => onDaySelected(neighborDay),
+            behavior: HitTestBehavior.opaque,
+            child: Center(
+              child: Text(
+                '$displayNum',
+                style: GoogleFonts.outfit(
+                  color: AppColors.warmMuted.withValues(alpha: 0.5),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                ),
               ),
             ),
           );
@@ -522,41 +517,56 @@ class _MonthGrid extends StatelessWidget {
         final day = DateTime(month.year, month.month, dayNum);
         final isToday = day == todayLocal;
         final isSelected = selectedDay != null && _isSameDay(selectedDay!, day);
-        final isPast = day.isBefore(todayLocal);
         final markerKey = DateTime(month.year, month.month, dayNum);
+        final count = eventCounts?[markerKey] ?? 0;
 
         if (dayBuilder != null) {
           return GestureDetector(
-            onTap: isPast ? null : () => onDaySelected(day),
+            onTap: () => onDaySelected(day),
             behavior: HitTestBehavior.opaque,
             child: dayBuilder!(day, isSelected, isToday),
           );
         }
 
+        if (isSelected) {
+          return GestureDetector(
+            onTap: () => onDaySelected(day),
+            behavior: HitTestBehavior.opaque,
+            child: Center(child: _SelectedDayCell(day: day)),
+          );
+        }
+
+        final heatAlpha = count > 0 ? _heatAlpha(count) : 0.0;
+        final textColor = count > 0
+            ? AppColors.warmLight
+            : isToday
+                ? AppColors.warmLight
+                : AppColors.warmLight.withValues(alpha: 0.8);
+
         return GestureDetector(
-          onTap: isPast ? null : () => onDaySelected(day),
+          onTap: () => onDaySelected(day),
           behavior: HitTestBehavior.opaque,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (isSelected)
-                _SelectedDayCell(day: day)
-              else
-                Text(
-                  '${day.day}',
-                  style: GoogleFonts.outfit(
-                    color: isPast
-                        ? AppColors.warmMuted.withValues(alpha: 0.5)
-                        : isToday
-                            ? AppColors.warmLight
-                            : AppColors.warmLight.withValues(alpha: 0.8),
-                    fontSize: 14,
-                    fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
-                  ),
+          child: Center(
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: heatAlpha > 0
+                  ? BoxDecoration(
+                      color: AppColors.accentRed.withValues(alpha: heatAlpha),
+                      borderRadius: BorderRadius.circular(10),
+                    )
+                  : null,
+              alignment: Alignment.center,
+              child: Text(
+                '${day.day}',
+                style: GoogleFonts.outfit(
+                  color: textColor,
+                  fontSize: 14,
+                  fontWeight:
+                      (isToday || count > 0) ? FontWeight.w800 : FontWeight.w600,
                 ),
-              if (markers != null && markers!.containsKey(markerKey))
-                markers![markerKey]!,
-            ],
+              ),
+            ),
           ),
         );
       },
@@ -734,3 +744,14 @@ class _SelectedDayCell extends StatelessWidget {
 
 bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
+
+/// Maps event count to red background alpha (heat-map intensity).
+/// 1 event = subtle, 5+ = deep. Clamped to [0.08, 0.35].
+double _heatAlpha(int count) {
+  if (count <= 0) return 0;
+  if (count == 1) return 0.10;
+  if (count == 2) return 0.18;
+  if (count == 3) return 0.24;
+  if (count == 4) return 0.30;
+  return 0.35;
+}
