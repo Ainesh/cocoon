@@ -44,9 +44,9 @@ class AppDateCalendar extends StatefulWidget {
   /// Latest selectable month. Defaults to 2 years from now.
   final DateTime? lastDay;
 
-  /// Map of dates to event counts. Days with events get a red-tinted
-  /// background whose intensity scales with the count (heat-map style).
-  final Map<DateTime, int>? eventCounts;
+  /// Map of dates to heat-map alpha values (0.0–1.0). Days with a value > 0
+  /// get a red-tinted background at that alpha.
+  final Map<DateTime, double>? eventCounts;
 
   /// Optional custom builder for each day cell. When provided, replaces the
   /// default cell but still receives the selection/today state.
@@ -463,7 +463,7 @@ class _MonthGrid extends StatelessWidget {
   final DateTime month;
   final DateTime? selectedDay;
   final void Function(DateTime day) onDaySelected;
-  final Map<DateTime, int>? eventCounts;
+  final Map<DateTime, double>? eventCounts;
   final Widget Function(DateTime day, bool isSelected, bool isToday)?
       dayBuilder;
 
@@ -518,7 +518,8 @@ class _MonthGrid extends StatelessWidget {
         final isToday = day == todayLocal;
         final isSelected = selectedDay != null && _isSameDay(selectedDay!, day);
         final markerKey = DateTime(month.year, month.month, dayNum);
-        final count = eventCounts?[markerKey] ?? 0;
+        final heatAlpha = eventCounts?[markerKey] ?? 0.0;
+        final hasEvents = heatAlpha > 0;
 
         if (dayBuilder != null) {
           return GestureDetector(
@@ -535,9 +536,6 @@ class _MonthGrid extends StatelessWidget {
             child: Center(child: _SelectedDayCell(day: day)),
           );
         }
-
-        final heatAlpha = count > 0 ? _heatAlpha(count) : 0.0;
-        final hasEvents = count > 0;
 
         return GestureDetector(
           onTap: () => onDaySelected(day),
@@ -753,11 +751,3 @@ class _SelectedDayCell extends StatelessWidget {
 bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
-/// Maps event count to red background alpha (heat-map intensity).
-/// 1 = strong, 2 = intense, 3+ = full. Starts bright.
-double _heatAlpha(int count) {
-  if (count <= 0) return 0;
-  if (count == 1) return 0.70;
-  if (count == 2) return 0.90;
-  return 1.0;
-}

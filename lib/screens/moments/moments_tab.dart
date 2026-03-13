@@ -482,10 +482,24 @@ class _MomentsTabState extends State<MomentsTab> {
   Widget _buildCalendarCard() {
     final byDay = _momentsByDay;
 
-    final counts = <DateTime, int>{};
+    // Merge moment counts + external event counts per day
+    final rawCounts = <DateTime, int>{};
     for (final entry in byDay.entries) {
-      counts[entry.key] = entry.value.length;
+      rawCounts[entry.key] = entry.value.length;
     }
+    if (_showExternalEvents) {
+      for (final e in _externalEvents) {
+        final key = DateTime(
+          e.startDate.year,
+          e.startDate.month,
+          e.startDate.day,
+        );
+        rawCounts[key] = (rawCounts[key] ?? 0) + 1;
+      }
+    }
+
+    // Compute percentile-based alphas
+    final alphas = _computePercentileAlphas(rawCounts);
 
     return Container(
       width: double.infinity,
@@ -507,9 +521,37 @@ class _MomentsTabState extends State<MomentsTab> {
             _fetchExternalEvents();
           }
         },
-        eventCounts: counts,
+        eventCounts: alphas,
       ),
     );
+  }
+
+  /// Computes percentile-based alpha values from raw event counts.
+  ///
+  /// Top 10% of days (min 1) → 1.0 alpha
+  /// 50th–90th percentile    → 0.90 alpha
+  /// Below 50th percentile   → 0.70 alpha
+  static Map<DateTime, double> _computePercentileAlphas(
+    Map<DateTime, int> rawCounts,
+  ) {
+    if (rawCounts.isEmpty) return {};
+
+    final values = rawCounts.values.toList()..sort();
+    final n = values.length;
+    final p50 = values[((n - 1) * 0.50).floor()];
+    final p90 = values[((n - 1) * 0.90).floor()];
+
+    return rawCounts.map((day, count) {
+      final double alpha;
+      if (count >= p90 && p90 > 0) {
+        alpha = 1.0;
+      } else if (count >= p50 && p50 > 0) {
+        alpha = 0.90;
+      } else {
+        alpha = 0.70;
+      }
+      return MapEntry(day, alpha);
+    });
   }
 
   // ---------------------------------------------------------------------------
