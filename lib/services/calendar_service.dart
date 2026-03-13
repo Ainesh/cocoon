@@ -142,8 +142,12 @@ class CalendarService {
         return null;
       }
 
-      final calendarId = await _getOrCreateAppleCalendar(spaceName);
-      if (calendarId == null) return null;
+      // Find the default writable calendar
+      final calendarId = await _findDefaultAppleCalendar();
+      if (calendarId == null) {
+        debugPrint('No writable Apple calendar found');
+        return null;
+      }
 
       final integration = CalendarIntegration(
         provider: CalendarProvider.apple,
@@ -160,28 +164,25 @@ class CalendarService {
     }
   }
 
-  Future<String?> _getOrCreateAppleCalendar(String spaceName) async {
+  /// Finds the first writable calendar on the device, preferring iCloud.
+  Future<String?> _findDefaultAppleCalendar() async {
     try {
       final result = await _deviceCalendarPlugin.retrieveCalendars();
-      final calendars = result.data ?? [];
+      final calendars = (result.data ?? <Calendar>[])
+          .where((c) => c.isReadOnly == false && c.id != null)
+          .toList();
 
-      final match = calendars.where(
-        (c) => c.name?.toLowerCase() == spaceName.toLowerCase(),
-      );
-      if (match.isNotEmpty && match.first.id != null) {
-        return match.first.id;
-      }
+      if (calendars.isEmpty) return null;
 
-      final createResult = await _deviceCalendarPlugin.createCalendar(
-        spaceName,
-        localAccountName: spaceName,
+      // Prefer iCloud calendar if available
+      final icloud = calendars.where(
+        (c) => c.accountName?.toLowerCase().contains('icloud') == true,
       );
-      if (createResult.isSuccess && createResult.data != null) {
-        return createResult.data;
-      }
-      return null;
+      if (icloud.isNotEmpty) return icloud.first.id;
+
+      return calendars.first.id;
     } catch (e) {
-      debugPrint('Error creating Apple Calendar: $e');
+      debugPrint('Error finding Apple calendar: $e');
       return null;
     }
   }
@@ -198,32 +199,39 @@ class CalendarService {
       final endDate =
           moment.endDate ?? moment.startDate.add(const Duration(days: 1));
 
-      final tzStart = TZDateTime(
-        local,
-        startDate.year,
-        startDate.month,
-        startDate.day,
-      );
-      final tzEnd = TZDateTime(
-        local,
-        endDate.year,
-        endDate.month,
-        endDate.day,
-        23, 59,
-      );
-
       final event = Event(calendarId)
         ..title = moment.name
-        ..description = moment.notes
-        ..start = tzStart
-        ..end = tzEnd
+        ..description = moment.notes ?? ''
+        ..start = TZDateTime(local, startDate.year, startDate.month, startDate.day)
+        ..end = TZDateTime(local, endDate.year, endDate.month, endDate.day, 23, 59)
         ..allDay = true;
 
+      debugPrint('Apple sync: calendarId=$calendarId, title=${moment.name}');
       final result = await _deviceCalendarPlugin.createOrUpdateEvent(event);
       debugPrint('Apple sync result: success=${result?.isSuccess}, data=${result?.data}, errors=${result?.errors}');
+
       if (result?.isSuccess == true && result?.data != null) {
         return result!.data;
       }
+
+      // If the stored calendar failed, try the default writable calendar
+      final fallbackId = await _findDefaultAppleCalendar();
+      if (fallbackId != null && fallbackId != calendarId) {
+        debugPrint('Apple sync: retrying with fallback calendar $fallbackId');
+        final fallbackEvent = Event(fallbackId)
+          ..title = moment.name
+          ..description = moment.notes ?? ''
+          ..start = TZDateTime(local, startDate.year, startDate.month, startDate.day)
+          ..end = TZDateTime(local, endDate.year, endDate.month, endDate.day, 23, 59)
+          ..allDay = true;
+
+        final fallbackResult =
+            await _deviceCalendarPlugin.createOrUpdateEvent(fallbackEvent);
+        if (fallbackResult?.isSuccess == true && fallbackResult?.data != null) {
+          return fallbackResult!.data;
+        }
+      }
+
       return null;
     } catch (e) {
       debugPrint('Apple Calendar sync error: $e');
