@@ -403,26 +403,29 @@ class CalendarService {
   }
 
   /// Sets start/end on a Google Calendar event from a Moment.
-  /// Timed events (Connect with TimeSlot) use UTC dateTime.
-  /// All-day events use date-only fields.
+  /// Timed events (Connect with TimeSlot): compute UTC directly using
+  /// the device's timezone offset — no local DateTime intermediate.
+  /// All-day events use date-only fields (already UTC midnight).
   static void _applyEventTimes(gcal.Event event, Moment moment) {
     if (moment.timeSlot != null) {
       final (startHour, endHour) = _timeSlotHours(moment.timeSlot!);
-      // Construct local time then convert to UTC for the API
-      final localStart = DateTime(
+      final offset = DateTime.now().timeZoneOffset;
+      // moment.startDate is UTC midnight. Add the local hour, subtract
+      // the timezone offset to get the correct UTC instant.
+      final utcStart = DateTime.utc(
         moment.startDate.year,
         moment.startDate.month,
         moment.startDate.day,
         startHour,
-      );
-      final localEnd = DateTime(
+      ).subtract(offset);
+      final utcEnd = DateTime.utc(
         moment.startDate.year,
         moment.startDate.month,
         moment.startDate.day,
         endHour,
-      );
-      event.start = gcal.EventDateTime(dateTime: localStart.toUtc());
-      event.end = gcal.EventDateTime(dateTime: localEnd.toUtc());
+      ).subtract(offset);
+      event.start = gcal.EventDateTime(dateTime: utcStart);
+      event.end = gcal.EventDateTime(dateTime: utcEnd);
     } else if (moment.endDate != null) {
       event.start = gcal.EventDateTime(date: moment.startDate);
       event.end = gcal.EventDateTime(
