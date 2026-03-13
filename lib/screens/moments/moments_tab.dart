@@ -564,7 +564,7 @@ class _MomentsTabState extends State<MomentsTab> {
       } else if (count >= p50 && p50 > 0) {
         alpha = 0.80;
       } else {
-        alpha = 0.60;
+        alpha = 0.70;
       }
       return MapEntry(day, alpha);
     });
