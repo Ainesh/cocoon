@@ -188,10 +188,10 @@ class _MainShellState extends State<MainShell> {
         elevation: 0,
         title: Text(
           _selectedTab == 1 ? 'Moments' : _selectedTab == 2 ? 'Memories' : (_spaceName ?? 'Home'),
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.w700,
-            fontSize: 22,
-            color: _lightText,
+          style: GoogleFonts.cormorantGaramond(
+            fontWeight: FontWeight.w600,
+            fontSize: 26,
+            color: _refinedRed,
           ),
         ),
         centerTitle: true,

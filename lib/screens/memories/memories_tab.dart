@@ -10,12 +10,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/memory.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
-import '../../theme/app_typography.dart';
 import '../../widgets/memory_card.dart';
 import '../../widgets/moment_group_header.dart';
 import '../../widgets/neumorphic_container.dart';
@@ -185,7 +185,15 @@ class _MemoriesTabState extends State<MemoriesTab> {
         if (index == 0) {
           return Padding(
             padding: const EdgeInsets.only(bottom: 16),
-            child: Text('Memories', style: AppTypography.headlineLarge()),
+            child: Text(
+              'Memories',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 36,
+                fontWeight: FontWeight.w600,
+                fontStyle: FontStyle.italic,
+                color: AppColors.accentRed,
+              ),
+            ),
           );
         }
         return _buildTimelineEntry(entries[index - 1]);
