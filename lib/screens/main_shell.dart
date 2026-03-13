@@ -228,6 +228,24 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
               ),
+            )
+          else if (_selectedTab == 2)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.add_circle_rounded,
+                  color: _refinedRed,
+                ),
+                tooltip: 'Add a memory',
+                onPressed: () => context.push('/memory/${widget.spaceId}/create'),
+                style: IconButton.styleFrom(
+                  backgroundColor: _cardVariant,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ),
         ],
       ),

@@ -155,23 +155,13 @@ class _MemoriesTabState extends State<MemoriesTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        if (_isLoading)
-          const Center(child: CircularProgressIndicator(color: AppColors.accentRed))
-        else if (_allMemories.isEmpty)
-          _buildEmptyState()
-        else
-          _buildTimeline_widget(),
-
-        // FAB for standalone memory creation
-        Positioned(
-          right: 20,
-          bottom: 20,
-          child: _buildFab(),
-        ),
-      ],
-    );
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.accentRed));
+    }
+    if (_allMemories.isEmpty) {
+      return _buildEmptyState();
+    }
+    return _buildTimeline_widget();
   }
 
   Widget _buildTimeline_widget() {
@@ -179,7 +169,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
 
     return ListView.builder(
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       itemCount: entries.length + 1,
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -239,14 +229,6 @@ class _MemoriesTabState extends State<MemoriesTab> {
     );
   }
 
-  Widget _buildFab() {
-    return FloatingActionButton(
-      onPressed: _openCreateStandalone,
-      backgroundColor: AppColors.accentRed,
-      elevation: 4,
-      child: const Icon(Icons.add, color: Colors.white),
-    );
-  }
 }
 
 // =============================================================================
