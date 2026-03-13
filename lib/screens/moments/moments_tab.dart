@@ -249,6 +249,13 @@ class _MomentsTabState extends State<MomentsTab> {
     );
   }
 
+  void _showExternalEventDetails(ExternalEvent event) {
+    showMomentDetailsSheet(
+      context: context,
+      moment: event.toMoment(),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -564,7 +571,13 @@ class _MomentsTabState extends State<MomentsTab> {
               ),
             if (dayExternal.isNotEmpty)
               ...dayExternal.map(
-                (e) => _ExternalEventTile(event: e),
+                (e) => _ExternalEventTile(
+                  event: e,
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showExternalEventDetails(e);
+                  },
+                ),
               ),
             if (dayMoments.isEmpty && dayExternal.isEmpty) ...[
               const SizedBox(height: 8),
@@ -608,7 +621,10 @@ class _MomentsTabState extends State<MomentsTab> {
       );
     }
     for (int i = 0; i < visibleExternal.length; i++) {
-      items.add(_ExternalEventTile(event: visibleExternal[i]));
+      items.add(_ExternalEventTile(
+        event: visibleExternal[i],
+        onTap: () => _showExternalEventDetails(visibleExternal[i]),
+      ));
     }
 
     return Container(
@@ -808,9 +824,10 @@ class _MomentTileState extends State<_MomentTile> {
 // =============================================================================
 
 class _ExternalEventTile extends StatelessWidget {
-  const _ExternalEventTile({required this.event});
+  const _ExternalEventTile({required this.event, this.onTap});
 
   final ExternalEvent event;
+  final VoidCallback? onTap;
 
   String get _subtitle {
     final parts = <String>[];
@@ -829,9 +846,12 @@ class _ExternalEventTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
         children: [
           Container(
             width: 28,
@@ -874,7 +894,7 @@ class _ExternalEventTile extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }
-
