@@ -10,7 +10,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../models/memory.dart';
 import '../../models/moment.dart';
 import '../../models/pulse_config.dart';
 import '../../models/user_checkin.dart';
@@ -28,6 +30,7 @@ import 'widgets/activity_trail.dart';
 import 'widgets/event_cards.dart';
 import 'widgets/health_card.dart';
 import 'widgets/health_details_sheet.dart';
+import 'widgets/memory_prompt_card.dart';
 
 /// Dashboard tab widget.
 class DashboardTab extends StatefulWidget {
@@ -60,6 +63,9 @@ class DashboardTabState extends State<DashboardTab> {
   // Non-streamed data
   int _streak = 0;
 
+  // Prompt state
+  Moment? _promptMoment;
+
   // UI state
   bool _isLoading = true;
   bool _hasAnimatedOnce = false;
@@ -84,6 +90,7 @@ class DashboardTabState extends State<DashboardTab> {
     super.initState();
     _subscribeToStreams();
     _loadInitialData();
+    _loadPromptMoment();
   }
 
   @override
@@ -186,12 +193,38 @@ class DashboardTabState extends State<DashboardTab> {
     }
   }
 
+  Future<void> _loadPromptMoment() async {
+    try {
+      final moments = await _firestoreService.getPastMomentsAwaitingMemory(
+        widget.spaceId,
+      );
+      if (!mounted || moments.isEmpty) {
+        if (mounted) setState(() => _promptMoment = null);
+        return;
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+      Moment? candidate;
+      for (final m in moments) {
+        final snoozedUntil = prefs.getInt('snooze_moment_${m.id}') ?? 0;
+        if (DateTime.now().millisecondsSinceEpoch < snoozedUntil) continue;
+        candidate = m;
+        break;
+      }
+
+      if (mounted) setState(() => _promptMoment = candidate);
+    } catch (e) {
+      debugPrint('Error loading prompt moment: $e');
+    }
+  }
+
   Future<void> _handleRefresh() async {
     HapticFeedback.mediumImpact();
 
     try {
       _streak = await _firestoreService.getCheckInStreak(widget.spaceId);
       _recomputeScores();
+      _loadPromptMoment();
 
       // Re-animate health score on refresh
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -211,6 +244,171 @@ class DashboardTabState extends State<DashboardTab> {
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
+
+  void _onCreateMemory() {
+    final moment = _promptMoment;
+    if (moment == null) return;
+    FocusScope.of(context).unfocus();
+    context.push('/memory/${widget.spaceId}/create', extra: moment);
+  }
+
+  void _onMissed() {
+    final moment = _promptMoment;
+    if (moment == null) return;
+    FocusScope.of(context).unfocus();
+    HapticFeedback.mediumImpact();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppColors.darkCardLight,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.event_busy,
+                color: AppColors.warmMuted,
+                size: 36,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Missed this moment?',
+                style: GoogleFonts.outfit(
+                  color: AppColors.warmLight,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Would you like to reschedule it?',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.inter(
+                  color: AppColors.warmDim,
+                  fontSize: 14,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _dismissMissedMoment(moment, rescheduled: false);
+                      },
+                      style: TextButton.styleFrom(
+                        backgroundColor: AppColors.cardVariant,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'No, dismiss',
+                        style: GoogleFonts.inter(
+                          color: AppColors.warmDim,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _dismissMissedMoment(moment, rescheduled: true);
+                      },
+                      style: TextButton.styleFrom(
+                        backgroundColor:
+                            AppColors.accentRed.withValues(alpha: 0.15),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Reschedule',
+                        style: GoogleFonts.outfit(
+                          color: AppColors.accentRed,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _dismissMissedMoment(
+    Moment moment, {
+    required bool rescheduled,
+  }) async {
+    try {
+      await _firestoreService.updateMomentStatus(
+        spaceId: widget.spaceId,
+        momentId: moment.id,
+        status: MomentStatus.missed,
+      );
+
+      final userId = _authService.currentUser?.uid;
+      if (userId != null) {
+        final profile = await _firestoreService.getUserProfile(userId);
+        final userName = profile?['name'] as String? ?? 'Someone';
+
+        await _firestoreService.logMomentMissedActivity(
+          spaceId: widget.spaceId,
+          userId: userId,
+          userName: userName,
+          momentId: moment.id,
+          momentName: moment.name,
+          momentType: moment.type.value,
+          rescheduled: rescheduled,
+        );
+      }
+
+      if (rescheduled && mounted) {
+        context.push('/moment/${widget.spaceId}', extra: moment);
+      }
+
+      if (mounted) _loadPromptMoment();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update moment: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onSkip() async {
+    final moment = _promptMoment;
+    if (moment == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final snoozedUntil = DateTime.now()
+        .add(const Duration(days: 7))
+        .millisecondsSinceEpoch;
+    await prefs.setInt('snooze_moment_${moment.id}', snoozedUntil);
+
+    if (mounted) _loadPromptMoment();
+  }
 
   /// Opens a moment or check-in details sheet by entity ID.
   /// Called from notification deep links.
@@ -412,6 +610,12 @@ class DashboardTabState extends State<DashboardTab> {
       case EntityType.checkin:
         _showCheckinDetails(activity);
         break;
+      case EntityType.memory:
+        final entityId = activity.entityId;
+        if (entityId != null && entityId.isNotEmpty) {
+          context.push('/memory/${widget.spaceId}/$entityId');
+        }
+        break;
       case EntityType.space:
       case null:
         break;
@@ -503,6 +707,15 @@ class DashboardTabState extends State<DashboardTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_promptMoment != null) ...[
+              MemoryPromptCard(
+                moment: _promptMoment!,
+                onCreateMemory: _onCreateMemory,
+                onMissed: _onMissed,
+                onSkip: _onSkip,
+              ),
+              const SizedBox(height: 12),
+            ],
             _buildMainGrid(),
             const SizedBox(height: 12),
             _buildActivityTrail(),
