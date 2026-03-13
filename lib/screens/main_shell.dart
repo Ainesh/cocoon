@@ -14,6 +14,7 @@ import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import 'dashboard/dashboard_tab.dart';
+import 'memories/memories_tab.dart';
 import 'moments/moments_tab.dart';
 import 'settings/integrations_sheet.dart';
 
@@ -52,7 +53,7 @@ class _MainShellState extends State<MainShell> {
     _tabs = [
       DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
       MomentsTab(spaceId: widget.spaceId),
-      const _ComingSoonPage(),
+      MemoriesTab(spaceId: widget.spaceId),
     ];
     _loadSpaceName();
     _registerFcmToken();
@@ -218,9 +219,9 @@ class _MainShellState extends State<MainShell> {
   static const _slotIcons = [
     Icons.space_dashboard_rounded,
     Icons.calendar_today_rounded,
-    Icons.hardware_rounded,
-    Icons.hardware_rounded,
-    Icons.hardware_rounded,
+    Icons.auto_stories_rounded,
+    Icons.auto_stories_rounded,
+    Icons.auto_stories_rounded,
   ];
 
   /// Maps a visual slot index to the logical tab index.
@@ -844,47 +845,3 @@ class _PulseAttributePickerSheetState
   }
 }
 
-/// Coming Soon placeholder page.
-class _ComingSoonPage extends StatelessWidget {
-  const _ComingSoonPage();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.hardware_rounded,
-              color: _refinedRed.withValues(alpha: 0.6),
-              size: 48,
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'More features are\non the way',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.outfit(
-                color: _lightText,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                height: 1.3,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'The team is working on new features to help you grow together. Look out for updates!',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                color: _dimText,
-                fontSize: 14,
-                height: 1.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

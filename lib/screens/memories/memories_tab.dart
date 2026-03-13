@@ -1,0 +1,264 @@
+/// Memories tab — a vertical chronological timeline of sealed memories.
+///
+/// Groups moment-linked memories under shared headers (FR-5.6.5).
+/// Standalone memories appear as individual cards (FR-5.6.6).
+/// Newest first (FR-5.6.3). FAB for standalone creation (FR-5.3.2).
+library;
+
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../models/memory.dart';
+import '../../services/auth_service.dart';
+import '../../services/firestore_service.dart';
+import '../../theme/app_colors.dart';
+import '../../widgets/memory_card.dart';
+import '../../widgets/moment_group_header.dart';
+import '../../widgets/neumorphic_container.dart';
+
+/// The Memories tab content — 3rd tab in the main shell.
+class MemoriesTab extends StatefulWidget {
+  const MemoriesTab({super.key, required this.spaceId});
+
+  final String spaceId;
+
+  @override
+  State<MemoriesTab> createState() => _MemoriesTabState();
+}
+
+class _MemoriesTabState extends State<MemoriesTab> {
+  // ---------------------------------------------------------------------------
+  // Services
+  // ---------------------------------------------------------------------------
+
+  final _authService = AuthService();
+  final _firestoreService = FirestoreService();
+
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
+
+  StreamSubscription? _memoriesSub;
+  List<Memory> _allMemories = [];
+  bool _isLoading = true;
+
+  /// Cache: userId → display name.
+  final _nameCache = <String, String>{};
+
+  // ---------------------------------------------------------------------------
+  // Lifecycle
+  // ---------------------------------------------------------------------------
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void dispose() {
+    _memoriesSub?.cancel();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    _memoriesSub = _firestoreService
+        .watchMemories(widget.spaceId)
+        .listen((memories) async {
+      if (!mounted) return;
+
+      // Resolve creator names
+      final uniqueUserIds = memories.map((m) => m.createdBy).toSet();
+      for (final uid in uniqueUserIds) {
+        if (!_nameCache.containsKey(uid)) {
+          final profile = await _firestoreService.getUserProfile(uid);
+          _nameCache[uid] = profile?['name'] as String? ?? 'Someone';
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _allMemories = memories;
+        _isLoading = false;
+      });
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Timeline Grouping
+  // ---------------------------------------------------------------------------
+
+  /// Builds a flat list of display items: moment group headers + individual cards.
+  /// Moment-linked memories are grouped; standalone appear individually.
+  /// All sorted by date descending (newest first).
+  List<_TimelineEntry> _buildTimeline() {
+    final momentGroups = <String, List<Memory>>{};
+    final standalones = <Memory>[];
+
+    for (final m in _allMemories) {
+      if (m.momentId != null) {
+        momentGroups.putIfAbsent(m.momentId!, () => []).add(m);
+      } else {
+        standalones.add(m);
+      }
+    }
+
+    final entries = <_TimelineEntry>[];
+
+    for (final group in momentGroups.values) {
+      group.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final representative = group.first;
+      entries.add(_TimelineEntry(
+        sortDate: representative.date,
+        header: _GroupHeaderData(
+          momentName: representative.momentName ?? '',
+          momentType: representative.momentType,
+          date: representative.momentDate ?? representative.date,
+        ),
+        memories: group,
+      ));
+    }
+
+    for (final m in standalones) {
+      entries.add(_TimelineEntry(
+        sortDate: m.date,
+        memories: [m],
+      ));
+    }
+
+    entries.sort((a, b) => b.sortDate.compareTo(a.sortDate));
+    return entries;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  void _openCreateStandalone() {
+    HapticFeedback.mediumImpact();
+    context.push('/memory/${widget.spaceId}/create');
+  }
+
+  void _openMemoryDetail(Memory memory) {
+    HapticFeedback.lightImpact();
+    // Phase 4 will add the detail sheet/route.
+    // For now, this is a no-op placeholder.
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        if (_isLoading)
+          const Center(child: CircularProgressIndicator(color: AppColors.accentRed))
+        else if (_allMemories.isEmpty)
+          _buildEmptyState()
+        else
+          _buildTimeline_widget(),
+
+        // FAB for standalone memory creation
+        Positioned(
+          right: 20,
+          bottom: 20,
+          child: _buildFab(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimeline_widget() {
+    final entries = _buildTimeline();
+
+    return ListView.builder(
+      physics: const ClampingScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
+      itemCount: entries.length,
+      itemBuilder: (context, index) {
+        final entry = entries[index];
+        return _buildTimelineEntry(entry);
+      },
+    );
+  }
+
+  Widget _buildTimelineEntry(_TimelineEntry entry) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (entry.header != null)
+          MomentGroupHeader(
+            momentName: entry.header!.momentName,
+            momentType: entry.header!.momentType,
+            date: entry.header!.date,
+          ),
+        for (final memory in entry.memories) ...[
+          MemoryCard(
+            memory: memory,
+            creatorName: _nameCache[memory.createdBy] ?? 'Someone',
+            currentUserId: _authService.currentUser?.uid,
+            onTap: () => _openMemoryDetail(memory),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: EmptyState(
+          icon: Icons.auto_stories_rounded,
+          title: 'Your story starts here',
+          subtitle: 'Live a moment, seal a memory.',
+          actionLabel: 'Add a memory',
+          onAction: _openCreateStandalone,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFab() {
+    return FloatingActionButton(
+      onPressed: _openCreateStandalone,
+      backgroundColor: AppColors.accentRed,
+      elevation: 4,
+      child: const Icon(Icons.add, color: Colors.white),
+    );
+  }
+}
+
+// =============================================================================
+// Internal Data Structures
+// =============================================================================
+
+class _GroupHeaderData {
+  const _GroupHeaderData({
+    required this.momentName,
+    this.momentType,
+    required this.date,
+  });
+
+  final String momentName;
+  final String? momentType;
+  final DateTime date;
+}
+
+class _TimelineEntry {
+  const _TimelineEntry({
+    required this.sortDate,
+    this.header,
+    required this.memories,
+  });
+
+  final DateTime sortDate;
+  final _GroupHeaderData? header;
+  final List<Memory> memories;
+}

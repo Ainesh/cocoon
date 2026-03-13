@@ -11,6 +11,8 @@ export 'dotted_slider.dart';
 export 'moment_type_icon.dart'; // getMomentTypeIcon, getMomentTypeIconWidget
 export 'neumorphic_container.dart'; // Includes PremiumCard, SectionHeader
 export 'app_calendar.dart';
+export 'memory_card.dart';
+export 'moment_group_header.dart';
 export 'photo_picker_grid.dart';
 export 'slide_to_action.dart';
 
