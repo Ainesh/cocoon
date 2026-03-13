@@ -529,68 +529,122 @@ class _MomentsTabState extends State<MomentsTab> {
           }).toList()
         : <ExternalEvent>[];
 
+    final hasEvents = dayMoments.isNotEmpty || dayExternal.isNotEmpty;
+
+    final items = <Widget>[];
+    for (final m in dayMoments) {
+      items.add(
+        _MomentTile(
+          moment: m,
+          showDate: false,
+          onTap: () {
+            Navigator.pop(context);
+            _showMomentDetails(m);
+          },
+        ),
+      );
+    }
+    for (final e in dayExternal) {
+      items.add(
+        _ExternalEventTile(
+          event: e,
+          onTap: () {
+            Navigator.pop(context);
+            _showExternalEventDetails(e);
+          },
+        ),
+      );
+    }
+
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.darkCardLight,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(AppSpacing.sheetPadding),
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.5,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColors.pureBlack,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: AppColors.warmMuted.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.warmMuted,
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            Text(
-              _formatDayTitle(day),
-              style: GoogleFonts.outfit(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.warmLight,
+            // Header: date + plan button
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 16, 0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _formatDayTitle(day),
+                      style: GoogleFonts.outfit(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.warmLight,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(
+                      Icons.add_circle_rounded,
+                      color: AppColors.accentRed,
+                    ),
+                    tooltip: 'Plan a moment',
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      context.push('/moment/${widget.spaceId}');
+                    },
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
-            if (dayMoments.isNotEmpty)
-              ...dayMoments.map(
-                (m) => _MomentTile(
-                  moment: m,
-                  showDate: false,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showMomentDetails(m);
-                  },
+            const SizedBox(height: 16),
+            // Events card or empty state
+            if (hasEvents)
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: _cardDecoration,
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      itemCount: items.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        thickness: 1,
+                        color: AppColors.warmMuted.withValues(alpha: 0.15),
+                      ),
+                      itemBuilder: (_, i) => items[i],
+                    ),
+                  ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: Text(
+                  'No events on this day',
+                  style: GoogleFonts.inter(
+                    color: AppColors.warmMuted,
+                    fontSize: 14,
+                  ),
                 ),
               ),
-            if (dayExternal.isNotEmpty)
-              ...dayExternal.map(
-                (e) => _ExternalEventTile(
-                  event: e,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showExternalEventDetails(e);
-                  },
-                ),
-              ),
-            if (dayMoments.isEmpty && dayExternal.isEmpty) ...[
-              const SizedBox(height: 8),
-              PlanMomentCard(
-                onTap: () {
-                  Navigator.pop(ctx);
-                  context.push('/moment/${widget.spaceId}');
-                },
-              ),
-            ],
           ],
         ),
       ),
