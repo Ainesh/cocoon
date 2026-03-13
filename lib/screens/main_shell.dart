@@ -54,6 +54,7 @@ class _MainShellState extends State<MainShell> {
       DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
       MomentsTab(spaceId: widget.spaceId),
       MemoriesTab(spaceId: widget.spaceId),
+      const _ComingSoonPage(),
     ];
     _loadSpaceName();
     _registerFcmToken();
@@ -186,7 +187,7 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          _selectedTab == 1 ? 'Moments' : (_spaceName ?? 'Home'),
+          _selectedTab == 1 ? 'Moments' : _selectedTab == 2 ? 'Memories' : (_spaceName ?? 'Home'),
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.w700,
             fontSize: 22,
@@ -235,18 +236,21 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  /// 5 visual slots in the nav bar. Slots 0-1 map to tabs 0-1.
-  /// Slots 2-4 all map to tab 2 (Coming Soon) as one wide region.
+  /// 5 visual slots in the nav bar:
+  /// Slot 0 → Tab 0 (Dashboard)
+  /// Slot 1 → Tab 1 (Moments)
+  /// Slot 2 → Tab 2 (Memories)
+  /// Slots 3-4 → Tab 3 (Coming Soon)
   static const _slotIcons = [
     Icons.space_dashboard_rounded,
     Icons.calendar_today_rounded,
     Icons.auto_stories_rounded,
-    Icons.auto_stories_rounded,
-    Icons.auto_stories_rounded,
+    Icons.hardware_rounded,
+    Icons.hardware_rounded,
   ];
 
   /// Maps a visual slot index to the logical tab index.
-  static int _slotToTab(int slot) => slot >= 2 ? 2 : slot;
+  static int _slotToTab(int slot) => slot >= 3 ? 3 : slot;
 
   Widget _buildNavBar() {
     const slotCount = 5;
@@ -866,3 +870,46 @@ class _PulseAttributePickerSheetState
   }
 }
 
+class _ComingSoonPage extends StatelessWidget {
+  const _ComingSoonPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.hardware_rounded,
+              color: _refinedRed.withValues(alpha: 0.6),
+              size: 48,
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'More features are\non the way',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.outfit(
+                color: _lightText,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'The team is working on new features to help you grow together. Look out for updates!',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                color: _dimText,
+                fontSize: 14,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
