@@ -135,7 +135,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
         'Beach Trip',
         '...',
       ],
-      null => [],
+      MomentType.external || null => [],
     };
   }
 
@@ -144,7 +144,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       MomentType.celebrate => 'Occasion',
       MomentType.connect => 'Activity',
       MomentType.escape => 'Your Escape',
-      null => 'Details',
+      MomentType.external || null => 'Details',
     };
   }
 
@@ -369,6 +369,7 @@ class _PlanMomentScreenState extends State<PlanMomentScreen> {
       MomentType.celebrate => 'your special day',
       MomentType.connect => 'over a date',
       MomentType.escape => 'the everyday',
+      MomentType.external => '',
     };
   }
 
