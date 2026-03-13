@@ -226,6 +226,13 @@ class _MomentsTabState extends State<MomentsTab> {
       },
       onDelete: () async {
         try {
+          // Remove from synced calendar first
+          if (moment.isSyncedToCalendar && _calendarIntegration != null) {
+            await _calendarService.deleteCalendarEvents(
+              moment: moment,
+              integration: _calendarIntegration!,
+            );
+          }
           await _firestoreService.deleteMoment(
             spaceId: widget.spaceId,
             momentId: moment.id,

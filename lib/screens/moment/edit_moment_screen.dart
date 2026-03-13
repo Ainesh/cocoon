@@ -15,6 +15,7 @@ import '../../models/moment.dart';
 import '../../utils/date_utils.dart';
 import '../../widgets/app_calendar.dart';
 import '../../services/auth_service.dart';
+import '../../services/calendar_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -306,6 +307,20 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   Future<void> _performDelete() async {
     try {
+      // Remove from synced calendar first
+      if (moment.isSyncedToCalendar) {
+        final userId = _authService.currentUser?.uid;
+        if (userId != null) {
+          final config =
+              await _firestoreService.getIntegrationConfig(userId);
+          if (config.hasCalendar) {
+            await CalendarService().deleteCalendarEvents(
+              moment: moment,
+              integration: config.calendar!,
+            );
+          }
+        }
+      }
       await _firestoreService.deleteMoment(
         spaceId: widget.spaceId,
         momentId: moment.id,
@@ -484,6 +499,25 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         updatedAt: DateTime.now().toUtc(),
         version: moment.version + 1,
       );
+
+      // Update synced calendar event if it exists
+      if (moment.externalEventIds != null &&
+          moment.externalEventIds!.isNotEmpty &&
+          userId != null) {
+        try {
+          final config =
+              await _firestoreService.getIntegrationConfig(userId);
+          if (config.hasCalendar) {
+            await CalendarService().updateCalendarEvent(
+              moment: updatedMoment.copyWith(
+                externalEventIds: moment.externalEventIds,
+              ),
+              integration: config.calendar!,
+              userId: userId,
+            );
+          }
+        } catch (_) {}
+      }
 
       HapticFeedback.heavyImpact();
       if (mounted) context.pop(updatedMoment);

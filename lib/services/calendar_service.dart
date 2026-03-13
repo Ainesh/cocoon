@@ -481,6 +481,155 @@ class CalendarService {
   }
 
   // ---------------------------------------------------------------------------
+  // Update synced event
+  // ---------------------------------------------------------------------------
+
+  /// Updates an already-synced calendar event when a moment is edited.
+  /// Looks up the user's event ID from the moment and updates it in-place.
+  Future<void> updateCalendarEvent({
+    required Moment moment,
+    required CalendarIntegration integration,
+    required String userId,
+  }) async {
+    final eventId = moment.externalEventIds?[userId];
+    if (eventId == null) return;
+
+    try {
+      if (integration.provider == CalendarProvider.google) {
+        await _updateGoogleEvent(moment, integration.calendarId, eventId);
+      } else if (integration.provider == CalendarProvider.apple) {
+        final calId = integration.calendarId;
+        if (calId != null) {
+          await _updateAppleEvent(moment, calId, eventId);
+        }
+      }
+    } catch (e) {
+      debugPrint('Error updating calendar event: $e');
+    }
+  }
+
+  Future<void> _updateGoogleEvent(
+    Moment moment,
+    String? calendarId,
+    String eventId,
+  ) async {
+    var account = await _googleSignIn.signInSilently();
+    account ??= await _googleSignIn.signIn();
+    if (account == null) return;
+
+    final authHeaders = await _googleSignIn.currentUser!.authHeaders;
+    final client = _GoogleAuthClient(authHeaders);
+    final calApi = gcal.CalendarApi(client);
+
+    final event = gcal.Event()
+      ..summary = moment.name
+      ..description = moment.notes;
+
+    if (moment.timeSlot != null) {
+      final (startHour, endHour) = _timeSlotHours(moment.timeSlot!);
+      final start = DateTime(
+        moment.startDate.year, moment.startDate.month, moment.startDate.day,
+        startHour,
+      );
+      final end = DateTime(
+        moment.startDate.year, moment.startDate.month, moment.startDate.day,
+        endHour,
+      );
+      event.start = gcal.EventDateTime(dateTime: start.toUtc());
+      event.end = gcal.EventDateTime(dateTime: end.toUtc());
+    } else if (moment.endDate != null) {
+      event.start = gcal.EventDateTime(date: moment.startDate);
+      event.end = gcal.EventDateTime(
+        date: moment.endDate!.add(const Duration(days: 1)),
+      );
+    } else {
+      event.start = gcal.EventDateTime(date: moment.startDate);
+      event.end = gcal.EventDateTime(
+        date: moment.startDate.add(const Duration(days: 1)),
+      );
+    }
+
+    final target = calendarId ?? 'primary';
+    await calApi.events.update(event, target, eventId);
+    client.close();
+  }
+
+  Future<void> _updateAppleEvent(
+    Moment moment,
+    String calendarId,
+    String eventId,
+  ) async {
+    final startDate = moment.startDate;
+    final endDate = moment.endDate ?? startDate.add(const Duration(days: 1));
+
+    final Event event;
+    if (moment.timeSlot != null) {
+      final (startHour, endHour) = _timeSlotHours(moment.timeSlot!);
+      event = Event(calendarId, eventId: eventId)
+        ..title = moment.name
+        ..description = moment.notes ?? ''
+        ..start = TZDateTime(local, startDate.year, startDate.month, startDate.day, startHour)
+        ..end = TZDateTime(local, startDate.year, startDate.month, startDate.day, endHour);
+    } else {
+      event = Event(calendarId, eventId: eventId)
+        ..title = moment.name
+        ..description = moment.notes ?? ''
+        ..start = TZDateTime(local, startDate.year, startDate.month, startDate.day)
+        ..end = TZDateTime(local, endDate.year, endDate.month, endDate.day, 23, 59)
+        ..allDay = true;
+    }
+
+    await _deviceCalendarPlugin.createOrUpdateEvent(event);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Delete synced event
+  // ---------------------------------------------------------------------------
+
+  /// Deletes calendar events for all users who synced this moment.
+  Future<void> deleteCalendarEvents({
+    required Moment moment,
+    required CalendarIntegration integration,
+  }) async {
+    final eventIds = moment.externalEventIds;
+    if (eventIds == null || eventIds.isEmpty) return;
+
+    try {
+      if (integration.provider == CalendarProvider.google) {
+        for (final eventId in eventIds.values) {
+          await _deleteGoogleEvent(integration.calendarId, eventId);
+        }
+      } else if (integration.provider == CalendarProvider.apple) {
+        final calId = integration.calendarId;
+        if (calId != null) {
+          for (final eventId in eventIds.values) {
+            await _deleteAppleEvent(calId, eventId);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error deleting calendar events: $e');
+    }
+  }
+
+  Future<void> _deleteGoogleEvent(String? calendarId, String eventId) async {
+    var account = await _googleSignIn.signInSilently();
+    account ??= await _googleSignIn.signIn();
+    if (account == null) return;
+
+    final authHeaders = await _googleSignIn.currentUser!.authHeaders;
+    final client = _GoogleAuthClient(authHeaders);
+    final calApi = gcal.CalendarApi(client);
+    final target = calendarId ?? 'primary';
+    await calApi.events.delete(target, eventId);
+    client.close();
+  }
+
+  Future<void> _deleteAppleEvent(String calendarId, String eventId) async {
+    await _deviceCalendarPlugin.deleteEvent(calendarId, eventId);
+  }
+
+  // ---------------------------------------------------------------------------
   // Unlink
   // ---------------------------------------------------------------------------
 
