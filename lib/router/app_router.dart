@@ -15,6 +15,7 @@ import '../screens/login_screen.dart';
 import '../screens/main_shell.dart';
 import '../screens/memory/create_memory_screen.dart';
 import '../screens/memory/edit_memory_screen.dart';
+import '../screens/memory/memory_detail_page.dart';
 import '../screens/moment/edit_moment_screen.dart';
 import '../screens/moment/plan_moment_screen.dart';
 import '../screens/onboarding_screen.dart';
@@ -129,6 +130,20 @@ abstract final class AppRouter {
         return _slideTransition(
           state,
           CreateMemoryScreen(spaceId: spaceId, moment: moment),
+        );
+      },
+    ),
+
+    // Memory Detail - View memory (loaded by ID, opens detail sheet)
+    GoRoute(
+      path: '/memory/:spaceId/:memoryId',
+      name: 'memoryDetail',
+      pageBuilder: (context, state) {
+        final spaceId = state.pathParameters['spaceId'] ?? '';
+        final memoryId = state.pathParameters['memoryId'] ?? '';
+        return _fadeTransition(
+          state,
+          MemoryDetailPage(spaceId: spaceId, memoryId: memoryId),
         );
       },
     ),
