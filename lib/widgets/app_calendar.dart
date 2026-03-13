@@ -517,6 +517,7 @@ class _MonthGrid extends StatelessWidget {
         final day = DateTime(month.year, month.month, dayNum);
         final isToday = day == todayLocal;
         final isSelected = selectedDay != null && _isSameDay(selectedDay!, day);
+        final isPast = day.isBefore(todayLocal);
         final markerKey = DateTime(month.year, month.month, dayNum);
         final heatAlpha = eventCounts?[markerKey] ?? 0.0;
         final hasEvents = heatAlpha > 0;
@@ -537,6 +538,8 @@ class _MonthGrid extends StatelessWidget {
           );
         }
 
+        final dimmedAlpha = isPast ? heatAlpha * 0.4 : heatAlpha;
+
         return GestureDetector(
           onTap: () => onDaySelected(day),
           behavior: HitTestBehavior.opaque,
@@ -546,17 +549,19 @@ class _MonthGrid extends StatelessWidget {
               height: 34,
               decoration: hasEvents
                   ? BoxDecoration(
-                      color: AppColors.accentRed.withValues(alpha: heatAlpha),
+                      color: AppColors.accentRed.withValues(alpha: dimmedAlpha),
                       borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.accentRed.withValues(
-                            alpha: heatAlpha * 0.5,
-                          ),
-                          blurRadius: 6,
-                          spreadRadius: 1,
-                        ),
-                      ],
+                      boxShadow: isPast
+                          ? null
+                          : [
+                              BoxShadow(
+                                color: AppColors.accentRed.withValues(
+                                  alpha: heatAlpha * 0.5,
+                                ),
+                                blurRadius: 6,
+                                spreadRadius: 1,
+                              ),
+                            ],
                     )
                   : null,
               alignment: Alignment.center,
@@ -564,10 +569,14 @@ class _MonthGrid extends StatelessWidget {
                 '${day.day}',
                 style: GoogleFonts.outfit(
                   color: hasEvents
-                      ? AppColors.pureBlack
-                      : isToday
-                          ? AppColors.warmLight
-                          : AppColors.warmLight.withValues(alpha: 0.8),
+                      ? (isPast
+                          ? AppColors.warmLight.withValues(alpha: 0.5)
+                          : AppColors.pureBlack)
+                      : isPast
+                          ? AppColors.warmMuted.withValues(alpha: 0.5)
+                          : isToday
+                              ? AppColors.warmLight
+                              : AppColors.warmLight.withValues(alpha: 0.8),
                   fontSize: 14,
                   fontWeight: isToday ? FontWeight.w800 : FontWeight.w600,
                 ),
