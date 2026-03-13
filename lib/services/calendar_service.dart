@@ -105,7 +105,23 @@ class CalendarService {
         ..summary = moment.name
         ..description = moment.notes;
 
-      if (moment.endDate != null) {
+      if (moment.timeSlot != null) {
+        final (startHour, endHour) = _timeSlotHours(moment.timeSlot!);
+        final start = DateTime(
+          moment.startDate.year,
+          moment.startDate.month,
+          moment.startDate.day,
+          startHour,
+        );
+        final end = DateTime(
+          moment.startDate.year,
+          moment.startDate.month,
+          moment.startDate.day,
+          endHour,
+        );
+        event.start = gcal.EventDateTime(dateTime: start.toUtc());
+        event.end = gcal.EventDateTime(dateTime: end.toUtc());
+      } else if (moment.endDate != null) {
         event.start = gcal.EventDateTime(date: moment.startDate);
         event.end = gcal.EventDateTime(
           date: moment.endDate!.add(const Duration(days: 1)),
@@ -199,12 +215,22 @@ class CalendarService {
       final endDate =
           moment.endDate ?? moment.startDate.add(const Duration(days: 1));
 
-      final event = Event(calendarId)
-        ..title = moment.name
-        ..description = moment.notes ?? ''
-        ..start = TZDateTime(local, startDate.year, startDate.month, startDate.day)
-        ..end = TZDateTime(local, endDate.year, endDate.month, endDate.day, 23, 59)
-        ..allDay = true;
+      final Event event;
+      if (moment.timeSlot != null) {
+        final (startHour, endHour) = _timeSlotHours(moment.timeSlot!);
+        event = Event(calendarId)
+          ..title = moment.name
+          ..description = moment.notes ?? ''
+          ..start = TZDateTime(local, startDate.year, startDate.month, startDate.day, startHour)
+          ..end = TZDateTime(local, startDate.year, startDate.month, startDate.day, endHour);
+      } else {
+        event = Event(calendarId)
+          ..title = moment.name
+          ..description = moment.notes ?? ''
+          ..start = TZDateTime(local, startDate.year, startDate.month, startDate.day)
+          ..end = TZDateTime(local, endDate.year, endDate.month, endDate.day, 23, 59)
+          ..allDay = true;
+      }
 
       debugPrint('Apple sync: calendarId=$calendarId, title=${moment.name}');
       final result = await _deviceCalendarPlugin.createOrUpdateEvent(event);
@@ -400,6 +426,16 @@ class CalendarService {
       debugPrint('Error fetching Apple events: $e');
       return [];
     }
+  }
+
+  /// Maps a TimeSlot to (startHour, endHour) for timed calendar events.
+  static (int, int) _timeSlotHours(TimeSlot slot) {
+    return switch (slot) {
+      TimeSlot.morning => (6, 12),
+      TimeSlot.afternoon => (12, 17),
+      TimeSlot.evening => (17, 21),
+      TimeSlot.night => (21, 23),
+    };
   }
 
   static int? _parseHexColor(String hex) {
