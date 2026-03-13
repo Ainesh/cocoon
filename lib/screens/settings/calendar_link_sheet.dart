@@ -72,7 +72,7 @@ class _CalendarLinkSheetState extends State<CalendarLinkSheet> {
 
     final result = await widget.calendarService.linkApple(
       userId: widget.userId,
-      spaceName: widget.spaceName,
+      spaceName: widget.spaceName,  
     );
 
     if (!mounted) return;
