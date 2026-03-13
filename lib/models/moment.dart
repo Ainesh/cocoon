@@ -8,6 +8,8 @@ library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'memory.dart';
+
 // =============================================================================
 // Enums
 // =============================================================================
@@ -147,6 +149,7 @@ class Moment {
     this.createdAt,
     this.updatedAt,
     this.version = 1,
+    this.status = MomentStatus.planned,
     this.externalEventIds,
   });
 
@@ -185,6 +188,9 @@ class Moment {
 
   /// Optimistic lock version — incremented on each update.
   final int version;
+
+  /// Lifecycle status: planned (default), lived (has memory), missed.
+  final MomentStatus status;
 
   /// Per-user external calendar event IDs after syncing (userId → eventId).
   final Map<String, String>? externalEventIds;
@@ -226,6 +232,7 @@ class Moment {
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
       version: json['version'] as int? ?? 1,
+      status: MomentStatus.fromValue(json['status'] as String? ?? 'planned'),
       externalEventIds: json['externalEventIds'] != null
           ? Map<String, String>.from(json['externalEventIds'] as Map)
           : null,
@@ -252,6 +259,7 @@ class Moment {
           : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'version': version,
+      'status': status.value,
       if (externalEventIds != null) 'externalEventIds': externalEventIds,
     };
   }
@@ -399,6 +407,7 @@ class Moment {
     DateTime? createdAt,
     DateTime? updatedAt,
     int? version,
+    MomentStatus? status,
     Map<String, String>? externalEventIds,
   }) {
     return Moment(
@@ -413,6 +422,7 @@ class Moment {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       version: version ?? this.version,
+      status: status ?? this.status,
       externalEventIds: externalEventIds ?? this.externalEventIds,
     );
   }

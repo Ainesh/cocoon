@@ -62,6 +62,38 @@ service cloud.firestore {
         allow read, write: if request.auth != null &&
           request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
       }
+
+      // Memories subcollection
+      match /memories/{memoryId} {
+        // Any space member can read
+        allow read: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds;
+
+        // Create: member only, must set createdBy to own uid, required fields present
+        allow create: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.keys().hasAll(['createdBy', 'date', 'createdAt', 'photoPaths', 'thumbPaths', 'reactions']);
+
+        // Update: creator can edit content, OR any member can update only their own reaction key
+        allow update: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds
+          && (
+            // Creator editing memory content
+            request.auth.uid == resource.data.createdBy
+            ||
+            // Any member updating only their own reaction
+            (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+              && request.resource.data.reactions.diff(resource.data.reactions).affectedKeys().hasOnly([request.auth.uid])
+            )
+          );
+
+        // Only the creator can delete
+        allow delete: if request.auth != null
+          && request.auth.uid in get(/databases/$(database)/documents/spaces/$(spaceId)).data.memberIds
+          && request.auth.uid == resource.data.createdBy;
+      }
     }
 
     // Users - read for space members, write only for self

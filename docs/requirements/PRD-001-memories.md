@@ -7,7 +7,7 @@
 | **Author**       | Product / Engineering                      |
 | **Status**       | Draft                                      |
 | **Created**      | 2026-03-12                                 |
-| **Last Updated** | 2026-03-12                                 |
+| **Last Updated** | 2026-03-13 (v0.3)                           |
 | **Target Release** | TBD                                      |
 | **Stakeholders** | Product, Engineering, Design               |
 
@@ -28,6 +28,9 @@
    - 5.6 [Memories Showcase (Tab)](#56-memories-showcase-tab)
    - 5.7 [Prompting System](#57-prompting-system)
    - 5.8 [Activity Trail Integration](#58-activity-trail-integration)
+   - 5.9 [Memory Editing](#59-memory-editing)
+   - 5.10 [Memory Deletion](#510-memory-deletion)
+   - 5.11 [Partner Reactions](#511-partner-reactions)
 6. [Non-Functional Requirements](#6-non-functional-requirements)
 7. [Data Model](#7-data-model)
 8. [User Flows](#8-user-flows)
@@ -43,7 +46,7 @@
 
 ## 1. Executive Summary
 
-Memories is a new core feature for Kairos that closes the moment lifecycle loop. Today, users plan moments (Connect, Celebrate, Escape) and those moments silently expire once their date passes. Memories transforms that dead end into the most emotionally engaging part of the product: users capture how the moment felt through photos, a caption, a place, a song, and an embedded pulse check-in. The result is a sealed, immutable time capsule — personal to the creator but visible to both partners in a shared chronological timeline.
+Memories is a new core feature for Kairos that closes the moment lifecycle loop. Today, users plan moments (Connect, Celebrate, Escape) and those moments silently expire once their date passes. Memories transforms that dead end into the most emotionally engaging part of the product: users capture how the moment felt through photos, a caption, a place, a song, and an embedded pulse check-in. The result is a personal time capsule — created by one partner but visible to both in a shared chronological timeline, where either partner can react with lightweight emoji responses. Memories can be edited or deleted after creation, with all changes tracked in the activity trail for transparency.
 
 This feature directly increases retention (reason to return after moments pass), engagement depth (new content creation surface), and data richness (pulse check-ins tied to real experiences). It positions Kairos to monetize around storage, exports, and premium showcase features in future iterations.
 
@@ -67,7 +70,7 @@ Once a moment's date passes, the app offers zero engagement. The user planned so
 
 The post-moment window is when emotional investment peaks. A couple just had a date night, came back from a trip, or celebrated an anniversary. Capturing that moment while it's fresh creates:
 
-- **Emotional lock-in**: A growing scrapbook of sealed memories that becomes harder to leave.
+- **Emotional lock-in**: A growing scrapbook of memories that becomes harder to leave.
 - **Engagement loop**: Plan → Live → Remember → Plan again.
 - **Data depth**: Pulse check-ins tied to real experiences produce richer relationship health signals.
 - **Monetization surface**: Photo storage, premium timeline views, PDF exports, "On This Day" nostalgia.
@@ -105,12 +108,10 @@ Kairos differentiates by tying structured reflection (pulse check-in, place, mus
 |------|-----------------------------------------------------------------------------------|--------------------------------------|
 | NG-1 | Google Places / map integration for locations                                     | Defer to reduce API cost and scope   |
 | NG-2 | Spotify / Apple Music integration for music                                       | Defer to reduce third-party dependency |
-| NG-3 | Memory editing after seal                                                         | Core design: immutable time capsule   |
-| NG-4 | Monetization / paywall                                                            | Focus on retention and engagement first |
-| NG-5 | Partner reactions to memories (likes, comments)                                   | V2 social layer                       |
-| NG-6 | "On This Day" nostalgia prompts                                                  | Requires 1yr+ data, plan for future   |
-| NG-7 | PDF / print export of memory scrapbook                                            | Premium feature for later             |
-| NG-8 | Video attachments                                                                 | Storage cost; photos only for V1      |
+| NG-3 | Monetization / paywall                                                            | Focus on retention and engagement first |
+| NG-4 | "On This Day" nostalgia prompts                                                  | Requires 1yr+ data, plan for future   |
+| NG-5 | PDF / print export of memory scrapbook                                            | Premium feature for later             |
+| NG-6 | Video attachments                                                                 | Storage cost; photos only for V1      |
 
 ---
 
@@ -120,7 +121,7 @@ Kairos differentiates by tying structured reflection (pulse check-in, place, mus
 
 - Plans moments ahead of time using the app
 - Wants to document and preserve the experience after living it
-- Values the "sealed time capsule" concept — treats it like a journal entry
+- Values the time capsule concept — treats it like a journal entry
 - Likely to add photos, a caption, and a check-in
 
 ### 4.2 Secondary: The Spontaneous Documenter
@@ -199,7 +200,7 @@ stateDiagram-v2
 6. Provide haptic feedback (`heavyImpact`)
 7. Navigate back to the previous screen or the Memories tab
 
-**FR-5.2.8**: The memory document SHALL be immutable after creation. No update or edit operations SHALL be exposed in the UI or service layer.
+**FR-5.2.8**: Memories SHALL be editable and deletable after creation. See FR-5.9 (Memory Editing) and FR-5.10 (Memory Deletion) for full requirements. All modifications SHALL be tracked in the activity trail for transparency.
 
 ### 5.3 Memory Creation — Standalone
 
@@ -248,9 +249,10 @@ stateDiagram-v2
 
 ### 5.5 Missed Moment Flow
 
-**FR-5.5.1**: When a user is prompted about a past moment (via dashboard card or notification), they SHALL have two options:
+**FR-5.5.1**: When a user is prompted about a past moment (via dashboard card or notification), they SHALL have three options:
 - **"Create Memory"** — enters the memory creation flow (FR-5.2)
 - **"Didn't happen"** — enters the missed moment flow
+- **"Skip"** — snoozes the prompt (see FR-5.7.1.3)
 
 **FR-5.5.2**: Upon selecting "Didn't happen", the system SHALL present a confirmation dialog:
 - Title: "Missed this moment?"
@@ -286,6 +288,7 @@ Dashboard  |  Moments  |  Memories
 - Place tag (if present): location pin icon + text
 - Music tag (if present): music note icon + text
 - Mood indicator: derived from the pulse check-in attribute scores (if present)
+- Partner reaction (if present): small emoji badge
 - Creator: avatar + display name
 - Date: formatted relative or absolute
 
@@ -296,7 +299,13 @@ Dashboard  |  Moments  |  Memories
 
 **FR-5.6.6**: Standalone memories (`momentId == null`) SHALL appear as individual cards in the timeline, not grouped.
 
-**FR-5.6.7**: Tapping a memory card SHALL open a full-screen detail view showing all content fields in a read-only, immutable layout.
+**FR-5.6.7**: Tapping a memory card SHALL open a full-screen detail view showing all content fields. The detail view SHALL include:
+- All memory content displayed in a read-only layout
+- Partner reaction display (emoji + partner name, if present)
+- A reaction button for the partner to add/change their reaction (FR-5.11)
+- An edit button visible only to the memory creator (FR-5.9)
+- A delete button visible only to the memory creator (FR-5.10)
+- An "Edited" indicator with relative timestamp if the memory has been modified
 
 **FR-5.6.8 — Empty State**: When no memories exist, the tab SHALL display:
 - An illustration or icon
@@ -317,11 +326,17 @@ Dashboard  |  Moments  |  Memories
 - Moment type icon
 - Moment name
 - Moment date (formatted)
-- Two CTA buttons: **"Create Memory"** | **"Didn't happen"**
+- Three CTA buttons: **"Create Memory"** | **"Didn't happen"** | **"Skip"**
 
-**FR-5.7.1.3**: The card SHALL be dismissible (snooze). Dismissing SHALL NOT change the moment's status. The card SHALL reappear the next time the user opens the app.
+**FR-5.7.1.3**: The **"Skip"** action SHALL snooze the prompt for that specific moment for **7 days**. After the snooze period, the card SHALL reappear if the moment still has no memory and is not marked missed.
 
-**FR-5.7.1.4**: The card SHALL be positioned prominently on the dashboard (above the Coming Up card).
+**FR-5.7.1.4 — Hard Cutoff**: The prompting system SHALL stop showing prompt cards and sending notifications for moments older than **14 days** past their end date. Past that window:
+- The dashboard card SHALL NOT appear for the moment
+- No further push notifications SHALL be sent for the moment
+- The moment's status SHALL remain `planned` — the user can still create a memory manually from the Memories tab or Moments tab, but the app stops actively prompting
+- This prevents stale prompts from accumulating and creating dashboard clutter
+
+**FR-5.7.1.5**: The card SHALL be positioned prominently on the dashboard (above the Coming Up card).
 
 #### 5.7.2 Push Notification
 
@@ -337,13 +352,15 @@ Dashboard  |  Moments  |  Memories
 
 **FR-5.7.2.4**: The notification SHALL only be sent if:
 - The moment has `status == 'planned'` (no memory exists, not marked missed)
+- The moment is within the 14-day hard cutoff window (FR-5.7.1.4)
 - The user has memory prompt notifications enabled
 
-**FR-5.7.2.5**: A new entry SHALL be added to `NotificationPreferences`:
+**FR-5.7.2.5**: New entries SHALL be added to `NotificationPreferences`:
 
-| Activity       | Default Priority | Default Enabled |
-|----------------|-----------------|-----------------|
-| Memory Prompt  | Normal          | Yes             |
+| Activity         | Default Priority | Default Enabled |
+|------------------|-----------------|-----------------|
+| Memory Prompt    | Normal          | Yes             |
+| Memory Reaction  | Low             | Yes             |
 
 ### 5.8 Activity Trail Integration
 
@@ -357,9 +374,111 @@ Dashboard  |  Moments  |  Memories
 - `momentName`: the moment name
 - `rescheduled`: boolean indicating if the user chose to reschedule
 
-**FR-5.8.3**: Both activity types SHALL appear in the Activity Trail with appropriate icons and descriptions:
+**FR-5.8.3**: All memory-related activity types SHALL appear in the Activity Trail with appropriate icons and descriptions:
 - Memory created: "You sealed a memory for [Moment Name]"
+- Memory edited: "You edited your memory for [Moment Name]"
+- Memory deleted: "You removed your memory for [Moment Name]"
+- Memory reaction: "[Partner Name] reacted to your memory for [Moment Name]"
 - Moment missed: "You marked [Moment Name] as missed"
+
+**FR-5.8.4**: A new `ActivityType.memoryEdited` SHALL be added. Metadata:
+- `memoryId`: the edited memory's document ID
+- `momentId`: the linked moment ID (if any)
+- `momentName`: the moment name (or standalone memory title)
+- `editedFields`: list of field names that changed (e.g., `["caption", "photos"]`)
+
+**FR-5.8.5**: A new `ActivityType.memoryDeleted` SHALL be added. Metadata:
+- `memoryId`: the deleted memory's document ID
+- `momentId`: the linked moment ID (if any)
+- `momentName`: the moment name (or standalone memory title)
+
+**FR-5.8.6**: A new `ActivityType.memoryReaction` SHALL be added. Metadata:
+- `memoryId`: the reacted-to memory's document ID
+- `momentName`: the moment name (or standalone memory title)
+- `emoji`: the emoji used for the reaction
+
+### 5.9 Memory Editing
+
+**FR-5.9.1**: Only the **creator** of a memory SHALL be able to edit it. The partner can view it but cannot modify it.
+
+**FR-5.9.2**: The edit action SHALL be accessible from the memory detail view via an edit icon/button, visible only to the creator.
+
+**FR-5.9.3**: The edit screen SHALL reuse the memory creation layout (FR-5.2.4), pre-filled with the existing memory content. All fields SHALL be editable:
+- Photos: add new, remove existing, reorder
+- Caption: modify text
+- Place: modify text
+- Music: modify text
+- Title and date (standalone memories only)
+
+**FR-5.9.4**: The embedded pulse check-in SHALL NOT be editable after creation. If a check-in was submitted with the original memory, the sliders SHALL be displayed in read-only mode during editing. The rationale is that check-in scores feed the health scoring pipeline and should not be retroactively altered.
+
+**FR-5.9.5**: Upon saving an edit, the system SHALL:
+1. Upload any new photos to Firebase Storage
+2. Delete removed photos from Firebase Storage
+3. Update the memory document in Firestore
+4. Set the `updatedAt` timestamp on the memory document
+5. Log a `memoryEdited` activity with the list of changed fields
+6. Provide haptic feedback (`mediumImpact`)
+7. Navigate back to the memory detail view
+
+**FR-5.9.6**: The save action SHALL use the existing `SlideToAction` component with the label "Save changes".
+
+### 5.10 Memory Deletion
+
+**FR-5.10.1**: Only the **creator** of a memory SHALL be able to delete it.
+
+**FR-5.10.2**: The delete action SHALL be accessible from the memory detail view via a delete icon/button, visible only to the creator.
+
+**FR-5.10.3**: Deletion SHALL require a confirmation dialog:
+- Title: "Delete this memory?"
+- Body: "This will permanently remove this memory. This action cannot be undone."
+- Actions: **"Delete"** (destructive) | **"Cancel"**
+
+**FR-5.10.4**: Upon confirming deletion, the system SHALL:
+1. Delete the memory document from Firestore
+2. Delete all associated photos from Firebase Storage
+3. If this was the only memory linked to a moment, revert the moment's `status` from `lived` back to `planned` (so the prompting system can re-engage)
+4. Log a `memoryDeleted` activity
+5. Navigate back to the Memories tab
+
+**FR-5.10.5**: The linked `UserCheckIn` document (if any) SHALL NOT be deleted when a memory is deleted. Check-in data is part of the health scoring pipeline and should remain intact.
+
+**FR-5.10.6**: Deleted memories SHALL NOT be recoverable (no soft delete / trash in V1).
+
+### 5.11 Partner Reactions
+
+**FR-5.11.1**: Both partners SHALL be able to react to each other's memories with a single emoji reaction.
+
+**FR-5.11.2**: Each user MAY have at most **one active reaction** per memory. Reacting again SHALL replace the previous reaction.
+
+**FR-5.11.3**: The reaction interaction SHALL be a tap on a reaction button/icon on the memory card or detail view. Tapping SHALL open a small emoji picker with a curated set of reaction options:
+
+| Emoji | Meaning     |
+|-------|-------------|
+| ❤️    | Love        |
+| 😂    | Funny       |
+| 🥹    | Touched     |
+| 🔥    | Fire        |
+| 🥰    | Adoring     |
+| ✨    | Amazing     |
+
+**FR-5.11.4**: Tapping an already-selected emoji SHALL remove the reaction (toggle behavior).
+
+**FR-5.11.5**: Reactions SHALL be stored on the memory document in a `reactions` map (see Data Model section 7.1).
+
+**FR-5.11.6**: The partner's reaction (if any) SHALL be displayed on:
+- The memory card in the timeline (small emoji badge)
+- The memory detail view (emoji + partner name)
+
+**FR-5.11.7**: Adding or changing a reaction SHALL:
+1. Update the memory document's `reactions` map
+2. Log a `memoryReaction` activity
+3. Provide haptic feedback (`lightImpact`)
+
+**FR-5.11.8**: A push notification SHALL be sent to the memory creator when their partner reacts:
+- Title: "[Partner Name] reacted to your memory"
+- Body: "[Emoji] on [Moment Name / Memory Title]"
+- Tapping SHALL deep-link to the memory detail view
 
 ---
 
@@ -410,22 +529,38 @@ Dashboard  |  Moments  |  Memories
 
 ### 7.1 Memory Document
 
+**Document ID convention:**
+- Moment-linked memories: `{momentId}_{userId}` — enforces 1 memory per user per moment.
+- Standalone memories: auto-generated by Firestore `.doc()`.
+
 ```
 Collection: spaces/{spaceId}/memories/{memoryId}
 
 {
-  "momentId":   String | null,       // linked moment ID, null for standalone
-  "title":      String | null,       // standalone memories only (max 100 chars)
-  "createdBy":  String,              // userId
-  "photoUrls":  List<String>,        // Firebase Storage download URLs (max 3)
-  "caption":    String,              // max 280 chars, empty string if not provided
-  "place":      String | null,       // free text location
-  "music":      String | null,       // free text song/artist
-  "checkinId":  String | null,       // linked UserCheckIn document ID
-  "date":       Timestamp,           // when the experience happened (UTC midnight)
-  "createdAt":  Timestamp            // server timestamp when sealed
+  "momentId":    String | null,       // linked moment ID, null for standalone
+  "momentName":  String | null,       // denormalized: moment name at seal time
+  "momentType":  String | null,       // denormalized: "connect" | "celebrate" | "escape"
+  "momentDate":  Timestamp | null,    // denormalized: moment startDate at seal time
+  "title":       String | null,       // standalone memories only (max 100 chars)
+  "createdBy":   String,              // userId
+  "photoPaths":  List<String>,        // Firebase Storage paths (max 3), e.g. "spaces/x/memories/y/photo_0.jpg"
+  "thumbPaths":  List<String>,        // Firebase Storage paths for 300px thumbnails
+  "caption":     String | null,       // max 280 chars, null if not provided
+  "place":       String | null,       // free text location
+  "music":       String | null,       // free text song/artist
+  "checkinId":   String | null,       // linked UserCheckIn document ID
+  "reactions":   Map<String, String>, // userId → emoji (e.g., {"uid123": "❤️"})
+  "date":        Timestamp,           // when the experience happened (UTC midnight)
+  "createdAt":   Timestamp,           // server timestamp when sealed
+  "updatedAt":   Timestamp | null     // server timestamp of last edit, null if never edited
 }
 ```
+
+**Design notes:**
+- `photoPaths` / `thumbPaths` store **storage paths**, not download URLs. URLs are resolved at read time via `getDownloadURL()` and cached client-side. This avoids token expiry issues and simplifies future CDN migration.
+- `momentName`, `momentType`, `momentDate` are denormalized snapshots from the linked moment at seal time. This eliminates N+1 queries when rendering the timeline with moment group headers. Since memories capture a point-in-time reflection, the moment name at seal time is the correct name for the memory.
+- `caption` is nullable (consistent with `place` and `music`). Null means not provided.
+- `reactions` is an inline map for single-read efficiency on timeline cards. Security rules enforce that each user can only modify their own key in the map.
 
 ### 7.2 Moment Document (Updated Fields)
 
@@ -441,12 +576,15 @@ Backward compatibility: existing moments without a `status` field SHALL be treat
 
 ```
 spaces/{spaceId}/memories/{memoryId}/
-  ├── photo_0.jpg
+  ├── photo_0.jpg           # Full-size (1920px max, JPEG 80%)
+  ├── photo_0_thumb.jpg     # Thumbnail (300px, JPEG 80%)
   ├── photo_1.jpg
-  └── photo_2.jpg
+  ├── photo_1_thumb.jpg
+  ├── photo_2.jpg
+  └── photo_2_thumb.jpg
 ```
 
-File naming: `photo_{index}.{extension}` where index is 0-based upload order.
+File naming: `photo_{index}.jpg` for full-size, `photo_{index}_thumb.jpg` for thumbnails. Both generated client-side before upload.
 
 ### 7.4 Entity Relationships
 
@@ -477,7 +615,7 @@ flowchart TD
     C --> D{"User action"}
     D -->|"Create Memory"| E["Memory creation screen"]
     D -->|"Didn't happen"| F["Missed moment dialog"]
-    D -->|"Dismiss/snooze"| G["Card hidden until next open"]
+    D -->|"Skip"| G["Card snoozed for 7 days"]
     E --> H["User adds photos, caption, place, music"]
     H --> I["User adjusts pulse sliders (optional)"]
     I --> J["Slide to seal"]
@@ -543,17 +681,20 @@ The existing stretchy 2-tab selector extends to 3 segments. Icon for Memories: `
 | Route                              | Screen                 | Auth | Description                         |
 |------------------------------------|------------------------|------|-------------------------------------|
 | `/memory/:spaceId/create?momentId` | Create Memory          | Yes  | Memory creation (momentId optional) |
-| `/memory/:spaceId/:memoryId`       | Memory Detail          | Yes  | Full read-only memory view          |
+| `/memory/:spaceId/:memoryId`       | Memory Detail          | Yes  | Full memory view with reactions     |
+| `/memory/:spaceId/:memoryId/edit`  | Edit Memory            | Yes  | Edit memory (creator only)          |
 
 ### 9.3 Deep Link Targets
 
-| Source                  | Target                                            |
-|-------------------------|---------------------------------------------------|
-| Dashboard prompt card   | `/memory/:spaceId/create?momentId=X`              |
-| Push notification tap   | `/memory/:spaceId/create?momentId=X`              |
-| Memories tab card tap   | `/memory/:spaceId/:memoryId`                      |
-| Memories tab FAB        | `/memory/:spaceId/create` (standalone)            |
-| Past moment details     | `/memory/:spaceId/create?momentId=X`              |
+| Source                      | Target                                            |
+|-----------------------------|---------------------------------------------------|
+| Dashboard prompt card       | `/memory/:spaceId/create?momentId=X`              |
+| Push notification (prompt)  | `/memory/:spaceId/create?momentId=X`              |
+| Push notification (reaction)| `/memory/:spaceId/:memoryId`                      |
+| Memories tab card tap       | `/memory/:spaceId/:memoryId`                      |
+| Memories tab FAB            | `/memory/:spaceId/create` (standalone)            |
+| Memory detail edit button   | `/memory/:spaceId/:memoryId/edit`                 |
+| Past moment details         | `/memory/:spaceId/create?momentId=X`              |
 
 ---
 
@@ -590,8 +731,9 @@ Constraints:
 
 ### 10.3 Data Retention
 
-- Memory documents are permanent (immutable, not deletable via UI in V1).
-- Photos in Storage follow the same lifecycle as the memory document.
+- Memory documents are editable and deletable by the creator via UI.
+- Photos in Storage follow the same lifecycle as the memory document. When a memory is deleted, associated photos SHALL be removed from Storage.
+- When a photo is removed during editing, the corresponding Storage file SHALL be deleted.
 - If a space is deleted, all memories and associated storage files SHALL be cleaned up.
 
 ---
@@ -610,7 +752,9 @@ Constraints:
 | **Prompting**        | Dashboard card, push notification, manual entry points          |
 | **Missed Moments**   | Mark missed, reschedule option, archive                         |
 | **Lifecycle**        | Moment `status` field (planned/lived/missed)                    |
-| **Activity**         | `memoryCreated` and `momentMissed` activity types               |
+| **Edit / Delete**    | Creator can edit or delete own memories, tracked in activity trail |
+| **Reactions**        | Lightweight emoji reactions from partner on memories              |
+| **Activity**         | `memoryCreated`, `memoryEdited`, `memoryDeleted`, `memoryReaction`, `momentMissed` activity types |
 | **Security**         | Firestore rules, Storage rules, member-gated access             |
 
 ### 11.2 V2 — Near-Term Future
@@ -619,7 +763,7 @@ Constraints:
 |--------------------------------|------------------------------------------------------------|
 | Google Places integration      | Autocomplete + map pin for location tagging                |
 | Spotify / Apple Music linking  | Search + play snippet for music field                      |
-| Partner reactions              | Heart / emoji reactions on partner's memories              |
+| Extended reactions             | Comments, threaded replies on memories                     |
 | Memory detail animations       | Rich transitions and parallax on detail view               |
 
 ### 11.3 V3 — Long-Term Roadmap
@@ -655,7 +799,8 @@ Constraints:
 | Photo upload failures on poor connectivity         | Medium     | Low    | Save memory without failed photos, offer retry    |
 | Low memory creation rate (users ignore prompts)    | Medium     | High   | Multiple entry points, low friction, no required fields |
 | 3-tab navigation feels crowded on small screens    | Low        | Medium | Test on smallest supported devices, consider icon-only labels |
-| Immutability frustrates users who made mistakes    | Low        | Low    | Clear "seal" language sets expectation pre-creation |
+| Editing/deletion reduces perceived permanence      | Low        | Low    | Activity trail transparency; "seal" language still conveys significance |
+| Storage orphans from edit/delete cycles             | Low        | Low    | Cleanup photos on delete; periodic orphan sweep if needed              |
 
 ---
 
@@ -697,14 +842,15 @@ Constraints:
 
 ## 14. Open Questions
 
-| #  | Question                                                                 | Status  | Decision |
-|----|--------------------------------------------------------------------------|---------|----------|
-| 1  | Should there be a max number of memories per moment (e.g., 1 per user)?  | Open    | —        |
-| 2  | Should missed moments be visible anywhere (a "missed" section)?          | Open    | —        |
-| 3  | Should the pulse check-in in a memory have a distinct source tag in the scoring engine? | Open | — |
-| 4  | What is the photo compression strategy (resize before upload)?           | Open    | —        |
-| 5  | Should the dashboard prompt card have a snooze duration (e.g., 24h) vs. reappearing every open? | Open | — |
-| 6  | How far back should the prompting system look for past moments without memories? | Open | — |
+| #  | Question                                                                 | Status   | Decision |
+|----|--------------------------------------------------------------------------|----------|----------|
+| 1  | Should there be a max number of memories per moment (e.g., 1 per user)?  | Resolved | 1 per user per moment. Doc ID: `{momentId}_{userId}`. Standalone memories use auto-generated IDs. |
+| 2  | Should missed moments be visible anywhere (a "missed" section)?          | Open     | —        |
+| 3  | Should the pulse check-in in a memory have a distinct source tag in the scoring engine? | Resolved | Yes. Check-in metadata includes `source: 'memory'`. Scoring engine treats equally; analytics can distinguish. |
+| 4  | What is the photo compression strategy (resize before upload)?           | Resolved | Client-side resize to 1920px max long edge, JPEG quality 80% (~500 KB). Generate 300px thumbnails for timeline cards (~20 KB). Both uploaded to Storage. |
+| 5  | Should the dashboard prompt card have a snooze duration (e.g., 24h) vs. reappearing every open? | Resolved | "Skip" snoozes for 7 days (FR-5.7.1.3) |
+| 6  | How far back should the prompting system look for past moments without memories? | Resolved | 14-day hard cutoff (FR-5.7.1.4) |
+| 7  | Should memory edits preserve a version history (diff trail)?             | Resolved | No version history in V1. Activity trail logs each edit with `editedFields` list. Full diff trail deferred to V2+. |
 
 ---
 
@@ -714,11 +860,12 @@ Constraints:
 
 | Term           | Definition                                                                           |
 |----------------|--------------------------------------------------------------------------------------|
-| **Memory**     | An immutable, post-experience record capturing photos, text, place, music, and mood. |
+| **Memory**     | A post-experience record capturing photos, text, place, music, and mood. Editable and deletable by the creator. |
 | **Moment**     | A planned event (Connect, Celebrate, Escape) in the couple's calendar.               |
-| **Seal**       | The act of finalizing and locking a memory. Once sealed, it cannot be edited.        |
+| **Seal**       | The act of creating and saving a memory. Sealed memories can be edited or deleted later, with all changes tracked in the activity trail. |
 | **Standalone** | A memory created without a linked planned moment.                                    |
 | **Missed**     | A planned moment that the user indicates did not actually occur.                     |
+| **Reaction**   | A lightweight emoji response from a partner on a memory (one reaction per user per memory). |
 | **Pulse Check-in** | A set of 1-100 scores across relationship attributes (Connection, Intimacy, etc.). |
 
 ### 15.2 Related Documents
@@ -734,3 +881,5 @@ Constraints:
 | Date       | Version | Author          | Changes              |
 |------------|---------|-----------------|----------------------|
 | 2026-03-12 | 0.1     | Product / Eng   | Initial draft        |
+| 2026-03-13 | 0.2     | Product / Eng   | Allow memory editing and deletion (FR-5.9, FR-5.10); add lightweight partner reactions (FR-5.11); add "Skip" option to prompting with 7-day snooze and 14-day hard cutoff (FR-5.7.1.3–4); add memoryEdited, memoryDeleted, memoryReaction activity types; resolve open questions #5 and #6 |
+| 2026-03-13 | 0.3     | Engineering     | Resolve open questions #1 (1 per user per moment), #3 (source tag), #4 (compression + thumbnails), #7 (no version history V1). Update data model: store storage paths instead of download URLs, add thumbnail paths, denormalize momentName/momentType/momentDate, make caption nullable for consistency. Update storage structure with thumbnail files. |

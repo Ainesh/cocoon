@@ -19,7 +19,14 @@ enum ActivityType {
   momentPlanned('moment_planned', 'planned'),
   momentEdited('moment_edited', 'updated'),
   momentDeleted('moment_deleted', 'cancelled'),
-  momentCompleted('moment_completed', 'completed'),
+  momentCompleted('moment_completed', 'completed'), // deprecated: use memoryCreated
+  momentMissed('moment_missed', 'marked as missed'),
+
+  // Memory activities
+  memoryCreated('memory_created', 'sealed a memory'),
+  memoryEdited('memory_edited', 'edited a memory'),
+  memoryDeleted('memory_deleted', 'removed a memory'),
+  memoryReaction('memory_reaction', 'reacted to a memory'),
 
   // Space activities
   spaceCreated('space_created', 'created the space'),
@@ -52,6 +59,15 @@ enum ActivityType {
     ActivityType.momentEdited,
     ActivityType.momentDeleted,
     ActivityType.momentCompleted,
+    ActivityType.momentMissed,
+  ].contains(this);
+
+  /// Whether this activity is related to memories.
+  bool get isMemoryActivity => [
+    ActivityType.memoryCreated,
+    ActivityType.memoryEdited,
+    ActivityType.memoryDeleted,
+    ActivityType.memoryReaction,
   ].contains(this);
 
   /// Whether this activity is related to the space itself.
@@ -68,7 +84,8 @@ enum ActivityType {
 enum EntityType {
   checkin('checkin'),
   moment('moment'),
-  space('space');
+  space('space'),
+  memory('memory');
 
   const EntityType(this.value);
 
@@ -172,6 +189,27 @@ class Activity {
         final name = metadata?['momentName'] as String?;
         return name != null ? 'updated "$name"' : 'updated a moment';
 
+      case ActivityType.momentMissed:
+        final name = metadata?['momentName'] as String?;
+        return name != null ? 'marked "$name" as missed' : 'marked a moment as missed';
+
+      case ActivityType.memoryCreated:
+        final title = metadata?['memoryTitle'] as String?;
+        return title != null ? 'sealed a memory for "$title"' : 'sealed a memory';
+
+      case ActivityType.memoryEdited:
+        final title = metadata?['memoryTitle'] as String?;
+        return title != null ? 'edited a memory for "$title"' : 'edited a memory';
+
+      case ActivityType.memoryDeleted:
+        final title = metadata?['memoryTitle'] as String?;
+        return title != null ? 'removed a memory for "$title"' : 'removed a memory';
+
+      case ActivityType.memoryReaction:
+        final emoji = metadata?['emoji'] as String? ?? '';
+        final title = metadata?['memoryTitle'] as String?;
+        return title != null ? 'reacted $emoji to "$title"' : 'reacted to a memory';
+
       case ActivityType.spaceRenamed:
         final newName = metadata?['newName'] as String?;
         return newName != null
@@ -211,7 +249,9 @@ class Activity {
   bool get isNavigable =>
       entityId != null &&
       entityId!.isNotEmpty &&
-      type != ActivityType.momentDeleted;
+      type != ActivityType.momentDeleted &&
+      type != ActivityType.memoryDeleted &&
+      type != ActivityType.momentMissed;
 
   // ---------------------------------------------------------------------------
   // Firestore Serialization
