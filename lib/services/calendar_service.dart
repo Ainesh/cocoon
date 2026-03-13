@@ -119,8 +119,9 @@ class CalendarService {
           moment.startDate.day,
           endHour,
         );
-        event.start = gcal.EventDateTime(dateTime: start.toUtc());
-        event.end = gcal.EventDateTime(dateTime: end.toUtc());
+        final tz = DateTime.now().timeZoneName;
+        event.start = gcal.EventDateTime(dateTime: start, timeZone: tz);
+        event.end = gcal.EventDateTime(dateTime: end, timeZone: tz);
       } else if (moment.endDate != null) {
         event.start = gcal.EventDateTime(date: moment.startDate);
         event.end = gcal.EventDateTime(
@@ -535,8 +536,9 @@ class CalendarService {
         moment.startDate.year, moment.startDate.month, moment.startDate.day,
         endHour,
       );
-      event.start = gcal.EventDateTime(dateTime: start.toUtc());
-      event.end = gcal.EventDateTime(dateTime: end.toUtc());
+      final tz = DateTime.now().timeZoneName;
+      event.start = gcal.EventDateTime(dateTime: start, timeZone: tz);
+      event.end = gcal.EventDateTime(dateTime: end, timeZone: tz);
     } else if (moment.endDate != null) {
       event.start = gcal.EventDateTime(date: moment.startDate);
       event.end = gcal.EventDateTime(
