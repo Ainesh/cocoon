@@ -7,12 +7,14 @@ library;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/memory.dart';
 import '../models/moment.dart';
 import '../screens/checkin/checkin_screen.dart';
 import '../screens/join_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_shell.dart';
 import '../screens/memory/create_memory_screen.dart';
+import '../screens/memory/edit_memory_screen.dart';
 import '../screens/moment/edit_moment_screen.dart';
 import '../screens/moment/plan_moment_screen.dart';
 import '../screens/onboarding_screen.dart';
@@ -127,6 +129,20 @@ abstract final class AppRouter {
         return _slideTransition(
           state,
           CreateMemoryScreen(spaceId: spaceId, moment: moment),
+        );
+      },
+    ),
+
+    // Edit Memory - Edit existing memory (memory passed via extra)
+    GoRoute(
+      path: '/memory/:spaceId/:memoryId/edit',
+      name: 'editMemory',
+      pageBuilder: (context, state) {
+        final spaceId = state.pathParameters['spaceId'] ?? '';
+        final memory = state.extra as Memory;
+        return _slideUpTransition(
+          state,
+          EditMemoryScreen(spaceId: spaceId, memory: memory),
         );
       },
     ),
