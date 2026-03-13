@@ -1026,7 +1026,6 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       )..[userId] = eventId;
       _liveMoment = moment.copyWith(externalEventIds: updatedIds);
       HapticFeedback.heavyImpact();
-      _showHint('Synced to calendar');
     } else {
       _showHint('Sync failed — try again');
     }
