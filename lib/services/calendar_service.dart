@@ -105,34 +105,7 @@ class CalendarService {
         ..summary = moment.name
         ..description = moment.notes;
 
-      if (moment.timeSlot != null) {
-        final (startHour, endHour) = _timeSlotHours(moment.timeSlot!);
-        final start = DateTime(
-          moment.startDate.year,
-          moment.startDate.month,
-          moment.startDate.day,
-          startHour,
-        );
-        final end = DateTime(
-          moment.startDate.year,
-          moment.startDate.month,
-          moment.startDate.day,
-          endHour,
-        );
-        final tz = DateTime.now().timeZoneName;
-        event.start = gcal.EventDateTime(dateTime: start, timeZone: tz);
-        event.end = gcal.EventDateTime(dateTime: end, timeZone: tz);
-      } else if (moment.endDate != null) {
-        event.start = gcal.EventDateTime(date: moment.startDate);
-        event.end = gcal.EventDateTime(
-          date: moment.endDate!.add(const Duration(days: 1)),
-        );
-      } else {
-        event.start = gcal.EventDateTime(date: moment.startDate);
-        event.end = gcal.EventDateTime(
-          date: moment.startDate.add(const Duration(days: 1)),
-        );
-      }
+      _applyEventTimes(event, moment);
 
       final targetCalendar = calendarId ?? 'primary';
       final created = await calApi.events.insert(event, targetCalendar);
@@ -429,6 +402,40 @@ class CalendarService {
     }
   }
 
+  /// Sets start/end on a Google Calendar event from a Moment.
+  /// Timed events (Connect with TimeSlot) use UTC dateTime.
+  /// All-day events use date-only fields.
+  static void _applyEventTimes(gcal.Event event, Moment moment) {
+    if (moment.timeSlot != null) {
+      final (startHour, endHour) = _timeSlotHours(moment.timeSlot!);
+      // Construct local time then convert to UTC for the API
+      final localStart = DateTime(
+        moment.startDate.year,
+        moment.startDate.month,
+        moment.startDate.day,
+        startHour,
+      );
+      final localEnd = DateTime(
+        moment.startDate.year,
+        moment.startDate.month,
+        moment.startDate.day,
+        endHour,
+      );
+      event.start = gcal.EventDateTime(dateTime: localStart.toUtc());
+      event.end = gcal.EventDateTime(dateTime: localEnd.toUtc());
+    } else if (moment.endDate != null) {
+      event.start = gcal.EventDateTime(date: moment.startDate);
+      event.end = gcal.EventDateTime(
+        date: moment.endDate!.add(const Duration(days: 1)),
+      );
+    } else {
+      event.start = gcal.EventDateTime(date: moment.startDate);
+      event.end = gcal.EventDateTime(
+        date: moment.startDate.add(const Duration(days: 1)),
+      );
+    }
+  }
+
   /// Maps a TimeSlot to (startHour, endHour) for timed calendar events.
   static (int, int) _timeSlotHours(TimeSlot slot) {
     return switch (slot) {
@@ -526,30 +533,7 @@ class CalendarService {
       ..summary = moment.name
       ..description = moment.notes;
 
-    if (moment.timeSlot != null) {
-      final (startHour, endHour) = _timeSlotHours(moment.timeSlot!);
-      final start = DateTime(
-        moment.startDate.year, moment.startDate.month, moment.startDate.day,
-        startHour,
-      );
-      final end = DateTime(
-        moment.startDate.year, moment.startDate.month, moment.startDate.day,
-        endHour,
-      );
-      final tz = DateTime.now().timeZoneName;
-      event.start = gcal.EventDateTime(dateTime: start, timeZone: tz);
-      event.end = gcal.EventDateTime(dateTime: end, timeZone: tz);
-    } else if (moment.endDate != null) {
-      event.start = gcal.EventDateTime(date: moment.startDate);
-      event.end = gcal.EventDateTime(
-        date: moment.endDate!.add(const Duration(days: 1)),
-      );
-    } else {
-      event.start = gcal.EventDateTime(date: moment.startDate);
-      event.end = gcal.EventDateTime(
-        date: moment.startDate.add(const Duration(days: 1)),
-      );
-    }
+    _applyEventTimes(event, moment);
 
     final target = calendarId ?? 'primary';
     await calApi.events.update(event, target, eventId);
