@@ -15,6 +15,7 @@ import '../../models/memory.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_typography.dart';
 import '../../widgets/memory_card.dart';
 import '../../widgets/moment_group_header.dart';
 import '../../widgets/neumorphic_container.dart';
@@ -179,10 +180,15 @@ class _MemoriesTabState extends State<MemoriesTab> {
     return ListView.builder(
       physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 80),
-      itemCount: entries.length,
+      itemCount: entries.length + 1,
       itemBuilder: (context, index) {
-        final entry = entries[index];
-        return _buildTimelineEntry(entry);
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text('Memories', style: AppTypography.headlineLarge()),
+          );
+        }
+        return _buildTimelineEntry(entries[index - 1]);
       },
     );
   }
