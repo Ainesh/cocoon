@@ -18,6 +18,7 @@ import '../../theme/app_colors.dart';
 import '../../widgets/memory_card.dart';
 import '../../widgets/moment_group_header.dart';
 import '../../widgets/neumorphic_container.dart';
+import '../memory/memory_detail_sheet.dart';
 
 /// The Memories tab content — 3rd tab in the main shell.
 class MemoriesTab extends StatefulWidget {
@@ -144,8 +145,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
 
   void _openMemoryDetail(Memory memory) {
     HapticFeedback.lightImpact();
-    // Phase 4 will add the detail sheet/route.
-    // For now, this is a no-op placeholder.
+    showMemoryDetailSheet(context, spaceId: widget.spaceId, initialMemory: memory);
   }
 
   // ---------------------------------------------------------------------------
