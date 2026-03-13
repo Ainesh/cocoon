@@ -746,12 +746,10 @@ bool _isSameDay(DateTime a, DateTime b) =>
     a.year == b.year && a.month == b.month && a.day == b.day;
 
 /// Maps event count to red background alpha (heat-map intensity).
-/// 1 event = subtle, 5+ = deep. Clamped to [0.08, 0.35].
+/// 1 = visible, 2 = strong, 3+ = max. Starts bright.
 double _heatAlpha(int count) {
   if (count <= 0) return 0;
-  if (count == 1) return 0.10;
-  if (count == 2) return 0.18;
-  if (count == 3) return 0.24;
-  if (count == 4) return 0.30;
-  return 0.35;
+  if (count == 1) return 0.30;
+  if (count == 2) return 0.50;
+  return 0.70;
 }
