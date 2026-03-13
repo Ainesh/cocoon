@@ -53,8 +53,8 @@ class _MomentsTabState extends State<MomentsTab> {
   List<ExternalCalendar> _externalCalendars = [];
   Set<String> _visibleCalendarIds = {};
   List<ExternalEvent> _externalEvents = [];
-  bool _isSyncingCalendars = false;
   bool _isCalendarCardExpanded = false;
+  bool _showExternalEvents = true;
 
   // Calendar
   DateTime _focusedMonth = DateTime(DateTime.now().year, DateTime.now().month);
@@ -106,6 +106,9 @@ class _MomentsTabState extends State<MomentsTab> {
     final userId = _authService.currentUser?.uid;
     if (userId == null) return;
 
+    final prefs = await SharedPreferences.getInstance();
+    _showExternalEvents = prefs.getBool('show_external_events') ?? true;
+
     _integrationSub = _firestoreService.watchIntegrationConfig(userId).listen(
       (config) async {
         if (!mounted) return;
@@ -147,7 +150,6 @@ class _MomentsTabState extends State<MomentsTab> {
       return;
     }
 
-    setState(() => _isSyncingCalendars = true);
     final events = await _calendarService.fetchEvents(
       integration: _calendarIntegration!,
       calendarIds: _visibleCalendarIds.toList(),
@@ -155,10 +157,7 @@ class _MomentsTabState extends State<MomentsTab> {
       month: _focusedMonth.month,
     );
     if (!mounted) return;
-    setState(() {
-      _externalEvents = events;
-      _isSyncingCalendars = false;
-    });
+    setState(() => _externalEvents = events);
   }
 
   Future<void> _toggleCalendarVisibility(String calendarId, bool visible) async {
@@ -265,18 +264,28 @@ class _MomentsTabState extends State<MomentsTab> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        children: [
-          _buildCalendarCard(),
-          const SizedBox(height: 12),
-          if (_calendarIntegration != null) ...[
-            _buildCalendarSyncCard(),
+    return GestureDetector(
+      onVerticalDragEnd: (details) {
+        if (details.velocity.pixelsPerSecond.dy < -200 &&
+            _isCalendarCardExpanded) {
+          HapticFeedback.selectionClick();
+          setState(() => _isCalendarCardExpanded = false);
+        }
+      },
+      behavior: HitTestBehavior.translucent,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Column(
+          children: [
+            _buildCalendarCard(),
             const SizedBox(height: 12),
+            if (_calendarIntegration != null) ...[
+              _buildCalendarSyncCard(),
+              const SizedBox(height: 12),
+            ],
+            Expanded(child: _buildMonthMomentsList()),
           ],
-          Expanded(child: _buildMonthMomentsList()),
-        ],
+        ),
       ),
     );
   }
@@ -301,13 +310,21 @@ class _MomentsTabState extends State<MomentsTab> {
     ],
   );
 
+  Future<void> _toggleExternalEventsVisibility() async {
+    HapticFeedback.selectionClick();
+    setState(() => _showExternalEvents = !_showExternalEvents);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('show_external_events', _showExternalEvents);
+    if (_showExternalEvents && _externalEvents.isEmpty) {
+      await _fetchExternalEvents();
+    }
+  }
+
   Widget _buildCalendarSyncCard() {
     final cal = _calendarIntegration!;
     final accountLabel = cal.provider == CalendarProvider.google
         ? cal.email ?? 'Google Calendar'
         : 'Apple Calendar';
-    final calCount = _visibleCalendarIds.length;
-    final totalCount = _externalCalendars.length;
 
     return Container(
       width: double.infinity,
@@ -345,7 +362,7 @@ class _MomentsTabState extends State<MomentsTab> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        '$accountLabel · $calCount/$totalCount calendars',
+                        accountLabel,
                         style: GoogleFonts.inter(
                           color: AppColors.warmDim,
                           fontSize: 12,
@@ -355,33 +372,18 @@ class _MomentsTabState extends State<MomentsTab> {
                   ),
                 ),
                 GestureDetector(
-                  onTap: _isSyncingCalendars ? null : () {
-                    HapticFeedback.selectionClick();
-                    _fetchExternalEvents();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
+                  onTap: _toggleExternalEventsVisibility,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      _showExternalEvents
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
+                      color: _showExternalEvents
+                          ? AppColors.accentRed
+                          : AppColors.warmMuted,
+                      size: 18,
                     ),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardVariant,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: _isSyncingCalendars
-                        ? SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.accentRed,
-                            ),
-                          )
-                        : Icon(
-                            Icons.sync_rounded,
-                            color: AppColors.accentRed,
-                            size: 16,
-                          ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -425,40 +427,47 @@ class _MomentsTabState extends State<MomentsTab> {
     final dotColor =
         cal.color != null ? Color(cal.color!) : AppColors.warmMuted;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              cal.name,
-              style: GoogleFonts.inter(
-                color: isVisible ? AppColors.warmLight : AppColors.warmMuted,
-                fontSize: 13,
+    return GestureDetector(
+      onTap: () => _toggleCalendarVisibility(cal.id, !isVisible),
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: dotColor,
+                shape: BoxShape.circle,
               ),
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          Transform.scale(
-            scale: 0.5,
-            child: Switch.adaptive(
-              value: isVisible,
-              onChanged: (v) => _toggleCalendarVisibility(cal.id, v),
-              activeColor: AppColors.accentRed,
-              activeTrackColor: AppColors.accentRed.withValues(alpha: 0.3),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                cal.name,
+                style: GoogleFonts.inter(
+                  color: isVisible ? AppColors.warmLight : AppColors.warmMuted,
+                  fontSize: 13,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        ],
+            Icon(
+              Icons.sync_rounded,
+              size: 16,
+              color: isVisible ? AppColors.accentRed : AppColors.warmMuted,
+              shadows: isVisible
+                  ? [
+                      Shadow(
+                        color: AppColors.accentRed.withValues(alpha: 0.6),
+                        blurRadius: 6,
+                      ),
+                    ]
+                  : null,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -676,7 +685,9 @@ class _MomentsTabState extends State<MomentsTab> {
 
   Widget _buildMonthMomentsList() {
     final moments = _monthMoments;
-    final hasExternalEvents = _externalEvents.isNotEmpty;
+    final visibleExternal =
+        _showExternalEvents ? _externalEvents : <ExternalEvent>[];
+    final hasExternalEvents = visibleExternal.isNotEmpty;
 
     if (moments.isEmpty && !hasExternalEvents) {
       return PlanMomentCard(
@@ -694,8 +705,8 @@ class _MomentsTabState extends State<MomentsTab> {
         ),
       );
     }
-    for (int i = 0; i < _externalEvents.length; i++) {
-      items.add(_ExternalEventTile(event: _externalEvents[i]));
+    for (int i = 0; i < visibleExternal.length; i++) {
+      items.add(_ExternalEventTile(event: visibleExternal[i]));
     }
 
     return Container(
