@@ -250,9 +250,12 @@ class _MomentsTabState extends State<MomentsTab> {
   }
 
   void _showExternalEventDetails(ExternalEvent event) {
+    final providerLabel = _calendarIntegration?.provider == CalendarProvider.google
+        ? 'Google Calendar'
+        : 'Apple Calendar';
     showMomentDetailsSheet(
       context: context,
-      moment: event.toMoment(),
+      moment: event.toMoment(providerLabel: providerLabel),
     );
   }
 

@@ -16,7 +16,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 enum MomentType {
   celebrate('celebrate', 'Celebrate', '🎉'),
   connect('connect', 'Connect', '💕'),
-  escape('escape', 'Escape', '✈️');
+  escape('escape', 'Escape', '✈️'),
+  external('external', 'External', '📅');
 
   const MomentType(this.value, this.label, this.emoji);
 

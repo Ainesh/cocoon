@@ -89,7 +89,12 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   _presenceSubscription;
   StreamSubscription<DocumentSnapshot>? _momentSubscription;
 
+  bool get _isExternal => widget.moment.type == MomentType.external;
+
   String get _plannedBySubtitle {
+    if (_isExternal) {
+      return 'Synced from ${widget.moment.createdBy}';
+    }
     final name = _plannedByName ?? '';
     final createdAt = widget.moment.createdAt;
     if (createdAt != null) {
@@ -122,8 +127,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       }
     });
     _loadPlannedByName();
-    _watchEditingPresence();
-    _loadCalendarIntegration();
+    if (!_isExternal) {
+      _watchEditingPresence();
+      _loadCalendarIntegration();
+    }
   }
 
   Future<void> _loadCalendarIntegration() async {
@@ -189,6 +196,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   Future<void> _loadPlannedByName() async {
+    if (_isExternal) {
+      if (mounted) setState(() => _plannedByName = widget.moment.createdBy);
+      return;
+    }
     if (widget.moment.createdBy.isEmpty) return;
     final currentUserId = _authService.currentUser?.uid;
     if (widget.moment.createdBy == currentUserId) {
@@ -396,9 +407,12 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                     // Info cards row (long-press to edit)
                     _buildShakeable(_buildInfoRow()),
 
-                    // Notes section (always show, long-press to edit)
-                    const SizedBox(height: 12),
-                    _buildShakeable(_buildNotesSection()),
+                    // Notes section — hidden for external moments with no notes
+                    if (!_isExternal ||
+                        (moment.notes != null && moment.notes!.isNotEmpty)) ...[
+                      const SizedBox(height: 12),
+                      _buildShakeable(_buildNotesSection()),
+                    ],
 
                     const SizedBox(height: 12),
 
@@ -919,7 +933,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   Widget _buildActions(BuildContext context) {
     return Column(
       children: [
-        if (_calendarIntegration != null) ...[
+        if (_calendarIntegration != null && !_isExternal) ...[
           _buildSyncButton(),
           const SizedBox(height: 8),
         ],

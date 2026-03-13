@@ -56,19 +56,16 @@ class ExternalEvent {
 
   /// Converts to a [Moment] for display in the moment details sheet.
   ///
-  /// - Multi-day → Escape
-  /// - All-day single → Celebrate
-  /// - Timed single → Connect (with TimeSlot derived from hour)
-  Moment toMoment() {
-    final MomentType type;
+  /// Uses [MomentType.external] with layout hints via endDate/timeSlot:
+  /// - Multi-day → has endDate (details sheet shows date range + nights)
+  /// - Timed single → has TimeSlot (details sheet shows time card)
+  /// - All-day single → no endDate, no timeSlot (details sheet shows date only)
+  ///
+  /// [providerLabel] is stored in createdBy for the "Synced from..." subtitle.
+  Moment toMoment({String providerLabel = 'External Calendar'}) {
     TimeSlot? timeSlot;
 
-    if (isMultiDay) {
-      type = MomentType.escape;
-    } else if (isAllDay) {
-      type = MomentType.celebrate;
-    } else {
-      type = MomentType.connect;
+    if (!isAllDay && !isMultiDay) {
       final hour = startDate.hour;
       if (hour < 12) {
         timeSlot = TimeSlot.morning;
@@ -81,21 +78,17 @@ class ExternalEvent {
       }
     }
 
-    final noteParts = <String>[];
-    if (calendarName != null) noteParts.add('Calendar: $calendarName');
-    if (description != null && description!.isNotEmpty) {
-      noteParts.add(description!);
-    }
-
     return Moment(
       id: 'ext_$id',
       name: title,
-      type: type,
+      type: MomentType.external,
       startDate: startDate,
       endDate: isMultiDay ? endDate : null,
       timeSlot: timeSlot,
-      notes: noteParts.isNotEmpty ? noteParts.join('\n\n') : null,
-      createdBy: '',
+      notes: (description != null && description!.isNotEmpty)
+          ? description
+          : null,
+      createdBy: providerLabel,
     );
   }
 
