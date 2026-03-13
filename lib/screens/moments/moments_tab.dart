@@ -536,10 +536,26 @@ class _MomentsTabState extends State<MomentsTab> {
   ) {
     if (rawCounts.isEmpty) return {};
 
-    final values = rawCounts.values.toList()..sort();
-    final n = values.length;
-    final p50 = values[((n - 1) * 0.50).floor()];
-    final p90 = values[((n - 1) * 0.90).floor()];
+    final now = DateTime.now();
+    final todayLocal = DateTime(now.year, now.month, now.day);
+
+    // Percentiles computed from future/today days only
+    final futureValues = rawCounts.entries
+        .where((e) => !e.key.isBefore(todayLocal))
+        .map((e) => e.value)
+        .toList()
+      ..sort();
+
+    final int p50;
+    final int p90;
+    if (futureValues.isNotEmpty) {
+      final n = futureValues.length;
+      p50 = futureValues[((n - 1) * 0.50).floor()];
+      p90 = futureValues[((n - 1) * 0.90).floor()];
+    } else {
+      p50 = 1;
+      p90 = 1;
+    }
 
     return rawCounts.map((day, count) {
       final double alpha;
