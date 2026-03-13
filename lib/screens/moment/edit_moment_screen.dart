@@ -58,7 +58,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   // UI state
   bool _isSubmitting = false;
-  bool _isCalendarExpanded = false;
+  bool _isCalendarExpanded = true;
   DateTime _focusedDay = DateTime.now();
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
@@ -388,7 +388,6 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   void _dismissKeyboard() {
     FocusScope.of(context).unfocus();
-    if (_isCalendarExpanded) setState(() => _isCalendarExpanded = false);
   }
 
   Widget _buildInlineCalendar() {
@@ -926,10 +925,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
             }
           },
           onHorizontalDragEnd: (_) {
-            setState(() {
-              _dragPosition = null;
-              _isCalendarExpanded = false;
-            });
+            setState(() => _dragPosition = null);
             FocusScope.of(context).unfocus();
           },
           child: Container(
@@ -982,7 +978,6 @@ class _EditMomentScreenState extends State<EditMomentScreen>
                           FocusScope.of(context).unfocus();
                           setState(() {
                             _dragPosition = null;
-                            _isCalendarExpanded = false;
                           });
                         },
                         behavior: HitTestBehavior.opaque,
