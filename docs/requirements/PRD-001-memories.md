@@ -7,7 +7,7 @@
 | **Author**       | Product / Engineering                      |
 | **Status**       | Draft                                      |
 | **Created**      | 2026-03-12                                 |
-| **Last Updated** | 2026-03-13 (v0.3)                           |
+| **Last Updated** | 2026-03-13 (v0.4)                           |
 | **Target Release** | TBD                                      |
 | **Stakeholders** | Product, Engineering, Design               |
 
@@ -99,7 +99,7 @@ Kairos differentiates by tying structured reflection (pulse check-in, place, mus
 | G-2  | Provide a low-friction, emotionally resonant creation flow                        | <3 min avg creation time             |
 | G-3  | Create a shared showcase that couples want to revisit                             | Memories tab opened >2x/week/user   |
 | G-4  | Increase pulse check-in frequency via embedded memory check-ins                   | +20% weekly check-in volume          |
-| G-5  | Handle the "missed moment" case gracefully (reschedule or archive)                | <10% of past moments left in limbo   |
+| G-5  | Handle the "missed moment" case gracefully                                        | <10% of past moments left in limbo   |
 | G-6  | Support spontaneous/unplanned experiences via standalone memories                 | >15% of memories are standalone      |
 
 ### 3.2 Non-Goals (V1)
@@ -146,23 +146,23 @@ Kairos differentiates by tying structured reflection (pulse check-in, place, mus
 
 **FR-5.1.1**: The `Moment` model SHALL include a new `status` field with values: `planned` (default), `lived`, `missed`.
 
-**FR-5.1.2**: A moment's status SHALL transition to `lived` when the first memory is created for it by either partner.
+**FR-5.1.2**: A moment's status SHALL transition to `lived` when a user confirms they lived it via the dashboard prompt. The `sealMemory` batch write also sets `lived` as redundancy for the create-from-moment flow.
 
-**FR-5.1.3**: A moment's status SHALL transition to `missed` when a user explicitly marks it as "didn't happen".
+**FR-5.1.3**: A moment's status SHALL transition to `missed` when a user explicitly marks it as missed via the dashboard prompt.
 
-**FR-5.1.4**: The `status` field SHALL NOT affect the existing date-based filtering logic. Past moments remain filtered from `watchUpcomingMoments` regardless of status.
+**FR-5.1.4**: Past moments SHALL be visible on the Moments tab calendar. The dashboard's `watchUpcomingMoments` continues to filter past moments for the Coming Up card, but the Moments tab uses `watchAllMoments` to show historical events.
 
-**FR-5.1.5**: The lifecycle state diagram:
+**FR-5.1.5**: The lifecycle state diagram (persisted states only):
 
 ```mermaid
 stateDiagram-v2
     [*] --> Planned: "User creates moment"
-    Planned --> Past: "Date passes"
-    Past --> Lived: "Memory created"
-    Past --> Missed: "User marks missed"
-    Missed --> Planned: "User reschedules (new moment)"
-    Missed --> Archived: "User declines reschedule"
+    Planned --> Lived: "User confirms lived (prompt or memory creation)"
+    Planned --> Missed: "User marks missed"
+    Missed --> Planned: "User edits moment (new dates)"
 ```
+
+Note: "Past" is a computed property (`isPast`), not a persisted status. Rescheduling a missed moment is done by editing it via the Edit Moment screen (same as editing any moment).
 
 ### 5.2 Memory Creation — From Lived Moment
 
@@ -206,7 +206,7 @@ stateDiagram-v2
 
 **FR-5.3.1**: Users SHALL be able to create a memory without a linked moment, for spontaneous or unplanned experiences.
 
-**FR-5.3.2**: The entry point SHALL be a button or FAB on the Memories tab.
+**FR-5.3.2**: The entry point SHALL be a `+` button in the app bar when on the Memories tab (matching the Moments tab pattern).
 
 **FR-5.3.3**: The standalone creation screen SHALL include all sections from FR-5.2.4, with the following modifications:
 - **Header**: Replaced by a text field for the memory title/name (required, max 100 chars)
@@ -249,36 +249,27 @@ stateDiagram-v2
 
 ### 5.5 Missed Moment Flow
 
-**FR-5.5.1**: When a user is prompted about a past moment (via dashboard card or notification), they SHALL have three options:
-- **"Create Memory"** — enters the memory creation flow (FR-5.2)
-- **"Didn't happen"** — enters the missed moment flow
-- **"Skip"** — snoozes the prompt (see FR-5.7.1.3)
+**FR-5.5.1**: When a user is prompted about a past moment (via dashboard prompt card), they SHALL have two options:
+- **"Lived it"** — marks the moment as `lived` and navigates to the memory creation flow (FR-5.2)
+- **"Missed it"** — marks the moment as `missed` and dismisses the prompt
 
-**FR-5.5.2**: Upon selecting "Didn't happen", the system SHALL present a confirmation dialog:
-- Title: "Missed this moment?"
-- Body: "Would you like to reschedule it?"
-- Actions: **"Reschedule"** | **"No, dismiss"**
-
-**FR-5.5.3**: If the user selects "Reschedule":
-- Navigate to Plan a Moment screen pre-filled with the missed moment's details (name, type, notes).
-- Dates SHALL NOT be pre-filled (user picks new dates).
-- The original moment's status SHALL be updated to `missed`.
-
-**FR-5.5.4**: If the user selects "No, dismiss":
+**FR-5.5.2**: Upon selecting "Missed it":
 - The moment's status SHALL be updated to `missed`.
-- The moment SHALL be hidden from active views (dashboard, calendar).
 - A `momentMissed` activity SHALL be logged.
+- The prompt card SHALL be dismissed (next eligible moment shown, if any).
 
-**FR-5.5.5**: Missed moments SHALL remain in Firestore for data integrity. They SHALL NOT be deleted.
+**FR-5.5.3**: Rescheduling a missed moment is handled separately via the Edit Moment screen (same flow as editing any moment). The user can change dates on a missed moment to effectively reschedule it.
+
+**FR-5.5.4**: Missed moments SHALL remain in Firestore for data integrity. They SHALL NOT be deleted. They remain visible on the Moments tab calendar.
 
 ### 5.6 Memories Showcase (Tab)
 
 **FR-5.6.1**: A new **Memories** tab SHALL be added as the third tab in the main navigation:
 ```
-Dashboard  |  Moments  |  Memories
+Dashboard  |  Moments  |  Memories  |  Coming Soon
 ```
 
-**FR-5.6.2**: The tab selector SHALL reuse the existing stretchy tab component, extended to 3 segments. The Memories tab icon SHALL be a book or photo-album icon.
+**FR-5.6.2**: The tab selector SHALL use the existing stretchy 5-slot nav bar. Memories occupies slot 2 with the `auto_stories` (book) icon. Slots 3-4 remain as Coming Soon placeholder.
 
 **FR-5.6.3**: The Memories tab SHALL display a **vertical chronological timeline** (newest at top).
 
@@ -323,20 +314,19 @@ Dashboard  |  Moments  |  Memories
 - The card SHALL show one moment at a time (the most recently passed moment first)
 
 **FR-5.7.1.2**: The card SHALL contain:
+- Card label: "HOW WAS IT?"
 - Moment type icon
 - Moment name
 - Moment date (formatted)
-- Three CTA buttons: **"Create Memory"** | **"Didn't happen"** | **"Skip"**
+- Two CTA buttons: **"Lived it"** (primary, red tint) | **"Missed it"** (secondary, muted)
 
-**FR-5.7.1.3**: The **"Skip"** action SHALL snooze the prompt for that specific moment for **7 days**. After the snooze period, the card SHALL reappear if the moment still has no memory and is not marked missed.
-
-**FR-5.7.1.4 — Hard Cutoff**: The prompting system SHALL stop showing prompt cards and sending notifications for moments older than **14 days** past their end date. Past that window:
+**FR-5.7.1.3 — Hard Cutoff**: The prompting system SHALL stop showing prompt cards and sending notifications for moments older than **14 days** past their end date. Past that window:
 - The dashboard card SHALL NOT appear for the moment
 - No further push notifications SHALL be sent for the moment
 - The moment's status SHALL remain `planned` — the user can still create a memory manually from the Memories tab or Moments tab, but the app stops actively prompting
 - This prevents stale prompts from accumulating and creating dashboard clutter
 
-**FR-5.7.1.5**: The card SHALL be positioned prominently on the dashboard (above the Coming Up card).
+**FR-5.7.1.4**: The card SHALL be positioned on the dashboard below the main grid (Coming Up + Health + action buttons) and above the Activity Trail.
 
 #### 5.7.2 Push Notification
 
@@ -372,7 +362,7 @@ Dashboard  |  Moments  |  Memories
 **FR-5.8.2**: A new `ActivityType.momentMissed` SHALL be added. Metadata:
 - `momentId`: the missed moment's document ID
 - `momentName`: the moment name
-- `rescheduled`: boolean indicating if the user chose to reschedule
+- `momentType`: the moment type
 
 **FR-5.8.3**: All memory-related activity types SHALL appear in the Activity Trail with appropriate icons and descriptions:
 - Memory created: "You sealed a memory for [Moment Name]"
@@ -611,27 +601,23 @@ erDiagram
 ```mermaid
 flowchart TD
     A["Moment date passes"] --> B["Next app open"]
-    B --> C["Dashboard prompt card appears"]
+    B --> C["Dashboard prompt card: HOW WAS IT?"]
     C --> D{"User action"}
-    D -->|"Create Memory"| E["Memory creation screen"]
-    D -->|"Didn't happen"| F["Missed moment dialog"]
-    D -->|"Skip"| G["Card snoozed for 7 days"]
-    E --> H["User adds photos, caption, place, music"]
+    D -->|"Lived it"| E["Moment status → lived"]
+    D -->|"Missed it"| F["Moment status → missed"]
+    E --> G["Navigate to memory creation screen"]
+    G --> H["User adds photos, caption, place, music"]
     H --> I["User adjusts pulse sliders (optional)"]
     I --> J["Slide to seal"]
     J --> K["Photos uploaded to Storage"]
-    K --> L["Memory doc created in Firestore"]
+    K --> L["Atomic batch: memory + activity"]
     L --> M{"Check-in provided?"}
     M -->|Yes| N["UserCheckIn created, checkinId saved"]
     M -->|No| O["checkinId = null"]
-    N --> P["Moment status → lived"]
+    N --> P["Haptic feedback + navigate back"]
     O --> P
-    P --> Q["memoryCreated activity logged"]
-    Q --> R["Haptic feedback + navigate back"]
-    F --> S{"Reschedule?"}
-    S -->|Yes| T["Plan a Moment (pre-filled)"]
-    S -->|No| U["Moment status → missed"]
-    U --> V["momentMissed activity logged"]
+    F --> Q["momentMissed activity logged"]
+    Q --> R["Prompt dismissed, next moment shown"]
 ```
 
 ### 8.2 Standalone Memory Flow
@@ -670,11 +656,11 @@ flowchart TD
 ### 9.1 Tab Structure Update
 
 ```
-Before:  Dashboard  |  Moments
-After:   Dashboard  |  Moments  |  Memories
+Before:  Dashboard  |  Moments  |  Coming Soon
+After:   Dashboard  |  Moments  |  Memories  |  Coming Soon
 ```
 
-The existing stretchy 2-tab selector extends to 3 segments. Icon for Memories: `auto_stories` (Material) or a custom book icon.
+The existing stretchy 5-slot nav bar: slot 0 (Dashboard), slot 1 (Moments), slot 2 (Memories, `auto_stories` icon), slots 3-4 (Coming Soon, `hardware` icon).
 
 ### 9.2 New Routes
 
@@ -688,11 +674,11 @@ The existing stretchy 2-tab selector extends to 3 segments. Icon for Memories: `
 
 | Source                      | Target                                            |
 |-----------------------------|---------------------------------------------------|
-| Dashboard prompt card       | `/memory/:spaceId/create?momentId=X`              |
+| Dashboard prompt "Lived it" | `/memory/:spaceId/create` (moment via extra)      |
 | Push notification (prompt)  | `/memory/:spaceId/create?momentId=X`              |
 | Push notification (reaction)| `/memory/:spaceId/:memoryId`                      |
 | Memories tab card tap       | `/memory/:spaceId/:memoryId`                      |
-| Memories tab FAB            | `/memory/:spaceId/create` (standalone)            |
+| Memories tab + button       | `/memory/:spaceId/create` (standalone)            |
 | Memory detail edit button   | `/memory/:spaceId/:memoryId/edit`                 |
 | Past moment details         | `/memory/:spaceId/create?momentId=X`              |
 
@@ -749,8 +735,8 @@ Constraints:
 | **Content**          | Photos (3 max), caption (280 chars), place (text), music (text) |
 | **Check-in**         | Embedded pulse sliders, counts toward health score              |
 | **Showcase**         | Memories tab (3rd tab), vertical timeline, moment grouping      |
-| **Prompting**        | Dashboard card, push notification, manual entry points          |
-| **Missed Moments**   | Mark missed, reschedule option, archive                         |
+| **Prompting**        | Dashboard card (Lived it / Missed it), push notification        |
+| **Missed Moments**   | Mark missed via prompt, rescheduling via Edit Moment screen     |
 | **Lifecycle**        | Moment `status` field (planned/lived/missed)                    |
 | **Edit / Delete**    | Creator can edit or delete own memories, tracked in activity trail |
 | **Reactions**        | Lightweight emoji reactions from partner on memories              |
@@ -848,7 +834,7 @@ Constraints:
 | 2  | Should missed moments be visible anywhere (a "missed" section)?          | Open     | —        |
 | 3  | Should the pulse check-in in a memory have a distinct source tag in the scoring engine? | Resolved | Yes. Check-in metadata includes `source: 'memory'`. Scoring engine treats equally; analytics can distinguish. |
 | 4  | What is the photo compression strategy (resize before upload)?           | Resolved | Client-side resize to 1920px max long edge, JPEG quality 80% (~500 KB). Generate 300px thumbnails for timeline cards (~20 KB). Both uploaded to Storage. |
-| 5  | Should the dashboard prompt card have a snooze duration (e.g., 24h) vs. reappearing every open? | Resolved | "Skip" snoozes for 7 days (FR-5.7.1.3) |
+| 5  | Should the dashboard prompt card have a snooze duration (e.g., 24h) vs. reappearing every open? | Resolved | Simplified: no snooze. Binary prompt (Lived it / Missed it) resolves the moment immediately. |
 | 6  | How far back should the prompting system look for past moments without memories? | Resolved | 14-day hard cutoff (FR-5.7.1.4) |
 | 7  | Should memory edits preserve a version history (diff trail)?             | Resolved | No version history in V1. Activity trail logs each edit with `editedFields` list. Full diff trail deferred to V2+. |
 
@@ -882,4 +868,5 @@ Constraints:
 |------------|---------|-----------------|----------------------|
 | 2026-03-12 | 0.1     | Product / Eng   | Initial draft        |
 | 2026-03-13 | 0.2     | Product / Eng   | Allow memory editing and deletion (FR-5.9, FR-5.10); add lightweight partner reactions (FR-5.11); add "Skip" option to prompting with 7-day snooze and 14-day hard cutoff (FR-5.7.1.3–4); add memoryEdited, memoryDeleted, memoryReaction activity types; resolve open questions #5 and #6 |
-| 2026-03-13 | 0.3     | Engineering     | Resolve open questions #1 (1 per user per moment), #3 (source tag), #4 (compression + thumbnails), #7 (no version history V1). Update data model: store storage paths instead of download URLs, add thumbnail paths, denormalize momentName/momentType/momentDate, make caption nullable for consistency. Update storage structure with thumbnail files. |
+| 2026-03-13 | 0.3     | Engineering     | Resolve open questions #1, #3, #4, #7. Update data model: storage paths, thumbnails, denormalized moment data, nullable caption. |
+| 2026-03-13 | 0.4     | Engineering     | Simplify prompt to binary Lived/Missed (remove Skip, snooze, reschedule dialog). Status → lived on prompt confirm. Moments tab shows past events. Memories tab: app bar + button replaces FAB. 4-tab nav with Memories on slot 2. Card below grid. Remove rescheduled from momentMissed metadata. |

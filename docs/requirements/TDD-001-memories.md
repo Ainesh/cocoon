@@ -974,7 +974,8 @@ Future<void> logMomentMissedActivity({
 | `CreateMemoryScreen` | `lib/screens/memory/create_memory_screen.dart` | StatefulWidget | Memory creation flow |
 | `EditMemoryScreen` | `lib/screens/memory/edit_memory_screen.dart` | StatefulWidget | Edit memory (creator only) |
 | `MemoryDetailSheet` | `lib/screens/memory/memory_detail_sheet.dart` | Function (showModalBottomSheet) | Detail view with reactions, edit/delete |
-| `MemoryPromptCard` | `lib/screens/dashboard/widgets/memory_prompt_card.dart` | StatelessWidget | Dashboard prompt (Create / Didn't happen / Skip) |
+| `MemoryPromptCard` | `lib/screens/dashboard/widgets/memory_prompt_card.dart` | StatelessWidget | Dashboard prompt (Lived it / Missed it) |
+| `MemoryDetailPage` | `lib/screens/memory/memory_detail_page.dart` | StatefulWidget | Route target for deep links; loads memory by ID, opens detail sheet |
 
 ### 8.2 CreateMemoryScreen — Detailed Design
 
@@ -1449,42 +1450,33 @@ class _MemoriesTabState extends State<MemoriesTab> {
 
 ### 8.5 MemoryPromptCard — Dashboard
 
-**Pattern:** Mirrors `ComingUpCard` from `event_cards.dart`.
+**Pattern:** Simple binary choice card.
 
 ```dart
 class MemoryPromptCard extends StatelessWidget {
   const MemoryPromptCard({
     super.key,
     required this.moment,
-    required this.onCreateMemory,
+    required this.onLived,
     required this.onMissed,
-    required this.onSkip,
   });
 
   final Moment moment;
-  final VoidCallback onCreateMemory;
+  final VoidCallback onLived;
   final VoidCallback onMissed;
-  final VoidCallback onSkip;
 }
 ```
 
 **Layout:**
-- Card label: "REMEMBER" (uppercase, `AppTypography.cardLabel()`)
+- Card label: "HOW WAS IT?" (uppercase, `GoogleFonts.outfit`, `AppColors.accentRed`)
 - Moment type icon + moment name + formatted date
-- Three CTAs: "Create Memory" (accent red) | "Didn't happen" (muted) | "Skip" (muted)
+- Two CTAs: "Lived it" (primary, red tint) | "Missed it" (secondary, muted)
 
-**Skip/Snooze implementation:**
-- `onSkip` writes to `SharedPreferences`: key = `snooze_{momentId}`, value = ISO8601 timestamp (now + 7 days).
-- `DashboardTab` checks snooze state before showing the card:
-
-```dart
-Future<bool> _isSnoozed(String momentId) async {
-  final prefs = await SharedPreferences.getInstance();
-  final snoozeUntil = prefs.getString('snooze_$momentId');
-  if (snoozeUntil == null) return false;
-  return DateTime.parse(snoozeUntil).isAfter(DateTime.now());
-}
-```
+**Dashboard integration:**
+- `_onLivedMoment`: marks moment status → `lived`, navigates to `/memory/:spaceId/create` with moment
+- `_onMissedMoment`: marks moment status → `missed`, logs `momentMissed` activity, reloads prompt
+- No snooze, no dialog — binary choice resolves the moment immediately
+- Card positioned below the main grid, above Activity Trail
 
 ### 8.6 MemoryDetailSheet
 
@@ -1689,17 +1681,19 @@ flowchart LR
 **File:** `lib/screens/main_shell.dart` (modified)
 
 ```
-Tab 0: Dashboard
-Tab 1: Moments
-Tab 2: Memories (was: Coming Soon)
+Tab 0: Dashboard        (slot 0)
+Tab 1: Moments          (slot 1)
+Tab 2: Memories          (slot 2)
+Tab 3: Coming Soon       (slots 3-4)
 ```
 
-The stretchy tab selector currently has 5 visual slots mapped to 3 tabs (0, 1, 2). Tab 2 is the "Coming Soon" placeholder. Replace `_ComingSoonPage` with `MemoriesTab`.
+The stretchy nav bar has 5 visual slots mapped to 4 logical tabs. Memories gets its own slot (2) with `Icons.auto_stories_rounded`. Coming Soon retains slots 3-4 with `Icons.hardware_rounded`.
 
 Key changes in `_MainShellState`:
-- Replace `_ComingSoonPage()` with `MemoriesTab(spaceId: widget.spaceId)` in `_tabs`.
-- Update app bar title for tab 2 from "Coming Soon" to "Memories".
-- Update the tab icon for slot 2+ from current icon to `Icons.auto_stories` (book).
+- 4 tabs: `DashboardTab`, `MomentsTab`, `MemoriesTab`, `_ComingSoonPage`
+- `_slotToTab`: slot >= 3 → tab 3 (was: slot >= 2 → tab 2)
+- App bar title: "Memories" when `_selectedTab == 2` (Cormorant Garamond, accentRed)
+- App bar action: `+` button on tab 2 for standalone memory creation (matches Moments tab pattern)
 
 ---
 
@@ -2140,6 +2134,7 @@ All technical decisions made during design review, with rationale:
 |------|---------|--------|---------|
 | 2026-03-12 | 0.1 | Engineering | Initial draft (based on PRD-001 v0.1 — immutable memories) |
 | 2026-03-13 | 1.0 | Engineering | Full rewrite for PRD-001 v0.3. Added: edit/delete flows, partner reactions, batch seal, storage paths instead of URLs, thumbnail generation, moment data denormalization, field-level security rules, skip/snooze mechanism, 14-day prompt cutoff, 5 new activity types, deprecated momentCompleted, comprehensive decision log. |
+| 2026-03-13 | 1.1 | Engineering | Sync with PRD v0.4. Simplified prompt to binary Lived/Missed (removed Skip, snooze, reschedule dialog). Added MemoryDetailPage for deep-link routing. Updated tab structure to 4 tabs (Memories on slot 2, Coming Soon on slots 3-4). Memories tab uses app bar + button instead of FAB. Moments tab uses watchAllMoments for past events. App bar uses Cormorant Garamond + accentRed for all tab headings. |
 
 ---
 
