@@ -259,6 +259,40 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       userId: userId,
     );
 
+    // Ensure user's memory doc exists. It may be missing if:
+    // - Partner marked the moment lived (only their memory was created)
+    // - Legacy moment marked lived without auto-create
+    // Create a minimal empty memory so the unified view can render.
+    final existing = await _firestoreService.getMemory(
+      spaceId: widget.spaceId,
+      memoryId: memoryId,
+    );
+    if (existing == null && mounted) {
+      final emptyMemory = Memory(
+        id: memoryId,
+        createdBy: userId,
+        date: moment.startDate,
+        createdAt: DateTime.now(),
+        momentId: moment.id,
+        momentName: moment.name,
+        momentType: moment.type.value,
+        momentDate: moment.startDate,
+        momentEndDate: moment.endDate,
+        momentTimeSlot: moment.timeSlot?.value,
+        momentNotes: moment.notes,
+      );
+      try {
+        await _firestoreService.createMemory(
+          spaceId: widget.spaceId,
+          memory: emptyMemory,
+        );
+      } catch (_) {
+        // Memory creation may fail if doc already exists (race condition)
+      }
+    }
+
+    if (!mounted) return;
+
     // Watch user's own memory for real-time updates
     _userMemorySub = _firestoreService
         .watchMemory(widget.spaceId, memoryId)

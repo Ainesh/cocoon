@@ -1627,6 +1627,21 @@ class FirestoreService {
   ///
   /// The embedded check-in (if any) must be submitted BEFORE calling this,
   /// because check-in creation has its own schema validation in Firestore rules.
+  /// Creates a memory document without any side effects (no status update,
+  /// no activity log). Used when auto-creating an empty memory for the
+  /// unified view when the doc is missing.
+  Future<void> createMemory({
+    required String spaceId,
+    required Memory memory,
+  }) async {
+    final memoryRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memory.id);
+    await memoryRef.set(memory.toJson());
+  }
+
   Future<String> sealMemory({
     required String spaceId,
     required Memory memory,
