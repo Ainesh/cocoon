@@ -262,7 +262,7 @@ class _MainShellState extends State<MainShell> {
   static const _slotIcons = [
     Icons.space_dashboard_rounded,
     Icons.calendar_today_rounded,
-    Icons.psychology_rounded,
+    Icons.center_focus_strong_rounded,
     Icons.hardware_rounded,
     Icons.hardware_rounded,
   ];

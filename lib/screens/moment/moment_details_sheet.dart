@@ -1173,7 +1173,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
         // Section label
         Row(
           children: [
-            Icon(Icons.psychology_rounded, color: AppColors.accentRed, size: 16),
+            Icon(Icons.center_focus_strong_rounded, color: AppColors.accentRed, size: 16),
             const SizedBox(width: 6),
             Text(
               _showingPartnerMemory ? "PARTNER'S MEMORY" : 'YOUR MEMORY',
