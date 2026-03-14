@@ -1084,27 +1084,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     );
   }
 
-  Future<void> _onLivedMoment() async {
-    final spaceId = widget.spaceId;
+  void _onLivedMoment() {
     HapticFeedback.mediumImpact();
-
-    try {
-      await _firestoreService.updateMomentStatus(
-        spaceId: spaceId,
-        momentId: moment.id,
-        status: MomentStatus.lived,
-      );
-      if (mounted) {
-        Navigator.pop(context);
-        context.push('/memory/$spaceId/create', extra: moment);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
-        );
-      }
-    }
+    Navigator.pop(context);
+    context.push('/memory/${widget.spaceId}/create', extra: moment);
   }
 
   Future<void> _onMissedMoment() async {

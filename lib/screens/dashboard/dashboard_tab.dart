@@ -231,32 +231,16 @@ class DashboardTabState extends State<DashboardTab> {
   // Actions — Memory Prompt
   // ---------------------------------------------------------------------------
 
-  /// User lived the moment → mark lived + navigate to create memory.
-  Future<void> _onLivedMoment() async {
+  /// User lived the moment → navigate to create memory.
+  /// Status transitions to `lived` atomically inside `sealMemory` batch write
+  /// when the user actually creates the memory. If they back out, the moment
+  /// stays `planned` and the prompt reappears.
+  void _onLivedMoment() {
     final moment = _promptMoment;
     if (moment == null) return;
     FocusScope.of(context).unfocus();
-
-    try {
-      await _firestoreService.updateMomentStatus(
-        spaceId: widget.spaceId,
-        momentId: moment.id,
-        status: MomentStatus.lived,
-      );
-      if (mounted) {
-        context.push('/memory/${widget.spaceId}/create', extra: moment);
-        _loadPromptMoment();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to update moment: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
+    HapticFeedback.mediumImpact();
+    context.push('/memory/${widget.spaceId}/create', extra: moment);
   }
 
   /// User missed the moment → mark missed + log activity + dismiss prompt.
