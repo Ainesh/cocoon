@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import 'package:couple_space/models/activity.dart';
 import 'package:couple_space/models/avatar_data.dart';
+import 'package:couple_space/models/memory.dart';
 import 'package:couple_space/models/moment.dart';
 import 'package:couple_space/models/pulse_config.dart';
 import 'package:couple_space/models/user_checkin.dart';
@@ -38,6 +39,7 @@ Moment createTestMoment({
   DateTime? createdAt,
   DateTime? updatedAt,
   int version = 1,
+  MomentStatus status = MomentStatus.planned,
 }) {
   return Moment(
     id: id,
@@ -52,6 +54,7 @@ Moment createTestMoment({
     createdAt: createdAt,
     updatedAt: updatedAt,
     version: version,
+    status: status,
   );
 }
 
@@ -69,6 +72,97 @@ Moment createTestEscapeMoment({
     type: MomentType.escape,
     startDate: start,
     endDate: endDate ?? start.add(const Duration(days: 3)),
+  );
+}
+
+// =============================================================================
+// Memory Factories
+// =============================================================================
+
+/// Creates a test [Memory] linked to a moment with sensible defaults.
+Memory createTestMemory({
+  String id = 'memory_1',
+  String? momentId = 'moment_1',
+  String? momentName = 'Date Night',
+  String? momentType = 'connect',
+  DateTime? momentDate,
+  DateTime? momentEndDate,
+  String? momentTimeSlot,
+  String? momentNotes,
+  String? title,
+  String createdBy = 'user_1',
+  List<String> photoPaths = const [],
+  List<String> thumbPaths = const [],
+  String? caption,
+  String? place,
+  String? music,
+  String? checkinId,
+  Map<String, String> reactions = const {},
+  DateTime? date,
+  DateTime? createdAt,
+  DateTime? updatedAt,
+}) {
+  return Memory(
+    id: id,
+    momentId: momentId,
+    momentName: momentName,
+    momentType: momentType,
+    momentDate: momentDate ?? _todayUtc().subtract(const Duration(days: 3)),
+    momentEndDate: momentEndDate,
+    momentTimeSlot: momentTimeSlot,
+    momentNotes: momentNotes,
+    title: title,
+    createdBy: createdBy,
+    photoPaths: photoPaths,
+    thumbPaths: thumbPaths,
+    caption: caption,
+    place: place,
+    music: music,
+    checkinId: checkinId,
+    reactions: reactions,
+    date: date ?? _todayUtc().subtract(const Duration(days: 3)),
+    createdAt: createdAt ?? DateTime.now(),
+    updatedAt: updatedAt,
+  );
+}
+
+/// Creates a test standalone [Memory] (no linked moment).
+Memory createTestStandaloneMemory({
+  String id = 'standalone_1',
+  String title = 'Surprise Picnic',
+  String createdBy = 'user_1',
+  String? caption,
+  DateTime? date,
+}) {
+  return createTestMemory(
+    id: id,
+    momentId: null,
+    momentName: null,
+    momentType: null,
+    title: title,
+    createdBy: createdBy,
+    caption: caption,
+    date: date,
+  );
+}
+
+/// Creates a test [Memory] with all content fields filled.
+Memory createTestRichMemory({
+  String id = 'rich_1',
+  String createdBy = 'user_1',
+}) {
+  return createTestMemory(
+    id: id,
+    createdBy: createdBy,
+    photoPaths: ['path/photo_0.jpg'],
+    thumbPaths: ['path/photo_0_thumb.jpg'],
+    caption: 'Amazing evening!',
+    place: 'Downtown',
+    music: 'Something by Adele',
+    checkinId: 'checkin_1',
+    reactions: {'user_2': '❤️'},
+    momentNotes: 'Try the new place',
+    momentTimeSlot: 'evening',
   );
 }
 
