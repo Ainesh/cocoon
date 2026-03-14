@@ -473,10 +473,14 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   Widget _buildTypeBadge() {
+    final isPast = moment.isPast;
+    final bgColor = isPast ? AppColors.cardVariant : AppColors.accentRed;
+    final fgColor = isPast ? AppColors.warmMuted : AppColors.pureBlack;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: BoxDecoration(
-        color: AppColors.accentRed,
+        color: bgColor,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -485,13 +489,13 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
           getMomentTypeIconWidget(
             moment.type,
             size: 24,
-            color: AppColors.pureBlack,
+            color: fgColor,
           ),
           const SizedBox(height: 6),
           Text(
             moment.type.label,
             style: GoogleFonts.outfit(
-              color: AppColors.pureBlack,
+              color: fgColor,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
