@@ -23,7 +23,7 @@ enum ActivityType {
   momentMissed('moment_missed', 'marked as missed'),
 
   // Memory activities
-  memoryCreated('memory_created', 'sealed a memory'),
+  memoryCreated('memory_created', 'created a memory'),
   memoryEdited('memory_edited', 'edited a memory'),
   memoryDeleted('memory_deleted', 'removed a memory'),
   memoryReaction('memory_reaction', 'reacted to a memory'),
@@ -195,7 +195,7 @@ class Activity {
 
       case ActivityType.memoryCreated:
         final title = metadata?['memoryTitle'] as String?;
-        return title != null ? 'sealed a memory for "$title"' : 'sealed a memory';
+        return title != null ? 'created a memory for "$title"' : 'created a memory';
 
       case ActivityType.memoryEdited:
         final title = metadata?['memoryTitle'] as String?;

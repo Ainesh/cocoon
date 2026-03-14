@@ -231,7 +231,7 @@ class NotificationPreferences {
         priority: NotificationPriority.high,
       ),
 
-      // Memory created: Normal - partner sealed a memory
+      // Memory created: Normal - partner created a memory
       ActivityType.memoryCreated: const ActivityNotificationConfig(
         activityType: ActivityType.memoryCreated,
         enabled: true,
