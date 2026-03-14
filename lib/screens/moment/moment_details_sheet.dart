@@ -1146,7 +1146,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
           _buildSyncButton(),
           const SizedBox(height: 8),
         ],
-        if (onDelete != null) _buildHoldToDeleteButton(),
+        if (onDelete != null && moment.status != MomentStatus.missed)
+          _buildHoldToDeleteButton(),
       ],
     );
   }

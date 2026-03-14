@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/external_calendar.dart';
 import '../../models/integration_config.dart';
+import '../../models/memory.dart';
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
 import '../../services/calendar_service.dart';
@@ -227,31 +228,37 @@ class _MomentsTabState extends State<MomentsTab> {
       },
       onDelete: () async {
         try {
-          // Remove from synced calendar first
+          // Remove from synced calendar
           if (moment.isSyncedToCalendar && _calendarIntegration != null) {
             await _calendarService.deleteCalendarEvents(
               moment: moment,
               integration: _calendarIntegration!,
             );
           }
-          await _firestoreService.deleteMoment(
+
+          // Mark as missed (not physically deleted)
+          await _firestoreService.updateMomentStatus(
             spaceId: widget.spaceId,
             momentId: moment.id,
+            status: MomentStatus.missed,
           );
+
           final userId = _authService.currentUser?.uid;
           if (userId != null) {
             final profile = await _firestoreService.getUserProfile(userId);
             final userName = profile?['name'] as String? ?? 'Someone';
-            await _firestoreService.logMomentDeletedActivity(
+            await _firestoreService.logMomentMissedActivity(
               spaceId: widget.spaceId,
               userId: userId,
               userName: userName,
+              momentId: moment.id,
               momentName: moment.name,
               momentType: moment.type.value,
+              rescheduled: false,
             );
           }
         } catch (e) {
-          debugPrint('Error deleting moment: $e');
+          debugPrint('Error cancelling moment: $e');
         }
       },
     );

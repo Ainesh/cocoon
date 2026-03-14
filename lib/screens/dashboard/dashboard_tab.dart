@@ -446,7 +446,7 @@ class DashboardTabState extends State<DashboardTab> {
       },
       onDelete: () async {
         try {
-          // Remove from synced calendar first
+          // Remove from synced calendar
           if (moment.isSyncedToCalendar) {
             final userId = _authService.currentUser?.uid;
             if (userId != null) {
@@ -460,9 +460,12 @@ class DashboardTabState extends State<DashboardTab> {
               }
             }
           }
-          await _firestoreService.deleteMoment(
+
+          // Mark as missed (not physically deleted)
+          await _firestoreService.updateMomentStatus(
             spaceId: widget.spaceId,
             momentId: moment.id,
+            status: MomentStatus.missed,
           );
 
           final userId = _authService.currentUser?.uid;
@@ -470,12 +473,14 @@ class DashboardTabState extends State<DashboardTab> {
             final profile = await _firestoreService.getUserProfile(userId);
             final userName = profile?['name'] as String? ?? 'Someone';
 
-            await _firestoreService.logMomentDeletedActivity(
+            await _firestoreService.logMomentMissedActivity(
               spaceId: widget.spaceId,
               userId: userId,
               userName: userName,
+              momentId: moment.id,
               momentName: moment.name,
               momentType: moment.type.value,
+              rescheduled: false,
             );
           }
         } catch (e) {

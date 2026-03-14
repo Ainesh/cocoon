@@ -530,7 +530,9 @@ class FirestoreService {
         .map((snapshot) {
           final moments = snapshot.docs
               .map((doc) => Moment.fromFirestore(doc))
-              .where((m) => m.isUpcoming || m.spansToday)
+              .where((m) =>
+                  (m.isUpcoming || m.spansToday) &&
+                  m.status != MomentStatus.missed)
               .toList();
           return moments;
         });
@@ -549,7 +551,9 @@ class FirestoreService {
         .snapshots()
         .map((snapshot) => snapshot.docs
             .map((doc) => Moment.fromFirestore(doc))
-            .where((m) => m.type != MomentType.external)
+            .where((m) =>
+                m.type != MomentType.external &&
+                m.status != MomentStatus.missed)
             .toList());
   }
 
