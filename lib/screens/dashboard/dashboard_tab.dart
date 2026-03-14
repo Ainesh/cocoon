@@ -428,6 +428,7 @@ class DashboardTabState extends State<DashboardTab> {
     showMomentDetailsSheet(
       context: context,
       moment: moment,
+      spaceId: widget.spaceId,
       onEdit: (field) async {
         final focus = switch (field) {
           MomentEditField.date => 'date',

@@ -9,7 +9,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../models/integration_config.dart';
+import '../../models/memory.dart';
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
 import '../../services/calendar_service.dart';
@@ -34,6 +37,7 @@ typedef OnEditCallback = void Function(MomentEditField field);
 void showMomentDetailsSheet({
   required BuildContext context,
   required Moment moment,
+  required String spaceId,
   OnEditCallback? onEdit,
   VoidCallback? onDelete,
 }) {
@@ -44,6 +48,7 @@ void showMomentDetailsSheet({
     isScrollControlled: true,
     builder: (context) => _MomentDetailsContent(
       moment: moment,
+      spaceId: spaceId,
       onEdit: onEdit,
       onDelete: onDelete,
     ),
@@ -53,11 +58,13 @@ void showMomentDetailsSheet({
 class _MomentDetailsContent extends StatefulWidget {
   const _MomentDetailsContent({
     required this.moment,
+    required this.spaceId,
     this.onEdit,
     this.onDelete,
   });
 
   final Moment moment;
+  final String spaceId;
   final OnEditCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -412,6 +419,12 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                         (moment.notes != null && moment.notes!.isNotEmpty)) ...[
                       const SizedBox(height: 12),
                       _buildShakeable(_buildNotesSection()),
+                    ],
+
+                    // Memory section — for past moments
+                    if (moment.isPast && !_isExternal) ...[
+                      const SizedBox(height: 12),
+                      _buildMemorySection(),
                     ],
 
                     const SizedBox(height: 12),
@@ -928,6 +941,202 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
         ),
       ),
     );
+  }
+
+  Widget _buildMemorySection() {
+    final status = moment.status;
+
+    // Past + planned → prompt: Lived it / Missed it
+    if (status == MomentStatus.planned) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.darkCardLight,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: AppColors.accentRed.withValues(alpha: 0.15),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'HOW WAS IT?',
+              style: GoogleFonts.outfit(
+                color: AppColors.accentRed,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _onLivedMoment,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentRed.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'Lived it',
+                          style: GoogleFonts.outfit(
+                            color: AppColors.accentRed,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _onMissedMoment,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardVariant,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Center(
+                        child: Text(
+                          'Missed it',
+                          style: GoogleFonts.inter(
+                            color: AppColors.warmDim,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Lived → link to view/create memory
+    if (status == MomentStatus.lived) {
+      return GestureDetector(
+        onTap: () {
+          HapticFeedback.lightImpact();
+          Navigator.pop(context);
+          context.push('/memory/${widget.spaceId}/create', extra: moment);
+        },
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.darkCardLight,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.auto_stories_rounded, color: AppColors.accentRed, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                'Create a memory',
+                style: GoogleFonts.outfit(
+                  color: AppColors.accentRed,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Spacer(),
+              Icon(Icons.chevron_right_rounded, color: AppColors.warmMuted, size: 20),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Missed → subtle indicator
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.event_busy_rounded, color: AppColors.warmMuted, size: 20),
+          const SizedBox(width: 10),
+          Text(
+            'Marked as missed',
+            style: GoogleFonts.inter(
+              color: AppColors.warmMuted,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onLivedMoment() async {
+    final spaceId = widget.spaceId;
+    HapticFeedback.mediumImpact();
+
+    try {
+      await _firestoreService.updateMomentStatus(
+        spaceId: spaceId,
+        momentId: moment.id,
+        status: MomentStatus.lived,
+      );
+      if (mounted) {
+        Navigator.pop(context);
+        context.push('/memory/$spaceId/create', extra: moment);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _onMissedMoment() async {
+    final spaceId = widget.spaceId;
+    HapticFeedback.lightImpact();
+
+    try {
+      await _firestoreService.updateMomentStatus(
+        spaceId: spaceId,
+        momentId: moment.id,
+        status: MomentStatus.missed,
+      );
+
+      final userId = _authService.currentUser?.uid;
+      if (userId != null) {
+        final profile = await _firestoreService.getUserProfile(userId);
+        final userName = profile?['name'] as String? ?? 'Someone';
+        await _firestoreService.logMomentMissedActivity(
+          spaceId: spaceId,
+          userId: userId,
+          userName: userName,
+          momentId: moment.id,
+          momentName: moment.name,
+          momentType: moment.type.value,
+          rescheduled: false,
+        );
+      }
+
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
   }
 
   Widget _buildActions(BuildContext context) {

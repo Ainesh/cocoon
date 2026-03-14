@@ -209,6 +209,7 @@ class _MomentsTabState extends State<MomentsTab> {
     showMomentDetailsSheet(
       context: context,
       moment: moment,
+      spaceId: widget.spaceId,
       onEdit: (field) async {
         final focus = switch (field) {
           MomentEditField.date => 'date',
@@ -263,6 +264,7 @@ class _MomentsTabState extends State<MomentsTab> {
     showMomentDetailsSheet(
       context: context,
       moment: event.toMoment(providerLabel: providerLabel),
+      spaceId: widget.spaceId,
     );
   }
 

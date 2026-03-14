@@ -221,7 +221,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
         child: EmptyState(
           icon: Icons.auto_stories_rounded,
           title: 'Your story starts here',
-          subtitle: 'Live a moment, seal a memory.',
+          subtitle: 'Live a moment, create a memory.',
           actionLabel: 'Add a memory',
           onAction: _openCreateStandalone,
         ),

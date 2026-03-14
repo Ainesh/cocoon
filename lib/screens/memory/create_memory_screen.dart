@@ -329,7 +329,7 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
             onPressed: () => context.pop(),
           ),
           title: Text(
-            _isStandalone ? 'New Memory' : 'Seal a Memory',
+            _isStandalone ? 'New Memory' : 'Create a Memory',
             style: AppTypography.headlineSmall(),
           ),
           centerTitle: true,
@@ -591,8 +591,8 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
       child: SlideToAction(
-        label: 'Seal this memory',
-        loadingLabel: 'Sealing...',
+        label: 'Create this memory',
+        loadingLabel: 'Creating...',
         isLoading: _isSealing,
         onConfirm: _seal,
       ),
