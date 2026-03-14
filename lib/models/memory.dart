@@ -81,6 +81,9 @@ class Memory {
     this.momentName,
     this.momentType,
     this.momentDate,
+    this.momentEndDate,
+    this.momentTimeSlot,
+    this.momentNotes,
     this.title,
     this.photoPaths = const [],
     this.thumbPaths = const [],
@@ -110,6 +113,15 @@ class Memory {
 
   /// Denormalized moment startDate at seal time.
   final DateTime? momentDate;
+
+  /// Denormalized moment endDate at seal time (Escape moments only).
+  final DateTime? momentEndDate;
+
+  /// Denormalized moment timeSlot at seal time (Connect moments only).
+  final String? momentTimeSlot;
+
+  /// Denormalized moment notes at seal time.
+  final String? momentNotes;
 
   // ---------------------------------------------------------------------------
   // Standalone Fields
@@ -175,6 +187,9 @@ class Memory {
   bool get hasPlace => place != null && place!.isNotEmpty;
   bool get hasMusic => music != null && music!.isNotEmpty;
 
+  /// Whether any memory content fields have been filled.
+  bool get hasContent => hasPhotos || hasCaption || hasPlace || hasMusic || hasCheckin;
+
   /// Display title: moment name for linked memories, user title for standalone.
   String get displayTitle => isStandalone ? (title ?? '') : (momentName ?? '');
 
@@ -196,6 +211,11 @@ class Memory {
       momentDate: json['momentDate'] != null
           ? (json['momentDate'] as Timestamp).toDate()
           : null,
+      momentEndDate: json['momentEndDate'] != null
+          ? (json['momentEndDate'] as Timestamp).toDate()
+          : null,
+      momentTimeSlot: json['momentTimeSlot'] as String?,
+      momentNotes: json['momentNotes'] as String?,
       title: json['title'] as String?,
       createdBy: json['createdBy'] as String? ?? '',
       photoPaths: List<String>.from(json['photoPaths'] ?? []),
@@ -228,6 +248,9 @@ class Memory {
       if (momentName != null) 'momentName': momentName,
       if (momentType != null) 'momentType': momentType,
       if (momentDate != null) 'momentDate': Timestamp.fromDate(momentDate!),
+      if (momentEndDate != null) 'momentEndDate': Timestamp.fromDate(momentEndDate!),
+      if (momentTimeSlot != null) 'momentTimeSlot': momentTimeSlot,
+      if (momentNotes != null) 'momentNotes': momentNotes,
       if (title != null) 'title': title,
       'createdBy': createdBy,
       'photoPaths': photoPaths,
@@ -266,6 +289,9 @@ class Memory {
     String? momentName,
     String? momentType,
     DateTime? momentDate,
+    DateTime? momentEndDate,
+    String? momentTimeSlot,
+    String? momentNotes,
     String? title,
     String? createdBy,
     List<String>? photoPaths,
@@ -285,6 +311,9 @@ class Memory {
       momentName: momentName ?? this.momentName,
       momentType: momentType ?? this.momentType,
       momentDate: momentDate ?? this.momentDate,
+      momentEndDate: momentEndDate ?? this.momentEndDate,
+      momentTimeSlot: momentTimeSlot ?? this.momentTimeSlot,
+      momentNotes: momentNotes ?? this.momentNotes,
       title: title ?? this.title,
       createdBy: createdBy ?? this.createdBy,
       photoPaths: photoPaths ?? this.photoPaths,

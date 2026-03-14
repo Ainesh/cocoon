@@ -289,6 +289,70 @@ void main() {
       expect(s, contains('mem_full'));
       expect(s, contains('Date Night'));
     });
+
+    test('hasContent returns true when any content field is filled', () {
+      expect(_fullMemory().hasContent, true);
+    });
+
+    test('hasContent returns false for empty memory', () {
+      expect(_minimalMemory().hasContent, false);
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Denormalized moment fields
+  // ---------------------------------------------------------------------------
+
+  group('Memory denormalized moment fields', () {
+    test('fromJson parses momentEndDate, momentTimeSlot, momentNotes', () {
+      final json = _fullMomentLinkedJson();
+      final memory = Memory.fromJson('id', json);
+
+      expect(memory.momentEndDate, isNotNull);
+      expect(memory.momentTimeSlot, 'evening');
+      expect(memory.momentNotes, 'Try the new Italian place');
+    });
+
+    test('new fields are null when absent (backward compat)', () {
+      final json = _minimalJson();
+      final memory = Memory.fromJson('id', json);
+
+      expect(memory.momentEndDate, isNull);
+      expect(memory.momentTimeSlot, isNull);
+      expect(memory.momentNotes, isNull);
+    });
+
+    test('toJson includes new denormalized fields when present', () {
+      final memory = _fullMemory();
+      final json = memory.toJson();
+
+      expect(json['momentEndDate'], isA<Timestamp>());
+      expect(json['momentTimeSlot'], 'evening');
+      expect(json['momentNotes'], 'Try the new Italian place');
+    });
+
+    test('toJson omits new fields when null', () {
+      final memory = _minimalMemory();
+      final json = memory.toJson();
+
+      expect(json.containsKey('momentEndDate'), false);
+      expect(json.containsKey('momentTimeSlot'), false);
+      expect(json.containsKey('momentNotes'), false);
+    });
+
+    test('copyWith updates new fields', () {
+      final original = _minimalMemory();
+      final copy = original.copyWith(
+        momentEndDate: DateTime.utc(2026, 3, 15),
+        momentTimeSlot: 'morning',
+        momentNotes: 'Some notes',
+      );
+
+      expect(copy.momentEndDate, DateTime.utc(2026, 3, 15));
+      expect(copy.momentTimeSlot, 'morning');
+      expect(copy.momentNotes, 'Some notes');
+      expect(original.momentEndDate, isNull);
+    });
   });
 }
 
@@ -301,6 +365,9 @@ Map<String, dynamic> _fullMomentLinkedJson() => {
   'momentName': 'Date Night',
   'momentType': 'connect',
   'momentDate': Timestamp.fromDate(DateTime.utc(2026, 3, 10)),
+  'momentEndDate': Timestamp.fromDate(DateTime.utc(2026, 3, 12)),
+  'momentTimeSlot': 'evening',
+  'momentNotes': 'Try the new Italian place',
   'createdBy': 'user_abc',
   'photoPaths': ['path/photo_0.jpg', 'path/photo_1.jpg'],
   'thumbPaths': ['path/photo_0_thumb.jpg', 'path/photo_1_thumb.jpg'],
@@ -338,6 +405,9 @@ Memory _fullMemory() => Memory(
   momentName: 'Date Night',
   momentType: 'connect',
   momentDate: DateTime.utc(2026, 3, 10),
+  momentEndDate: DateTime.utc(2026, 3, 12),
+  momentTimeSlot: 'evening',
+  momentNotes: 'Try the new Italian place',
   createdBy: 'user_abc',
   photoPaths: ['path/photo_0.jpg', 'path/photo_1.jpg'],
   thumbPaths: ['path/photo_0_thumb.jpg', 'path/photo_1_thumb.jpg'],

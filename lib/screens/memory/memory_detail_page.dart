@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
+import '../moment/moment_details_sheet.dart';
 import 'memory_detail_sheet.dart';
 
 class MemoryDetailPage extends StatefulWidget {
@@ -46,6 +47,23 @@ class _MemoryDetailPageState extends State<MemoryDetailPage> {
         return;
       }
 
+      // Moment-linked → open unified moment sheet
+      if (memory.momentId != null) {
+        final moment = await _firestoreService.getMoment(
+          spaceId: widget.spaceId,
+          momentId: memory.momentId!,
+        );
+        if (mounted && moment != null) {
+          showMomentDetailsSheet(
+            context: context,
+            moment: moment,
+            spaceId: widget.spaceId,
+          );
+          return;
+        }
+      }
+
+      // Standalone → memory detail sheet
       showMemoryDetailSheet(
         context,
         spaceId: widget.spaceId,

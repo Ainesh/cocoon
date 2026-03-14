@@ -1889,6 +1889,102 @@ class FirestoreService {
         .update({'status': status.value});
   }
 
+  /// Marks a moment as lived and auto-creates an empty memory doc for the user.
+  ///
+  /// Atomic batch write:
+  ///   1. Update moment status → lived
+  ///   2. Create empty memory doc with all moment data denormalized
+  ///   3. Log memoryCreated activity
+  ///
+  /// The memory doc starts with empty content fields (photos, caption, etc.)
+  /// which the user fills incrementally via the unified moment-memory view.
+  Future<void> markMomentLived({
+    required String spaceId,
+    required Moment moment,
+    required String userId,
+    required String userName,
+  }) async {
+    final memoryId = generateMemoryId(
+      spaceId: spaceId,
+      momentId: moment.id,
+      userId: userId,
+    );
+
+    final memory = Memory(
+      id: memoryId,
+      createdBy: userId,
+      date: moment.startDate,
+      createdAt: DateTime.now(),
+      momentId: moment.id,
+      momentName: moment.name,
+      momentType: moment.type.value,
+      momentDate: moment.startDate,
+      momentEndDate: moment.endDate,
+      momentTimeSlot: moment.timeSlot?.value,
+      momentNotes: moment.notes,
+    );
+
+    final batch = _firestore.batch();
+
+    // 1. Update moment status
+    final momentRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(moment.id);
+    batch.update(momentRef, {'status': MomentStatus.lived.value});
+
+    // 2. Create empty memory doc
+    final memoryRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memoryId);
+    batch.set(memoryRef, memory.toJson());
+
+    // 3. Log activity
+    final activityRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('activities')
+        .doc();
+    batch.set(activityRef, {
+      'type': ActivityType.memoryCreated.value,
+      'actorId': userId,
+      'actorName': userName,
+      'entityType': EntityType.memory.value,
+      'entityId': memoryId,
+      'timestamp': FieldValue.serverTimestamp(),
+      'metadata': {
+        'memoryTitle': moment.name,
+        'momentId': moment.id,
+      },
+    });
+
+    await batch.commit();
+  }
+
+  /// Updates a single field on a memory document.
+  ///
+  /// Used for inline editing in the unified view — saves individual fields
+  /// without requiring a full document update.
+  Future<void> updateMemoryField({
+    required String spaceId,
+    required String memoryId,
+    required String field,
+    required dynamic value,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memoryId)
+        .update({
+      field: value,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Memory Activity Logging
   // ---------------------------------------------------------------------------

@@ -16,8 +16,10 @@ import '../../models/memory.dart';
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
 import '../../services/calendar_service.dart';
+import '../../services/storage_service.dart';
 import '../../utils/date_utils.dart';
 import '../../services/firestore_service.dart';
+import '../../widgets/emoji_reaction_picker.dart';
 import '../../theme/theme.dart';
 import '../../widgets/moment_type_icon.dart';
 import '../../widgets/painters/circle_progress_painters.dart';
@@ -96,6 +98,15 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   _presenceSubscription;
   StreamSubscription<DocumentSnapshot>? _momentSubscription;
 
+  // Memory state for unified view
+  Memory? _userMemory;
+  Memory? _partnerMemory;
+  StreamSubscription? _userMemorySub;
+  bool _showingPartnerMemory = false;
+  final _storageService = StorageService();
+  final _thumbUrls = <String>[];
+  final _fullUrls = <String>[];
+
   bool get _isExternal => widget.moment.type == MomentType.external;
 
   String get _plannedBySubtitle {
@@ -137,6 +148,9 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     if (!_isExternal) {
       _watchEditingPresence();
       _loadCalendarIntegration();
+    }
+    if (widget.moment.status == MomentStatus.lived) {
+      _loadMemories();
     }
   }
 
@@ -226,12 +240,63 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     _shakeController.dispose();
     _presenceSubscription?.cancel();
     _momentSubscription?.cancel();
+    _userMemorySub?.cancel();
     _hintTimer?.cancel();
     _deleteTimer?.cancel();
     _deleteTimer = null;
     _overlayEntry?.remove();
     _overlayEntry = null;
     super.dispose();
+  }
+
+  Future<void> _loadMemories() async {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+
+    final memoryId = _firestoreService.generateMemoryId(
+      spaceId: widget.spaceId,
+      momentId: widget.moment.id,
+      userId: userId,
+    );
+
+    // Watch user's own memory for real-time updates
+    _userMemorySub = _firestoreService
+        .watchMemory(widget.spaceId, memoryId)
+        .listen((memory) async {
+      if (!mounted) return;
+      setState(() => _userMemory = memory);
+      if (memory != null) {
+        await _resolveMemoryPhotos(memory);
+      }
+    });
+
+    // Load partner's memory (one-time)
+    final memories = await _firestoreService.getMemoriesForMoment(
+      spaceId: widget.spaceId,
+      momentId: widget.moment.id,
+    );
+    if (!mounted) return;
+    final partner = memories.where((m) => m.createdBy != userId).firstOrNull;
+    if (partner != null) {
+      setState(() => _partnerMemory = partner);
+    }
+  }
+
+  Future<void> _resolveMemoryPhotos(Memory memory) async {
+    if (memory.thumbPaths.isEmpty && memory.photoPaths.isEmpty) {
+      if (mounted) setState(() { _thumbUrls.clear(); _fullUrls.clear(); });
+      return;
+    }
+    try {
+      final thumbs = await _storageService.resolveUrls(memory.thumbPaths);
+      final fulls = await _storageService.resolveUrls(memory.photoPaths);
+      if (mounted) {
+        setState(() {
+          _thumbUrls..clear()..addAll(thumbs);
+          _fullUrls..clear()..addAll(fulls);
+        });
+      }
+    } catch (_) {}
   }
 
   void _startDelete() {
@@ -1027,38 +1092,10 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       );
     }
 
-    // Lived → link to view/create memory
+    // Lived → unified memory view with inline editable placeholders
     if (status == MomentStatus.lived) {
-      return GestureDetector(
-        onTap: () {
-          HapticFeedback.lightImpact();
-          Navigator.pop(context);
-          context.push('/memory/${widget.spaceId}/create', extra: moment);
-        },
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppColors.darkCardLight,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.psychology_rounded, color: AppColors.accentRed, size: 20),
-              const SizedBox(width: 10),
-              Text(
-                'Create a memory',
-                style: GoogleFonts.outfit(
-                  color: AppColors.accentRed,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const Spacer(),
-              Icon(Icons.chevron_right_rounded, color: AppColors.warmMuted, size: 20),
-            ],
-          ),
-        ),
-      );
+      final memory = _showingPartnerMemory ? _partnerMemory : _userMemory;
+      return _buildUnifiedMemoryView(memory);
     }
 
     // Missed → subtle indicator
@@ -1084,10 +1121,373 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     );
   }
 
-  void _onLivedMoment() {
-    HapticFeedback.mediumImpact();
+  Widget _buildUnifiedMemoryView(Memory? memory) {
+    if (memory == null) {
+      return const SizedBox(
+        height: 60,
+        child: Center(child: CircularProgressIndicator(color: AppColors.accentRed)),
+      );
+    }
+
+    final userId = _authService.currentUser?.uid;
+    final isOwner = memory.createdBy == userId;
+    final canEdit = isOwner && !_showingPartnerMemory;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section label
+        Row(
+          children: [
+            Icon(Icons.psychology_rounded, color: AppColors.accentRed, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              _showingPartnerMemory ? "PARTNER'S MEMORY" : 'YOUR MEMORY',
+              style: GoogleFonts.outfit(
+                color: AppColors.accentRed,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const Spacer(),
+            if (_partnerMemory != null)
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  setState(() => _showingPartnerMemory = !_showingPartnerMemory);
+                  if (_showingPartnerMemory && _partnerMemory != null) {
+                    _resolveMemoryPhotos(_partnerMemory!);
+                  } else if (_userMemory != null) {
+                    _resolveMemoryPhotos(_userMemory!);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardVariant,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    _showingPartnerMemory ? 'See yours' : "Partner's view",
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmDim,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        // Photos
+        _buildMemoryPhotoField(memory, canEdit),
+        const SizedBox(height: 10),
+
+        // Caption
+        _buildMemoryTextField(
+          value: memory.caption,
+          placeholder: 'How was it?',
+          icon: Icons.edit_note_rounded,
+          canEdit: canEdit,
+          onSave: (text) => _saveMemoryField('caption', text),
+        ),
+        const SizedBox(height: 8),
+
+        // Place
+        _buildMemoryTextField(
+          value: memory.place,
+          placeholder: 'Where were you?',
+          icon: Icons.place_outlined,
+          canEdit: canEdit,
+          onSave: (text) => _saveMemoryField('place', text),
+        ),
+        const SizedBox(height: 8),
+
+        // Music
+        _buildMemoryTextField(
+          value: memory.music,
+          placeholder: 'A song that reminds you',
+          icon: Icons.music_note_outlined,
+          canEdit: canEdit,
+          onSave: (text) => _saveMemoryField('music', text),
+        ),
+
+        // Reactions
+        if (memory.reactions.isNotEmpty || !_showingPartnerMemory) ...[
+          const SizedBox(height: 12),
+          _buildMemoryReactions(memory),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildMemoryPhotoField(Memory memory, bool canEdit) {
+    if (memory.hasPhotos && _thumbUrls.isNotEmpty) {
+      return SizedBox(
+        height: 80,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: _thumbUrls.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 6),
+          itemBuilder: (_, i) => ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image.network(
+              _thumbUrls[i],
+              width: 80, height: 80, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 80, height: 80, color: AppColors.cardVariant,
+                child: const Icon(Icons.broken_image, color: AppColors.warmMuted, size: 20),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (!canEdit) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: () => _pickMemoryPhotos(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: AppColors.cardVariant.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.warmMuted.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_photo_alternate_outlined, color: AppColors.warmMuted, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Add a photo',
+              style: GoogleFonts.inter(color: AppColors.warmMuted, fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMemoryTextField({
+    required String? value,
+    required String placeholder,
+    required IconData icon,
+    required bool canEdit,
+    required ValueChanged<String?> onSave,
+  }) {
+    final hasValue = value != null && value.isNotEmpty;
+
+    return GestureDetector(
+      onTap: canEdit ? () => _showFieldEditor(placeholder, value, onSave) : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: hasValue ? AppColors.darkCardLight : AppColors.cardVariant.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(10),
+          border: !hasValue && canEdit
+              ? Border.all(color: AppColors.warmMuted.withValues(alpha: 0.15))
+              : null,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: hasValue ? AppColors.warmDim : AppColors.warmMuted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                (value != null && value.isNotEmpty) ? value : placeholder,
+                style: GoogleFonts.inter(
+                  color: hasValue ? AppColors.warmLight : AppColors.warmMuted,
+                  fontSize: 13,
+                  fontStyle: hasValue ? FontStyle.normal : FontStyle.italic,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (canEdit && !hasValue)
+              Icon(Icons.add_rounded, size: 16, color: AppColors.warmMuted),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMemoryReactions(Memory memory) {
+    final userId = _authService.currentUser?.uid;
+    final myReaction = userId != null ? memory.reactions[userId] : null;
+    final partnerReaction = memory.reactions.entries
+        .where((e) => e.key != userId)
+        .map((e) => e.value)
+        .firstOrNull;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (partnerReaction != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Text(partnerReaction, style: const TextStyle(fontSize: 18)),
+                const SizedBox(width: 6),
+                Text('Partner reacted', style: GoogleFonts.inter(color: AppColors.warmDim, fontSize: 12)),
+              ],
+            ),
+          ),
+        if (!_showingPartnerMemory)
+          EmojiReactionPicker(
+            selectedEmoji: myReaction,
+            onSelected: (emoji) => _toggleReaction(memory, emoji),
+          ),
+      ],
+    );
+  }
+
+  void _showFieldEditor(String label, String? currentValue, ValueChanged<String?> onSave) {
+    final controller = TextEditingController(text: currentValue ?? '');
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.pureBlack,
+      isScrollControlled: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20, right: 20, top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: GoogleFonts.outfit(color: AppColors.warmLight, fontSize: 16, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              autofocus: true,
+              style: GoogleFonts.inter(color: AppColors.warmLight, fontSize: 14),
+              maxLines: label.contains('How') ? 3 : 1,
+              maxLength: label.contains('How') ? 280 : 100,
+              decoration: InputDecoration(
+                hintText: label,
+                hintStyle: GoogleFonts.inter(color: AppColors.warmMuted),
+                border: InputBorder.none,
+                counterStyle: TextStyle(color: AppColors.warmMuted, fontSize: 11),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: Text('Cancel', style: TextStyle(color: AppColors.warmMuted)),
+                ),
+                const SizedBox(width: 8),
+                TextButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    onSave(text.isEmpty ? null : text);
+                    Navigator.pop(ctx);
+                  },
+                  child: Text('Save', style: TextStyle(color: AppColors.accentRed)),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _saveMemoryField(String field, dynamic value) async {
+    final memory = _userMemory;
+    if (memory == null) return;
+
+    try {
+      await _firestoreService.updateMemoryField(
+        spaceId: widget.spaceId,
+        memoryId: memory.id,
+        field: field,
+        value: value ?? FieldValue.delete(),
+      );
+      HapticFeedback.lightImpact();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickMemoryPhotos() async {
+    // Defer to the create memory screen for photo management
+    // since it handles compression + upload + multi-photo
+    final memory = _userMemory;
+    if (memory == null) return;
     Navigator.pop(context);
     context.push('/memory/${widget.spaceId}/create', extra: moment);
+  }
+
+  Future<void> _toggleReaction(Memory memory, String emoji) async {
+    final userId = _authService.currentUser?.uid;
+    if (userId == null) return;
+
+    try {
+      if (memory.reactions[userId] == emoji) {
+        await _firestoreService.removeReaction(
+          spaceId: widget.spaceId, memoryId: memory.id, userId: userId,
+        );
+      } else {
+        await _firestoreService.setReaction(
+          spaceId: widget.spaceId, memoryId: memory.id, userId: userId, emoji: emoji,
+        );
+        final profile = await _firestoreService.getUserProfile(userId);
+        final userName = profile?['name'] as String? ?? 'Someone';
+        await _firestoreService.logMemoryReactionActivity(
+          spaceId: widget.spaceId, userId: userId, userName: userName,
+          memoryId: memory.id, memoryTitle: memory.displayTitle, emoji: emoji,
+        );
+      }
+      HapticFeedback.lightImpact();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
+  }
+
+  Future<void> _onLivedMoment() async {
+    HapticFeedback.mediumImpact();
+
+    try {
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) return;
+      final profile = await _firestoreService.getUserProfile(userId);
+      final userName = profile?['name'] as String? ?? 'Someone';
+
+      await _firestoreService.markMomentLived(
+        spaceId: widget.spaceId,
+        moment: moment,
+        userId: userId,
+        userName: userName,
+      );
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+        );
+      }
+    }
   }
 
   Future<void> _onMissedMoment() async {

@@ -261,16 +261,42 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
         );
       }
 
-      // Step 3: Atomic batch — memory + moment status + activity
+      // Step 3: For standalone with a date, auto-create an external moment
+      String? momentId = widget.moment?.id;
+      String? momentName = widget.moment?.name;
+      String? momentTypeVal = widget.moment?.type.value;
+      DateTime? momentDate = widget.moment?.startDate;
+
+      if (_isStandalone && _date != null) {
+        final standaloneTitle = _titleController.text.trim();
+        momentId = await _firestoreService.createMoment(
+          spaceId: widget.spaceId,
+          name: standaloneTitle.isNotEmpty ? standaloneTitle : 'Memory',
+          type: MomentType.external,
+          startDate: _date!,
+          createdBy: userId,
+        );
+        momentName = standaloneTitle.isNotEmpty ? standaloneTitle : 'Memory';
+        momentTypeVal = MomentType.external.value;
+        momentDate = _date;
+      }
+
+      // Re-generate memory ID now that we may have a momentId
+      final finalMemoryId = momentId != null
+          ? _firestoreService.generateMemoryId(
+              spaceId: widget.spaceId, momentId: momentId, userId: userId)
+          : memoryId;
+
+      // Step 4: Atomic batch — memory + moment status + activity
       final memory = Memory(
-        id: memoryId,
+        id: finalMemoryId,
         createdBy: userId,
         date: _date!,
         createdAt: DateTime.now(),
-        momentId: widget.moment?.id,
-        momentName: widget.moment?.name,
-        momentType: widget.moment?.type.value,
-        momentDate: widget.moment?.startDate,
+        momentId: momentId,
+        momentName: momentName,
+        momentType: momentTypeVal,
+        momentDate: momentDate,
         title: _isStandalone ? _titleController.text.trim() : null,
         photoPaths: photoPaths,
         thumbPaths: thumbPaths,

@@ -20,6 +20,7 @@ import '../../widgets/memory_card.dart';
 import '../../widgets/moment_group_header.dart';
 import '../../widgets/neumorphic_container.dart';
 import '../memory/memory_detail_sheet.dart';
+import '../moment/moment_details_sheet.dart';
 
 /// The Memories tab content — 3rd tab in the main shell.
 class MemoriesTab extends StatefulWidget {
@@ -144,8 +145,32 @@ class _MemoriesTabState extends State<MemoriesTab> {
     context.push('/memory/${widget.spaceId}/create');
   }
 
-  void _openMemoryDetail(Memory memory) {
+  Future<void> _openMemoryDetail(Memory memory) async {
     HapticFeedback.lightImpact();
+
+    // For moment-linked memories, open the unified moment sheet
+    if (memory.momentId != null) {
+      try {
+        final moment = await _firestoreService.getMoment(
+          spaceId: widget.spaceId,
+          momentId: memory.momentId!,
+        );
+        if (!mounted || moment == null) return;
+        showMomentDetailsSheet(
+          context: context,
+          moment: moment,
+          spaceId: widget.spaceId,
+        );
+      } catch (_) {
+        // Fallback to memory detail sheet if moment can't be loaded
+        if (mounted) {
+          showMemoryDetailSheet(context, spaceId: widget.spaceId, initialMemory: memory);
+        }
+      }
+      return;
+    }
+
+    // Standalone memories use the existing detail sheet
     showMemoryDetailSheet(context, spaceId: widget.spaceId, initialMemory: memory);
   }
 

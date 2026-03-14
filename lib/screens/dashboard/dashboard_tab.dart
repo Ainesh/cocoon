@@ -231,16 +231,38 @@ class DashboardTabState extends State<DashboardTab> {
   // Actions — Memory Prompt
   // ---------------------------------------------------------------------------
 
-  /// User lived the moment → navigate to create memory.
-  /// Status transitions to `lived` atomically inside `sealMemory` batch write
-  /// when the user actually creates the memory. If they back out, the moment
-  /// stays `planned` and the prompt reappears.
-  void _onLivedMoment() {
+  /// User lived the moment → mark as lived + auto-create empty memory.
+  /// The unified view will show when the user opens this moment next.
+  Future<void> _onLivedMoment() async {
     final moment = _promptMoment;
     if (moment == null) return;
     FocusScope.of(context).unfocus();
     HapticFeedback.mediumImpact();
-    context.push('/memory/${widget.spaceId}/create', extra: moment);
+
+    try {
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) return;
+      final profile = await _firestoreService.getUserProfile(userId);
+      final userName = profile?['name'] as String? ?? 'Someone';
+
+      await _firestoreService.markMomentLived(
+        spaceId: widget.spaceId,
+        moment: moment,
+        userId: userId,
+        userName: userName,
+      );
+
+      if (mounted) _loadPromptMoment();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to update moment: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   /// User missed the moment → mark missed + log activity + dismiss prompt.
@@ -492,10 +514,7 @@ class DashboardTabState extends State<DashboardTab> {
         _showCheckinDetails(activity);
         break;
       case EntityType.memory:
-        final entityId = activity.entityId;
-        if (entityId != null && entityId.isNotEmpty) {
-          context.push('/memory/${widget.spaceId}/$entityId');
-        }
+        _openMemoryFromActivity(activity);
         break;
       case EntityType.space:
       case null:
@@ -525,6 +544,35 @@ class DashboardTabState extends State<DashboardTab> {
       }
     } catch (e) {
       debugPrint('Error fetching moment for activity: $e');
+    }
+  }
+
+  Future<void> _openMemoryFromActivity(Activity activity) async {
+    final entityId = activity.entityId;
+    if (entityId == null || entityId.isEmpty) return;
+
+    try {
+      final memory = await _firestoreService.getMemory(
+        spaceId: widget.spaceId,
+        memoryId: entityId,
+      );
+      if (!mounted || memory == null) return;
+
+      // If moment-linked, open unified moment sheet
+      if (memory.momentId != null) {
+        final moment = await _firestoreService.getMoment(
+          spaceId: widget.spaceId,
+          momentId: memory.momentId!,
+        );
+        if (moment != null && mounted) {
+          _showMomentDetails(moment);
+          return;
+        }
+      }
+      // Fallback: push to memory detail route
+      if (mounted) context.push('/memory/${widget.spaceId}/$entityId');
+    } catch (e) {
+      debugPrint('Error opening memory from activity: $e');
     }
   }
 
