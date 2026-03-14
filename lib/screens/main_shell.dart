@@ -332,6 +332,7 @@ class _MainShellState extends State<MainShell> {
             }
 
             return GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onHorizontalDragStart: (d) {
                 setState(
                   () => _dragPosition =
@@ -391,28 +392,30 @@ class _MainShellState extends State<MainShell> {
                         ),
                       ),
                     ),
-                    Row(
-                      children: List.generate(slotCount, (i) {
-                        final tab = _slotToTab(i);
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              left: i == 0 ? 0 : gap / 2,
-                              right:
-                                  i == slotCount - 1 ? 0 : gap / 2,
-                            ),
-                            child: Center(
-                              child: Icon(
-                                _slotIcons[i],
-                                color: _selectedTab == tab
-                                    ? _pureBlack
-                                    : _dimText,
-                                size: 20,
+                    IgnorePointer(
+                      child: Row(
+                        children: List.generate(slotCount, (i) {
+                          final tab = _slotToTab(i);
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                left: i == 0 ? 0 : gap / 2,
+                                right:
+                                    i == slotCount - 1 ? 0 : gap / 2,
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  _slotIcons[i],
+                                  color: _selectedTab == tab
+                                      ? _pureBlack
+                                      : _dimText,
+                                  size: 20,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
+                      ),
                     ),
                   ],
                 ),
