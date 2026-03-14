@@ -625,12 +625,15 @@ class FirestoreService {
         .collection('moments')
         .doc();
 
+    // Ensure all moments have an endDate (same as startDate for non-Escape)
+    final effectiveEndDate = endDate ?? startDate;
+
     final moment = Moment(
       id: momentRef.id,
       name: name,
       type: type,
       startDate: startDate,
-      endDate: endDate,
+      endDate: effectiveEndDate,
       timeSlot: timeSlot,
       repeatSchedule: repeatSchedule,
       notes: notes,
@@ -1845,14 +1848,16 @@ class FirestoreService {
     return snap.docs.map((doc) => Memory.fromFirestore(doc)).toList();
   }
 
-  /// Gets past moments awaiting a memory (status == planned, ended within 14 days).
+  /// Gets past moments that still need a user action (lived/missed).
   ///
-  /// Used by the dashboard prompt card and prompting system.
-  /// Returns moments sorted newest-first by end date.
+  /// Returns moments where:
+  ///   - effectiveEndDate < today (moment is in the past)
+  ///   - status is still `planned` (not yet marked lived or missed)
+  ///   - within 14-day cutoff window
+  ///
+  /// For Connect/Celebrate moments, endDate may be null — startDate is used.
+  /// Returns moments sorted newest-first.
   Future<List<Moment>> getPastMomentsAwaitingMemory(String spaceId) async {
-    // Existing moments may not have a 'status' field at all (pre-Memories).
-    // Firestore where('status', '==', 'planned') won't match docs missing the
-    // field, so we fetch all moments and filter client-side.
     final snap = await _firestore
         .collection(_spacesCollection)
         .doc(spaceId)
@@ -1866,9 +1871,13 @@ class FirestoreService {
     return snap.docs
         .map((doc) => Moment.fromFirestore(doc))
         .where((m) {
+          // Only show moments that haven't been resolved yet
           if (m.status != MomentStatus.planned) return false;
-          final end = m.endDate ?? m.startDate;
-          return end.isBefore(today) && end.isAfter(cutoff);
+          // Skip external moments
+          if (m.type == MomentType.external) return false;
+          // Use endDate for Escape, startDate for everything else
+          final effectiveEnd = m.endDate ?? m.startDate;
+          return effectiveEnd.isBefore(today) && effectiveEnd.isAfter(cutoff);
         })
         .toList()
       ..sort((a, b) =>
