@@ -703,7 +703,7 @@ class _ActivityItem extends StatelessWidget {
       case ActivityType.momentMissed:
         return Icons.event_busy;
       case ActivityType.memoryCreated:
-        return Icons.auto_stories;
+        return Icons.psychology;
       case ActivityType.memoryEdited:
         return Icons.edit;
       case ActivityType.memoryDeleted:

@@ -219,7 +219,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 40),
         child: EmptyState(
-          icon: Icons.auto_stories_rounded,
+          icon: Icons.psychology_rounded,
           title: 'Your story starts here',
           subtitle: 'Live a moment, create a memory.',
           actionLabel: 'Add a memory',

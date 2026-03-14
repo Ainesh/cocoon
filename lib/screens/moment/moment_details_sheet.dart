@@ -1043,7 +1043,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
           ),
           child: Row(
             children: [
-              Icon(Icons.auto_stories_rounded, color: AppColors.accentRed, size: 20),
+              Icon(Icons.psychology_rounded, color: AppColors.accentRed, size: 20),
               const SizedBox(width: 10),
               Text(
                 'Create a memory',
