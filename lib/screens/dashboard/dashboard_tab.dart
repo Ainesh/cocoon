@@ -194,8 +194,11 @@ class DashboardTabState extends State<DashboardTab> {
 
   Future<void> _loadPromptMoment() async {
     try {
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) return;
       final moments = await _firestoreService.getPastMomentsAwaitingMemory(
         widget.spaceId,
+        userId: userId,
       );
       if (!mounted) return;
       setState(() => _promptMoment = moments.isNotEmpty ? moments.first : null);
@@ -231,13 +234,11 @@ class DashboardTabState extends State<DashboardTab> {
   // Actions — Memory Prompt
   // ---------------------------------------------------------------------------
 
-  /// User lived the moment → mark as lived + auto-create empty memory.
-  /// The unified view will show when the user opens this moment next.
+  /// User lived the moment → create memory with lived sentiment.
   Future<void> _onLivedMoment() async {
     final moment = _promptMoment;
     if (moment == null) return;
     FocusScope.of(context).unfocus();
-    HapticFeedback.mediumImpact();
 
     try {
       final userId = _authService.currentUser?.uid;
@@ -245,11 +246,12 @@ class DashboardTabState extends State<DashboardTab> {
       final profile = await _firestoreService.getUserProfile(userId);
       final userName = profile?['name'] as String? ?? 'Someone';
 
-      await _firestoreService.markMomentLived(
+      await _firestoreService.createPromptMemory(
         spaceId: widget.spaceId,
         moment: moment,
         userId: userId,
         userName: userName,
+        sentiment: MemorySentiment.lived,
       );
 
       if (mounted) _loadPromptMoment();
@@ -257,7 +259,7 @@ class DashboardTabState extends State<DashboardTab> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to update moment: $e'),
+            content: Text('Failed to create memory: $e'),
             backgroundColor: AppColors.error,
           ),
         );
@@ -265,34 +267,25 @@ class DashboardTabState extends State<DashboardTab> {
     }
   }
 
-  /// User missed the moment → mark missed + log activity + dismiss prompt.
+  /// User missed the moment → create memory with missed sentiment.
   Future<void> _onMissedMoment() async {
     final moment = _promptMoment;
     if (moment == null) return;
     FocusScope.of(context).unfocus();
 
     try {
-      await _firestoreService.updateMomentStatus(
-        spaceId: widget.spaceId,
-        momentId: moment.id,
-        status: MomentStatus.missed,
-      );
-
       final userId = _authService.currentUser?.uid;
-      if (userId != null) {
-        final profile = await _firestoreService.getUserProfile(userId);
-        final userName = profile?['name'] as String? ?? 'Someone';
+      if (userId == null) return;
+      final profile = await _firestoreService.getUserProfile(userId);
+      final userName = profile?['name'] as String? ?? 'Someone';
 
-        await _firestoreService.logMomentMissedActivity(
-          spaceId: widget.spaceId,
-          userId: userId,
-          userName: userName,
-          momentId: moment.id,
-          momentName: moment.name,
-          momentType: moment.type.value,
-          rescheduled: false,
-        );
-      }
+      await _firestoreService.createPromptMemory(
+        spaceId: widget.spaceId,
+        moment: moment,
+        userId: userId,
+        userName: userName,
+        sentiment: MemorySentiment.missed,
+      );
 
       if (mounted) _loadPromptMoment();
     } catch (e) {
@@ -467,28 +460,11 @@ class DashboardTabState extends State<DashboardTab> {
             }
           }
 
-          // Mark as missed (not physically deleted)
           await _firestoreService.updateMomentStatus(
             spaceId: widget.spaceId,
             momentId: moment.id,
-            status: MomentStatus.missed,
+            status: MomentStatus.cancelled,
           );
-
-          final userId = _authService.currentUser?.uid;
-          if (userId != null) {
-            final profile = await _firestoreService.getUserProfile(userId);
-            final userName = profile?['name'] as String? ?? 'Someone';
-
-            await _firestoreService.logMomentMissedActivity(
-              spaceId: widget.spaceId,
-              userId: userId,
-              userName: userName,
-              momentId: moment.id,
-              momentName: moment.name,
-              momentType: moment.type.value,
-              rescheduled: false,
-            );
-          }
         } catch (e) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -664,7 +640,11 @@ class DashboardTabState extends State<DashboardTab> {
             flex: 1,
             child: ValueListenableBuilder<List<Moment>>(
               valueListenable: _momentsNotifier,
-              builder: (context, moments, _) {
+              builder: (context, allMoments, _) {
+                final moments = allMoments
+                    .where((m) =>
+                        !m.isPast && m.id != _promptMoment?.id)
+                    .toList();
                 final hasManyMoments = moments.length >= 3;
                 return Column(
                   children: [

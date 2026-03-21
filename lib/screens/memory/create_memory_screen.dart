@@ -9,11 +9,9 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -23,8 +21,10 @@ import '../../models/pulse_config.dart';
 import '../../scoring/score_models.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/drive_storage_service.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/image_compressor.dart';
 import '../../theme/app_typography.dart';
 import '../../utils/date_utils.dart';
 import '../../widgets/active_card.dart';
@@ -60,14 +60,15 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
   final _authService = AuthService();
   final _firestoreService = FirestoreService();
   final _storageService = StorageService();
+  final _driveService = DriveStorageService();
   final _imagePicker = ImagePicker();
 
   // ---------------------------------------------------------------------------
   // State — Content
   // ---------------------------------------------------------------------------
 
-  final _photos = <File>[];
-  final _thumbs = <File>[];
+  final _photos = <Uint8List>[];
+  final _thumbs = <Uint8List>[];
   final _captionController = TextEditingController();
   final _placeController = TextEditingController();
   final _musicController = TextEditingController();
@@ -88,6 +89,7 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
   // ---------------------------------------------------------------------------
 
   bool _isSealing = false;
+  bool _useDrive = false;
   final _scrollController = ScrollController();
 
   // ---------------------------------------------------------------------------
@@ -113,6 +115,7 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
     _date = widget.moment?.startDate;
     _titleController.addListener(() => setState(() {}));
     _subscribeToPulseConfig();
+    _checkDriveIntegration();
   }
 
   @override
@@ -124,6 +127,19 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
     _scrollController.dispose();
     _configSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _checkDriveIntegration() async {
+    final uid = _authService.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      final config = await _firestoreService.getIntegrationConfig(uid);
+      if (mounted && config.hasDriveStorage) {
+        setState(() => _useDrive = true);
+      }
+    } catch (_) {
+      // Default to Firebase
+    }
   }
 
   void _subscribeToPulseConfig() {
@@ -146,9 +162,16 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
   // Actions
   // ---------------------------------------------------------------------------
 
+  int get _maxPhotos => _useDrive ? kMaxDrivePhotos : kMaxMemoryPhotos;
+
+  Future<String> _getSpaceName() async {
+    final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);
+    return space?['name'] as String? ?? 'Kairos';
+  }
+
   Future<void> _pickPhotos() async {
     FocusScope.of(context).unfocus();
-    final remaining = kMaxMemoryPhotos - _photos.length;
+    final remaining = _maxPhotos - _photos.length;
     if (remaining <= 0) return;
 
     try {
@@ -158,38 +181,18 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
       );
       if (picked.isEmpty || !mounted) return;
 
-      final toProcess = picked.take(remaining).toList();
-
-      for (final xfile in toProcess) {
+      for (final xfile in picked.take(remaining)) {
         final bytes = await xfile.readAsBytes();
+        final fullBytes = await ImageCompressor.compressFull(bytes);
+        final thumbBytes = await ImageCompressor.compressThumb(bytes);
 
-        final fullBytes = await FlutterImageCompress.compressWithList(
-          bytes,
-          minWidth: 1920,
-          minHeight: 1920,
-          quality: 80,
-          format: CompressFormat.jpeg,
-        );
-        final thumbBytes = await FlutterImageCompress.compressWithList(
-          bytes,
-          minWidth: 300,
-          minHeight: 300,
-          quality: 80,
-          format: CompressFormat.jpeg,
-        );
-
-        final fullFile = File('${Directory.systemTemp.path}/mem_full_${DateTime.now().millisecondsSinceEpoch}.jpg')
-          ..writeAsBytesSync(fullBytes);
-        final thumbFile = File('${Directory.systemTemp.path}/mem_thumb_${DateTime.now().millisecondsSinceEpoch}.jpg')
-          ..writeAsBytesSync(thumbBytes);
-
-        _photos.add(fullFile);
-        _thumbs.add(thumbFile);
+        _photos.add(fullBytes);
+        _thumbs.add(thumbBytes);
       }
 
       if (mounted) setState(() {});
     } catch (_) {
-      // Gallery permission denied or other error — silently ignore
+      // Gallery permission denied or other error
     }
   }
 
@@ -227,18 +230,32 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
         userId: userId,
       );
 
-      // Step 1: Upload photos
+      // Step 1: Upload photos (Firebase or Drive)
       var photoPaths = <String>[];
       var thumbPaths = <String>[];
       if (_photos.isNotEmpty) {
-        final result = await _storageService.uploadMemoryPhotos(
-          spaceId: widget.spaceId,
-          memoryId: memoryId,
-          fullPhotos: _photos,
-          thumbPhotos: _thumbs,
-        );
-        photoPaths = result.photoPaths;
-        thumbPaths = result.thumbPaths;
+        if (_useDrive) {
+          final spaceName = await _getSpaceName();
+          final result = await _driveService.uploadPhotos(
+            spaceName: spaceName,
+            memoryId: memoryId,
+            fullPhotos: _photos,
+            thumbPhotos: _thumbs,
+          );
+          if (result != null) {
+            photoPaths = result.photoIds;
+            thumbPaths = result.thumbIds;
+          }
+        } else {
+          final result = await _storageService.uploadMemoryPhotos(
+            spaceId: widget.spaceId,
+            memoryId: memoryId,
+            fullPhotos: _photos,
+            thumbPhotos: _thumbs,
+          );
+          photoPaths = result.photoPaths;
+          thumbPaths = result.thumbPaths;
+        }
       }
 
       // Step 2: Submit embedded check-in (if sliders interacted)
@@ -310,6 +327,7 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
             ? null
             : _musicController.text.trim(),
         checkinId: checkinId,
+        storageProvider: _useDrive ? 'drive' : 'firebase',
       );
 
       final profile = await _firestoreService.getUserProfile(userId);
@@ -484,11 +502,12 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
     return ActiveCard(
       heading: 'Photos',
       isActive: _photos.isNotEmpty,
-      helperText: 'Add up to 3 photos',
+      helperText: 'Add up to $_maxPhotos photos',
       child: PhotoPickerGrid(
         newPhotos: _photos,
         onPickPhotos: _pickPhotos,
         onRemoveNew: _removePhoto,
+        maxPhotos: _maxPhotos,
       ),
     );
   }

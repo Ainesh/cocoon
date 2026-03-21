@@ -27,18 +27,25 @@ void main() {
       expect(m.status, MomentStatus.planned);
     });
 
-    test('fromJson parses lived status', () {
+    test('fromJson parses cancelled status', () {
+      final json = createTestMomentJson();
+      json['status'] = 'cancelled';
+      final m = Moment.fromJson('id', json);
+      expect(m.status, MomentStatus.cancelled);
+    });
+
+    test('fromJson maps legacy lived status to planned', () {
       final json = createTestMomentJson();
       json['status'] = 'lived';
       final m = Moment.fromJson('id', json);
-      expect(m.status, MomentStatus.lived);
+      expect(m.status, MomentStatus.planned);
     });
 
-    test('fromJson parses missed status', () {
+    test('fromJson maps legacy missed status to cancelled', () {
       final json = createTestMomentJson();
       json['status'] = 'missed';
       final m = Moment.fromJson('id', json);
-      expect(m.status, MomentStatus.missed);
+      expect(m.status, MomentStatus.cancelled);
     });
 
     test('fromJson defaults unknown status to planned', () {
@@ -49,15 +56,15 @@ void main() {
     });
 
     test('toJson includes status field', () {
-      final m = createTestMoment(status: MomentStatus.lived);
+      final m = createTestMoment(status: MomentStatus.cancelled);
       final json = m.toJson();
-      expect(json['status'], 'lived');
+      expect(json['status'], 'cancelled');
     });
 
     test('copyWith updates status', () {
       final m = createTestMoment();
-      final updated = m.copyWith(status: MomentStatus.missed);
-      expect(updated.status, MomentStatus.missed);
+      final updated = m.copyWith(status: MomentStatus.cancelled);
+      expect(updated.status, MomentStatus.cancelled);
       expect(m.status, MomentStatus.planned);
     });
   });
@@ -255,18 +262,10 @@ void main() {
       expect(filterForPrompt([m]), hasLength(1));
     });
 
-    test('past lived moment is NOT eligible', () {
+    test('past cancelled moment is NOT eligible', () {
       final m = createTestMoment(
         startDate: _todayUtc().subtract(const Duration(days: 2)),
-        status: MomentStatus.lived,
-      );
-      expect(filterForPrompt([m]), isEmpty);
-    });
-
-    test('past missed moment is NOT eligible', () {
-      final m = createTestMoment(
-        startDate: _todayUtc().subtract(const Duration(days: 2)),
-        status: MomentStatus.missed,
+        status: MomentStatus.cancelled,
       );
       expect(filterForPrompt([m]), isEmpty);
     });
@@ -293,14 +292,14 @@ void main() {
       expect(filterForPrompt([m]), isEmpty);
     });
 
-    test('markMomentLived creates empty memory — after that prompt should not show', () {
+    test('cancelled moment is excluded from prompt', () {
       final m = createTestMoment(
         startDate: _todayUtc().subtract(const Duration(days: 2)),
       );
       expect(filterForPrompt([m]), hasLength(1));
 
-      final afterLived = m.copyWith(status: MomentStatus.lived);
-      expect(filterForPrompt([afterLived]), isEmpty);
+      final afterCancelled = m.copyWith(status: MomentStatus.cancelled);
+      expect(filterForPrompt([afterCancelled]), isEmpty);
     });
 
     test('moment with endDate uses endDate for past check (escape)', () {

@@ -1,25 +1,24 @@
 /// Photo picker grid widget for memory creation and editing.
 ///
-/// Displays a horizontal row of photo slots (max 3) with:
-/// - Existing photos (shown via thumbnail URLs or File previews)
+/// Displays a horizontal row of photo slots with:
+/// - Existing photos (shown via thumbnail URLs)
+/// - New photos (shown via Uint8List bytes in memory)
 /// - An "add" button when under the limit
 /// - Remove (X) buttons on each photo
+///
+/// Cross-platform: uses [Image.memory] instead of [Image.file].
 library;
 
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
-/// Maximum number of photos per memory.
+/// Default maximum photos per memory (Firebase Storage).
+/// Overridden to a higher limit when using Google Drive.
 const kMaxMemoryPhotos = 3;
 
-/// A horizontal row of photo slots for picking, previewing, and removing photos.
-///
-/// Supports two types of photos:
-/// - [existingThumbUrls]: Already-uploaded photos shown via network URL
-/// - [newPhotos]: Freshly picked [File]s shown via file preview
 class PhotoPickerGrid extends StatelessWidget {
   const PhotoPickerGrid({
     super.key,
@@ -28,25 +27,18 @@ class PhotoPickerGrid extends StatelessWidget {
     required this.onPickPhotos,
     this.onRemoveExisting,
     this.onRemoveNew,
+    this.maxPhotos = kMaxMemoryPhotos,
   });
 
-  /// Thumbnail URLs for already-uploaded photos.
   final List<String> existingThumbUrls;
-
-  /// Freshly picked photo files (not yet uploaded).
-  final List<File> newPhotos;
-
-  /// Called when the user taps the add button.
+  final List<Uint8List> newPhotos;
   final VoidCallback onPickPhotos;
-
-  /// Called when the user removes an existing (uploaded) photo by index.
   final ValueChanged<int>? onRemoveExisting;
-
-  /// Called when the user removes a new (not yet uploaded) photo by index.
   final ValueChanged<int>? onRemoveNew;
+  final int maxPhotos;
 
   int get _totalCount => existingThumbUrls.length + newPhotos.length;
-  bool get _canAdd => _totalCount < kMaxMemoryPhotos;
+  bool get _canAdd => _totalCount < maxPhotos;
 
   @override
   Widget build(BuildContext context) {
@@ -55,7 +47,6 @@ class PhotoPickerGrid extends StatelessWidget {
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
-          // Existing photos (from URLs)
           for (var i = 0; i < existingThumbUrls.length; i++)
             _PhotoTile(
               key: ValueKey('existing_$i'),
@@ -64,16 +55,16 @@ class PhotoPickerGrid extends StatelessWidget {
                 fit: BoxFit.cover,
                 width: 100,
                 height: 100,
-                errorBuilder: (_, __, ___) => _placeholder(),
+                errorBuilder: (_, e, st) => _placeholder(),
               ),
-              onRemove: onRemoveExisting != null ? () => onRemoveExisting!(i) : null,
+              onRemove: onRemoveExisting != null
+                  ? () => onRemoveExisting!(i)
+                  : null,
             ),
-
-          // New photos (from Files)
           for (var i = 0; i < newPhotos.length; i++)
             _PhotoTile(
               key: ValueKey('new_$i'),
-              child: Image.file(
+              child: Image.memory(
                 newPhotos[i],
                 fit: BoxFit.cover,
                 width: 100,
@@ -81,8 +72,6 @@ class PhotoPickerGrid extends StatelessWidget {
               ),
               onRemove: onRemoveNew != null ? () => onRemoveNew!(i) : null,
             ),
-
-          // Add button
           if (_canAdd) _buildAddButton(),
         ],
       ),
@@ -114,11 +103,8 @@ class PhotoPickerGrid extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                '$_totalCount/$kMaxMemoryPhotos',
-                style: TextStyle(
-                  color: AppColors.warmMuted,
-                  fontSize: 11,
-                ),
+                '$_totalCount/$maxPhotos',
+                style: TextStyle(color: AppColors.warmMuted, fontSize: 11),
               ),
             ],
           ),
@@ -137,7 +123,6 @@ class PhotoPickerGrid extends StatelessWidget {
   }
 }
 
-/// A single photo tile with a remove button overlay.
 class _PhotoTile extends StatelessWidget {
   const _PhotoTile({super.key, required this.child, this.onRemove});
 

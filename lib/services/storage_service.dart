@@ -1,56 +1,71 @@
 /// Storage service for Kairos app.
 ///
 /// Handles Firebase Storage operations for memory photos:
-/// - Upload full-size + thumbnail pairs
+/// - Upload full-size + thumbnail pairs (from Uint8List bytes)
 /// - Delete individual or all photos for a memory
 /// - Resolve storage paths to download URLs with caching
+///
+/// Cross-platform: uses `putData()` (Uint8List) instead of `putFile()` (File),
+/// so it works on web, iOS, Android, and macOS.
 library;
 
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
-/// Service for Firebase Storage operations related to memory photos.
-///
-/// Photo files follow the naming convention:
-/// ```
-/// spaces/{spaceId}/memories/{memoryId}/photo_{index}.jpg       (full-size)
-/// spaces/{spaceId}/memories/{memoryId}/photo_{index}_thumb.jpg  (thumbnail)
-/// ```
+import 'drive_storage_service.dart';
+
 class StorageService {
   StorageService({FirebaseStorage? storage})
     : _storage = storage ?? FirebaseStorage.instance;
 
   final FirebaseStorage _storage;
+  final _driveService = DriveStorageService();
 
-  /// Download URL cache: storage path → URL.
-  /// Avoids repeated getDownloadURL() calls for the same path.
   final _urlCache = <String, String>{};
 
   // ---------------------------------------------------------------------------
-  // URL Resolution
+  // URL Resolution (routes between Firebase and Drive)
   // ---------------------------------------------------------------------------
 
-  /// Resolves a storage path to a download URL, using an in-memory cache.
-  Future<String> resolveUrl(String storagePath) async {
-    final cached = _urlCache[storagePath];
+  /// Resolves a storage path/ID to a download URL.
+  ///
+  /// Routes based on [storageProvider]:
+  /// - `'firebase'` (default): Firebase Storage path → `getDownloadURL()`
+  /// - `'drive'`: Google Drive file ID → `webContentLink`
+  Future<String> resolveUrl(
+    String pathOrId, {
+    String storageProvider = 'firebase',
+  }) async {
+    final cached = _urlCache[pathOrId];
     if (cached != null) return cached;
 
-    final url = await _storage.ref(storagePath).getDownloadURL();
-    _urlCache[storagePath] = url;
+    final String url;
+    if (storageProvider == 'drive') {
+      url = await _driveService.resolveUrl(pathOrId);
+    } else {
+      url = await _storage.ref(pathOrId).getDownloadURL();
+    }
+    _urlCache[pathOrId] = url;
     return url;
   }
 
-  /// Resolves multiple storage paths in parallel.
-  Future<List<String>> resolveUrls(List<String> paths) {
-    return Future.wait(paths.map(resolveUrl));
+  /// Resolves multiple paths/IDs in parallel.
+  Future<List<String>> resolveUrls(
+    List<String> paths, {
+    String storageProvider = 'firebase',
+  }) {
+    return Future.wait(
+      paths.map((p) => resolveUrl(p, storageProvider: storageProvider)),
+    );
   }
 
-  /// Evicts a specific path from the URL cache.
-  void evictFromCache(String storagePath) => _urlCache.remove(storagePath);
+  void evictFromCache(String pathOrId) => _urlCache.remove(pathOrId);
 
-  /// Clears the entire URL cache.
-  void clearCache() => _urlCache.clear();
+  void clearCache() {
+    _urlCache.clear();
+    _driveService.clearCache();
+  }
 
   // ---------------------------------------------------------------------------
   // Upload
@@ -58,16 +73,14 @@ class StorageService {
 
   /// Uploads full-size + thumbnail photo pairs for a memory.
   ///
-  /// [fullPhotos] and [thumbPhotos] must be the same length.
+  /// Accepts raw JPEG bytes ([Uint8List]) — no `dart:io` dependency.
   /// [startIndex] allows appending to existing photos during edits.
-  ///
-  /// Returns a record of (photoPaths, thumbPaths) as Firebase Storage paths.
   Future<({List<String> photoPaths, List<String> thumbPaths})>
       uploadMemoryPhotos({
     required String spaceId,
     required String memoryId,
-    required List<File> fullPhotos,
-    required List<File> thumbPhotos,
+    required List<Uint8List> fullPhotos,
+    required List<Uint8List> thumbPhotos,
     int startIndex = 0,
   }) async {
     assert(
@@ -78,20 +91,15 @@ class StorageService {
     final photoPaths = <String>[];
     final thumbPaths = <String>[];
     final basePath = 'spaces/$spaceId/memories/$memoryId';
+    final metadata = SettableMetadata(contentType: 'image/jpeg');
 
     for (var i = 0; i < fullPhotos.length; i++) {
       final idx = startIndex + i;
       final fullPath = '$basePath/photo_$idx.jpg';
       final thumbPath = '$basePath/photo_${idx}_thumb.jpg';
 
-      await _storage.ref(fullPath).putFile(
-        fullPhotos[i],
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
-      await _storage.ref(thumbPath).putFile(
-        thumbPhotos[i],
-        SettableMetadata(contentType: 'image/jpeg'),
-      );
+      await _storage.ref(fullPath).putData(fullPhotos[i], metadata);
+      await _storage.ref(thumbPath).putData(thumbPhotos[i], metadata);
 
       photoPaths.add(fullPath);
       thumbPaths.add(thumbPath);
@@ -104,7 +112,6 @@ class StorageService {
   // Delete
   // ---------------------------------------------------------------------------
 
-  /// Deletes all photos (full + thumb) under a memory's storage folder.
   Future<void> deleteAllMemoryPhotos({
     required String spaceId,
     required String memoryId,
@@ -117,7 +124,6 @@ class StorageService {
     }
   }
 
-  /// Deletes specific files by their storage paths.
   Future<void> deleteFiles(List<String> paths) async {
     for (final path in paths) {
       await _storage.ref(path).delete();

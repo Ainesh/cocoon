@@ -149,7 +149,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       _watchEditingPresence();
       _loadCalendarIntegration();
     }
-    if (widget.moment.status == MomentStatus.lived) {
+    if (widget.moment.isPast) {
       _loadMemories();
     }
   }
@@ -572,9 +572,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   Widget _buildTypeBadge() {
-    final isPast = moment.isPast;
-    final bgColor = isPast ? AppColors.cardVariant : AppColors.accentRed;
-    final fgColor = isPast ? AppColors.warmMuted : AppColors.pureBlack;
+    const bgColor = AppColors.accentRed;
+    const fgColor = AppColors.pureBlack;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -1047,108 +1046,108 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   Widget _buildMemorySection() {
-    final status = moment.status;
-
-    // Past + planned → prompt: Lived it / Missed it
-    if (status == MomentStatus.planned) {
+    // Cancelled → subtle indicator
+    if (moment.status == MomentStatus.cancelled) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.darkCardLight,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: AppColors.accentRed.withValues(alpha: 0.15),
-          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
+            Icon(Icons.event_busy_rounded,
+                color: AppColors.warmMuted, size: 20),
+            const SizedBox(width: 10),
             Text(
-              'HOW WAS IT?',
-              style: GoogleFonts.outfit(
-                color: AppColors.accentRed,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.5,
+              'Cancelled',
+              style: GoogleFonts.inter(
+                color: AppColors.warmMuted,
+                fontSize: 14,
               ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _onLivedMoment,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      decoration: BoxDecoration(
-                        color: AppColors.accentRed.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Lived it',
-                          style: GoogleFonts.outfit(
-                            color: AppColors.accentRed,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: _onMissedMoment,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardVariant,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Center(
-                        child: Text(
-                          'Missed it',
-                          style: GoogleFonts.inter(
-                            color: AppColors.warmDim,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
       );
     }
 
-    // Lived → unified memory view with inline editable placeholders
-    if (status == MomentStatus.lived) {
-      final memory = _showingPartnerMemory ? _partnerMemory : _userMemory;
+    // User has a memory → show unified view
+    if (_userMemory != null) {
+      final memory =
+          _showingPartnerMemory ? _partnerMemory : _userMemory;
       return _buildUnifiedMemoryView(memory);
     }
 
-    // Missed → subtle indicator
+    // No memory yet → prompt: Lived it / Missed it
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.darkCardLight,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppColors.accentRed.withValues(alpha: 0.15),
+        ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.event_busy_rounded, color: AppColors.warmMuted, size: 20),
-          const SizedBox(width: 10),
           Text(
-            'Marked as missed',
-            style: GoogleFonts.inter(
-              color: AppColors.warmMuted,
-              fontSize: 14,
+            'HOW WAS IT?',
+            style: GoogleFonts.outfit(
+              color: AppColors.accentRed,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.5,
             ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: _onLivedMoment,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentRed.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Lived it',
+                        style: GoogleFonts.outfit(
+                          color: AppColors.accentRed,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: _onMissedMoment,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 11),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardVariant,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Missed it',
+                        style: GoogleFonts.inter(
+                          color: AppColors.warmDim,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1505,16 +1504,15 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       final profile = await _firestoreService.getUserProfile(userId);
       final userName = profile?['name'] as String? ?? 'Someone';
 
-      await _firestoreService.markMomentLived(
+      await _firestoreService.createPromptMemory(
         spaceId: widget.spaceId,
         moment: moment,
         userId: userId,
         userName: userName,
+        sentiment: MemorySentiment.lived,
       );
 
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1525,30 +1523,21 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   }
 
   Future<void> _onMissedMoment() async {
-    final spaceId = widget.spaceId;
     HapticFeedback.lightImpact();
 
     try {
-      await _firestoreService.updateMomentStatus(
-        spaceId: spaceId,
-        momentId: moment.id,
-        status: MomentStatus.missed,
-      );
-
       final userId = _authService.currentUser?.uid;
-      if (userId != null) {
-        final profile = await _firestoreService.getUserProfile(userId);
-        final userName = profile?['name'] as String? ?? 'Someone';
-        await _firestoreService.logMomentMissedActivity(
-          spaceId: spaceId,
-          userId: userId,
-          userName: userName,
-          momentId: moment.id,
-          momentName: moment.name,
-          momentType: moment.type.value,
-          rescheduled: false,
-        );
-      }
+      if (userId == null) return;
+      final profile = await _firestoreService.getUserProfile(userId);
+      final userName = profile?['name'] as String? ?? 'Someone';
+
+      await _firestoreService.createPromptMemory(
+        spaceId: widget.spaceId,
+        moment: moment,
+        userId: userId,
+        userName: userName,
+        sentiment: MemorySentiment.missed,
+      );
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -1567,7 +1556,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
           _buildSyncButton(),
           const SizedBox(height: 8),
         ],
-        if (onDelete != null && moment.status != MomentStatus.missed)
+        if (onDelete != null && moment.status != MomentStatus.cancelled)
           _buildHoldToDeleteButton(),
       ],
     );

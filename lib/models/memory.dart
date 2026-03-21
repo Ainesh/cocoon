@@ -13,16 +13,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 // Enums
 // =============================================================================
 
-/// Lifecycle status for moments.
+/// Lifecycle status for moments (shared, objective).
 ///
-/// - [planned]: Default state; moment is scheduled or date has passed but no
-///   memory/missed action taken.
-/// - [lived]: At least one memory has been created for this moment.
-/// - [missed]: User explicitly marked the moment as "didn't happen".
+/// - [planned]: Default state; moment is scheduled or awaiting user response.
+/// - [cancelled]: Moment was explicitly cancelled by a partner.
+///
+/// Backward compat: old `lived` values parse as [planned] (memories exist so
+/// prompts won't re-show). Old `missed` values parse as [cancelled].
 enum MomentStatus {
   planned('planned'),
-  lived('lived'),
-  missed('missed');
+  cancelled('cancelled');
 
   const MomentStatus(this.value);
 
@@ -30,12 +30,35 @@ enum MomentStatus {
   final String value;
 
   /// Creates a MomentStatus from its Firestore value.
-  /// Defaults to [planned] for unknown or null values.
   static MomentStatus fromValue(String value) {
-    return MomentStatus.values.firstWhere(
-      (e) => e.value == value,
-      orElse: () => MomentStatus.planned,
-    );
+    return switch (value) {
+      'planned' => MomentStatus.planned,
+      'cancelled' || 'missed' => MomentStatus.cancelled,
+      _ => MomentStatus.planned,
+    };
+  }
+}
+
+/// Per-user sentiment on a memory (subjective).
+///
+/// - [lived]: The user experienced and enjoyed the moment.
+/// - [missed]: The user missed or didn't attend the moment.
+///
+/// Null sentiment on legacy memories is treated as [lived].
+enum MemorySentiment {
+  lived('lived'),
+  missed('missed');
+
+  const MemorySentiment(this.value);
+
+  final String value;
+
+  static MemorySentiment? fromValue(String? value) {
+    return switch (value) {
+      'lived' => MemorySentiment.lived,
+      'missed' => MemorySentiment.missed,
+      _ => null,
+    };
   }
 }
 
@@ -91,8 +114,10 @@ class Memory {
     this.place,
     this.music,
     this.checkinId,
+    this.sentiment,
     this.reactions = const {},
     this.updatedAt,
+    this.storageProvider = 'firebase',
   });
 
   /// Unique identifier (Firestore document ID).
@@ -155,6 +180,9 @@ class Memory {
   /// Linked UserCheckIn document ID (null if pulse sliders were not used).
   final String? checkinId;
 
+  /// Per-user sentiment: lived or missed. Null for legacy memories (treated as lived).
+  final MemorySentiment? sentiment;
+
   // ---------------------------------------------------------------------------
   // Social
   // ---------------------------------------------------------------------------
@@ -174,6 +202,17 @@ class Memory {
 
   /// Last edit timestamp, null if never edited.
   final DateTime? updatedAt;
+
+  // ---------------------------------------------------------------------------
+  // Storage
+  // ---------------------------------------------------------------------------
+
+  /// Which storage backend holds this memory's photos.
+  /// `'firebase'` (default) or `'drive'` (Google Drive).
+  /// Backward compatible: existing docs without this field default to `'firebase'`.
+  final String storageProvider;
+
+  bool get usesDrive => storageProvider == 'drive';
 
   // ---------------------------------------------------------------------------
   // Computed
@@ -224,6 +263,7 @@ class Memory {
       place: json['place'] as String?,
       music: json['music'] as String?,
       checkinId: json['checkinId'] as String?,
+      sentiment: MemorySentiment.fromValue(json['sentiment'] as String?),
       reactions: Map<String, String>.from(json['reactions'] ?? {}),
       date: json['date'] != null
           ? (json['date'] as Timestamp).toDate()
@@ -234,6 +274,7 @@ class Memory {
       updatedAt: json['updatedAt'] != null
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
+      storageProvider: json['storageProvider'] as String? ?? 'firebase',
     );
   }
 
@@ -259,9 +300,11 @@ class Memory {
       if (place != null) 'place': place,
       if (music != null) 'music': music,
       if (checkinId != null) 'checkinId': checkinId,
+      if (sentiment != null) 'sentiment': sentiment!.value,
       'reactions': reactions,
       'date': Timestamp.fromDate(date),
       'createdAt': FieldValue.serverTimestamp(),
+      if (storageProvider != 'firebase') 'storageProvider': storageProvider,
     };
   }
 
@@ -300,10 +343,12 @@ class Memory {
     String? place,
     String? music,
     String? checkinId,
+    MemorySentiment? sentiment,
     Map<String, String>? reactions,
     DateTime? date,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? storageProvider,
   }) {
     return Memory(
       id: id ?? this.id,
@@ -322,10 +367,12 @@ class Memory {
       place: place ?? this.place,
       music: music ?? this.music,
       checkinId: checkinId ?? this.checkinId,
+      sentiment: sentiment ?? this.sentiment,
       reactions: reactions ?? this.reactions,
       date: date ?? this.date,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      storageProvider: storageProvider ?? this.storageProvider,
     );
   }
 

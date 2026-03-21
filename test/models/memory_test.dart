@@ -9,10 +9,14 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('MomentStatus', () {
-    test('fromValue returns correct status for all values', () {
+    test('fromValue returns correct status for current values', () {
       expect(MomentStatus.fromValue('planned'), MomentStatus.planned);
-      expect(MomentStatus.fromValue('lived'), MomentStatus.lived);
-      expect(MomentStatus.fromValue('missed'), MomentStatus.missed);
+      expect(MomentStatus.fromValue('cancelled'), MomentStatus.cancelled);
+    });
+
+    test('fromValue maps legacy values correctly', () {
+      expect(MomentStatus.fromValue('lived'), MomentStatus.planned);
+      expect(MomentStatus.fromValue('missed'), MomentStatus.cancelled);
     });
 
     test('fromValue defaults to planned for unknown values', () {
@@ -23,6 +27,24 @@ void main() {
     test('value property round-trips correctly', () {
       for (final status in MomentStatus.values) {
         expect(MomentStatus.fromValue(status.value), status);
+      }
+    });
+  });
+
+  group('MemorySentiment', () {
+    test('fromValue returns correct sentiment', () {
+      expect(MemorySentiment.fromValue('lived'), MemorySentiment.lived);
+      expect(MemorySentiment.fromValue('missed'), MemorySentiment.missed);
+    });
+
+    test('fromValue returns null for unknown or null values', () {
+      expect(MemorySentiment.fromValue(null), isNull);
+      expect(MemorySentiment.fromValue('unknown'), isNull);
+    });
+
+    test('value property round-trips correctly', () {
+      for (final s in MemorySentiment.values) {
+        expect(MemorySentiment.fromValue(s.value), s);
       }
     });
   });

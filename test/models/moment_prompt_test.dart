@@ -66,20 +66,11 @@ void main() {
       expect(filterForPrompt([m]), isEmpty);
     });
 
-    test('past moment with status == lived is excluded', () {
+    test('past moment with status == cancelled is excluded', () {
       final m = _moment(
         id: '1',
         startDate: DateTime.now().toUtc().subtract(const Duration(days: 3)),
-        status: MomentStatus.lived,
-      );
-      expect(filterForPrompt([m]), isEmpty);
-    });
-
-    test('past moment with status == missed is excluded', () {
-      final m = _moment(
-        id: '1',
-        startDate: DateTime.now().toUtc().subtract(const Duration(days: 3)),
-        status: MomentStatus.missed,
+        status: MomentStatus.cancelled,
       );
       expect(filterForPrompt([m]), isEmpty);
     });
@@ -95,14 +86,9 @@ void main() {
           startDate: DateTime.now().toUtc().subtract(const Duration(days: 2)),
         ),
         _moment(
-          id: 'lived',
-          startDate: DateTime.now().toUtc().subtract(const Duration(days: 5)),
-          status: MomentStatus.lived,
-        ),
-        _moment(
-          id: 'missed',
+          id: 'cancelled',
           startDate: DateTime.now().toUtc().subtract(const Duration(days: 4)),
-          status: MomentStatus.missed,
+          status: MomentStatus.cancelled,
         ),
         _moment(
           id: 'future',
@@ -172,9 +158,9 @@ void main() {
       // Second check: still eligible
       expect(filterForPrompt([m]), hasLength(1));
 
-      // User actually seals a memory — sealMemory sets status to lived
-      final mLived = m.copyWith(status: MomentStatus.lived);
-      expect(filterForPrompt([mLived]), isEmpty);
+      // User cancels the moment — status changes to cancelled
+      final mCancelled = m.copyWith(status: MomentStatus.cancelled);
+      expect(filterForPrompt([mCancelled]), isEmpty);
     });
   });
 }

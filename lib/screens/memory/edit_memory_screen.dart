@@ -1,18 +1,18 @@
 library;
 
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../models/memory.dart';
 import '../../services/firestore_service.dart';
+import '../../services/drive_storage_service.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_colors.dart';
+import '../../utils/image_compressor.dart';
 import '../../theme/app_typography.dart';
 import '../../widgets/active_card.dart';
 import '../../widgets/photo_picker_grid.dart';
@@ -35,6 +35,7 @@ class EditMemoryScreen extends StatefulWidget {
 class _EditMemoryScreenState extends State<EditMemoryScreen> {
   final _firestoreService = FirestoreService();
   final _storageService = StorageService();
+  final _driveService = DriveStorageService();
   final _imagePicker = ImagePicker();
 
   // Existing photos kept by user (storage paths)
@@ -45,8 +46,8 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
   final _existingThumbUrls = <String>[];
 
   // Newly picked photos (not yet uploaded)
-  final _newPhotos = <File>[];
-  final _newThumbs = <File>[];
+  final _newPhotos = <Uint8List>[];
+  final _newThumbs = <Uint8List>[];
 
   late final _captionController =
       TextEditingController(text: widget.memory.caption ?? '');
@@ -62,6 +63,8 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
 
   int get _totalPhotoCount => _existingPhotoPaths.length + _newPhotos.length;
   bool get _isStandalone => widget.memory.isStandalone;
+  bool get _useDrive => widget.memory.usesDrive;
+  int get _maxPhotos => _useDrive ? kMaxDrivePhotos : kMaxMemoryPhotos;
 
   List<String> get _editedFields {
     final fields = <String>[];
@@ -119,7 +122,7 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
 
   Future<void> _pickPhotos() async {
     FocusScope.of(context).unfocus();
-    final remaining = 3 - _totalPhotoCount;
+    final remaining = _maxPhotos - _totalPhotoCount;
     if (remaining <= 0) return;
 
     try {
@@ -131,32 +134,13 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
 
       for (final xfile in picked.take(remaining)) {
         final bytes = await xfile.readAsBytes();
-        final fullBytes = await FlutterImageCompress.compressWithList(
-          bytes,
-          minWidth: 1920,
-          minHeight: 1920,
-          quality: 80,
-          format: CompressFormat.jpeg,
-        );
-        final thumbBytes = await FlutterImageCompress.compressWithList(
-          bytes,
-          minWidth: 300,
-          minHeight: 300,
-          quality: 80,
-          format: CompressFormat.jpeg,
-        );
-        final ts = DateTime.now().millisecondsSinceEpoch;
-        _newPhotos.add(
-          File('${Directory.systemTemp.path}/edit_full_$ts.jpg')
-            ..writeAsBytesSync(fullBytes),
-        );
-        _newThumbs.add(
-          File('${Directory.systemTemp.path}/edit_thumb_$ts.jpg')
-            ..writeAsBytesSync(thumbBytes),
-        );
+        _newPhotos.add(await ImageCompressor.compressFull(bytes));
+        _newThumbs.add(await ImageCompressor.compressThumb(bytes));
       }
       if (mounted) setState(() {});
-    } catch (_) {}
+    } catch (_) {
+      // Gallery permission denied or other error
+    }
   }
 
   void _removeExistingPhoto(int index) {
@@ -192,21 +176,42 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
           .where((p) => !_existingThumbPaths.contains(p))
           .toList();
       if (removedPaths.isNotEmpty || removedThumbs.isNotEmpty) {
-        await _storageService.deleteFiles([...removedPaths, ...removedThumbs]);
+        final allRemoved = [...removedPaths, ...removedThumbs];
+        if (_useDrive) {
+          await _driveService.deleteFiles(allRemoved);
+        } else {
+          await _storageService.deleteFiles(allRemoved);
+        }
       }
 
       var newPhotoPaths = <String>[];
       var newThumbPaths = <String>[];
       if (_newPhotos.isNotEmpty) {
-        final result = await _storageService.uploadMemoryPhotos(
-          spaceId: widget.spaceId,
-          memoryId: widget.memory.id,
-          fullPhotos: _newPhotos,
-          thumbPhotos: _newThumbs,
-          startIndex: _existingPhotoPaths.length,
-        );
-        newPhotoPaths = result.photoPaths;
-        newThumbPaths = result.thumbPaths;
+        if (_useDrive) {
+          final space = await _firestoreService.getSpaceWithMembers(widget.spaceId);
+          final spaceName = space?['name'] as String? ?? 'Kairos';
+          final result = await _driveService.uploadPhotos(
+            spaceName: spaceName,
+            memoryId: widget.memory.id,
+            fullPhotos: _newPhotos,
+            thumbPhotos: _newThumbs,
+            startIndex: _existingPhotoPaths.length,
+          );
+          if (result != null) {
+            newPhotoPaths = result.photoIds;
+            newThumbPaths = result.thumbIds;
+          }
+        } else {
+          final result = await _storageService.uploadMemoryPhotos(
+            spaceId: widget.spaceId,
+            memoryId: widget.memory.id,
+            fullPhotos: _newPhotos,
+            thumbPhotos: _newThumbs,
+            startIndex: _existingPhotoPaths.length,
+          );
+          newPhotoPaths = result.photoPaths;
+          newThumbPaths = result.thumbPaths;
+        }
       }
 
       final updatedMemory = widget.memory.copyWith(
@@ -329,13 +334,14 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
     return ActiveCard(
       heading: 'Photos',
       isActive: _totalPhotoCount > 0,
-      helperText: 'Add up to 3 photos',
+      helperText: 'Add up to $_maxPhotos photos',
       child: PhotoPickerGrid(
         existingThumbUrls: _existingThumbUrls,
         newPhotos: _newPhotos,
         onPickPhotos: _pickPhotos,
         onRemoveExisting: _removeExistingPhoto,
         onRemoveNew: _removeNewPhoto,
+        maxPhotos: _maxPhotos,
       ),
     );
   }

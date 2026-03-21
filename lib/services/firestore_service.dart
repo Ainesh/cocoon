@@ -532,7 +532,7 @@ class FirestoreService {
               .map((doc) => Moment.fromFirestore(doc))
               .where((m) =>
                   (m.isUpcoming || m.spansToday) &&
-                  m.status != MomentStatus.missed)
+                  m.status != MomentStatus.cancelled)
               .toList();
           return moments;
         });
@@ -553,7 +553,7 @@ class FirestoreService {
             .map((doc) => Moment.fromFirestore(doc))
             .where((m) =>
                 m.type != MomentType.external &&
-                m.status != MomentStatus.missed)
+                m.status != MomentStatus.cancelled)
             .toList());
   }
 
@@ -1555,6 +1555,25 @@ class FirestoreService {
     });
   }
 
+  /// Saves Google Drive storage integration config for the given user.
+  Future<void> saveDriveStorageIntegration(
+    String userId,
+    DriveStorageIntegration integration,
+  ) async {
+    await _firestore.collection(_usersCollection).doc(userId).set({
+      'integrations': {
+        'driveStorage': integration.toJson(),
+      },
+    }, SetOptions(merge: true));
+  }
+
+  /// Removes the Drive storage integration for the given user.
+  Future<void> removeDriveStorageIntegration(String userId) async {
+    await _firestore.collection(_usersCollection).doc(userId).update({
+      'integrations.driveStorage': FieldValue.delete(),
+    });
+  }
+
   /// One-time read of the user's integration config.
   Future<IntegrationConfig> getIntegrationConfig(String userId) async {
     final doc =
@@ -1656,15 +1675,6 @@ class FirestoreService {
         .doc(memory.id);
     batch.set(memoryRef, memory.toJson());
 
-    if (memory.momentId != null) {
-      final momentRef = _firestore
-          .collection(_spacesCollection)
-          .doc(spaceId)
-          .collection('moments')
-          .doc(memory.momentId);
-      batch.update(momentRef, {'status': MomentStatus.lived.value});
-    }
-
     final activityRef = _firestore
         .collection(_spacesCollection)
         .doc(spaceId)
@@ -1743,27 +1753,6 @@ class FirestoreService {
           .doc(spaceId)
           .collection('memories')
           .doc(memory.id);
-
-      if (memory.momentId != null) {
-        final siblingsSnap = await _firestore
-            .collection(_spacesCollection)
-            .doc(spaceId)
-            .collection('memories')
-            .where('momentId', isEqualTo: memory.momentId)
-            .get();
-
-        final isLastMemory =
-            siblingsSnap.docs.where((d) => d.id != memory.id).isEmpty;
-
-        if (isLastMemory) {
-          final momentRef = _firestore
-              .collection(_spacesCollection)
-              .doc(spaceId)
-              .collection('moments')
-              .doc(memory.momentId);
-          txn.update(momentRef, {'status': MomentStatus.planned.value});
-        }
-      }
 
       txn.delete(memoryRef);
     });
@@ -1872,7 +1861,10 @@ class FirestoreService {
   ///
   /// For Connect/Celebrate moments, endDate may be null — startDate is used.
   /// Returns moments sorted newest-first.
-  Future<List<Moment>> getPastMomentsAwaitingMemory(String spaceId) async {
+  Future<List<Moment>> getPastMomentsAwaitingMemory(
+    String spaceId, {
+    required String userId,
+  }) async {
     final snap = await _firestore
         .collection(_spacesCollection)
         .doc(spaceId)
@@ -1883,17 +1875,32 @@ class FirestoreService {
     final today = DateTime.utc(now.year, now.month, now.day);
     final cutoff = today.subtract(const Duration(days: 14));
 
-    return snap.docs
+    final candidateMoments = snap.docs
         .map((doc) => Moment.fromFirestore(doc))
         .where((m) {
-          // Only show moments that haven't been resolved yet
           if (m.status != MomentStatus.planned) return false;
-          // Skip external moments
           if (m.type == MomentType.external) return false;
-          // Use endDate for Escape, startDate for everything else
           final effectiveEnd = m.endDate ?? m.startDate;
           return effectiveEnd.isBefore(today) && effectiveEnd.isAfter(cutoff);
         })
+        .toList();
+
+    if (candidateMoments.isEmpty) return [];
+
+    // Exclude moments the user already has a memory for
+    final memorySnap = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .where('createdBy', isEqualTo: userId)
+        .get();
+    final respondedMomentIds = memorySnap.docs
+        .map((d) => (d.data()['momentId'] as String?))
+        .whereType<String>()
+        .toSet();
+
+    return candidateMoments
+        .where((m) => !respondedMomentIds.contains(m.id))
         .toList()
       ..sort((a, b) =>
           (b.endDate ?? b.startDate).compareTo(a.endDate ?? a.startDate));
@@ -1913,20 +1920,19 @@ class FirestoreService {
         .update({'status': status.value});
   }
 
-  /// Marks a moment as lived and auto-creates an empty memory doc for the user.
+  /// Creates a memory from a prompt card response (lived or missed).
   ///
   /// Atomic batch write:
-  ///   1. Update moment status → lived
-  ///   2. Create empty memory doc with all moment data denormalized
-  ///   3. Log memoryCreated activity
+  ///   1. Create memory doc with sentiment + denormalized moment data
+  ///   2. Log memoryCreated activity
   ///
-  /// The memory doc starts with empty content fields (photos, caption, etc.)
-  /// which the user fills incrementally via the unified moment-memory view.
-  Future<void> markMomentLived({
+  /// Does NOT change the moment's status — moment lifecycle is independent.
+  Future<void> createPromptMemory({
     required String spaceId,
     required Moment moment,
     required String userId,
     required String userName,
+    required MemorySentiment sentiment,
   }) async {
     final memoryId = generateMemoryId(
       spaceId: spaceId,
@@ -1946,19 +1952,11 @@ class FirestoreService {
       momentEndDate: moment.endDate,
       momentTimeSlot: moment.timeSlot?.value,
       momentNotes: moment.notes,
+      sentiment: sentiment,
     );
 
     final batch = _firestore.batch();
 
-    // 1. Update moment status
-    final momentRef = _firestore
-        .collection(_spacesCollection)
-        .doc(spaceId)
-        .collection('moments')
-        .doc(moment.id);
-    batch.update(momentRef, {'status': MomentStatus.lived.value});
-
-    // 2. Create empty memory doc
     final memoryRef = _firestore
         .collection(_spacesCollection)
         .doc(spaceId)
@@ -1966,7 +1964,6 @@ class FirestoreService {
         .doc(memoryId);
     batch.set(memoryRef, memory.toJson());
 
-    // 3. Log activity
     final activityRef = _firestore
         .collection(_spacesCollection)
         .doc(spaceId)
@@ -1982,6 +1979,7 @@ class FirestoreService {
       'metadata': {
         'memoryTitle': moment.name,
         'momentId': moment.id,
+        'sentiment': sentiment.value,
       },
     });
 

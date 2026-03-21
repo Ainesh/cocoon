@@ -240,7 +240,7 @@ class _MomentsTabState extends State<MomentsTab> {
           await _firestoreService.updateMomentStatus(
             spaceId: widget.spaceId,
             momentId: moment.id,
-            status: MomentStatus.missed,
+            status: MomentStatus.cancelled,
           );
 
           final userId = _authService.currentUser?.uid;
