@@ -46,6 +46,8 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/activity.dart';
+import '../models/integration_config.dart';
+import '../models/memory.dart';
 import '../models/moment.dart';
 import '../models/notification_preferences.dart';
 import '../models/pulse_config.dart';
@@ -528,10 +530,31 @@ class FirestoreService {
         .map((snapshot) {
           final moments = snapshot.docs
               .map((doc) => Moment.fromFirestore(doc))
-              .where((m) => m.isUpcoming || m.spansToday)
+              .where((m) =>
+                  (m.isUpcoming || m.spansToday) &&
+                  m.status != MomentStatus.cancelled)
               .toList();
           return moments;
         });
+  }
+
+  /// Watches ALL moments in a space (past + future), ordered by startDate.
+  ///
+  /// Used by the Moments tab calendar which needs to show past events too.
+  /// Excludes external-type moments and those with status == missed.
+  Stream<List<Moment>> watchAllMoments(String spaceId) {
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .orderBy('startDate')
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Moment.fromFirestore(doc))
+            .where((m) =>
+                m.type != MomentType.external &&
+                m.status != MomentStatus.cancelled)
+            .toList());
   }
 
   /// Gets the next upcoming moment for display on dashboard.
@@ -602,12 +625,15 @@ class FirestoreService {
         .collection('moments')
         .doc();
 
+    // Ensure all moments have an endDate (same as startDate for non-Escape)
+    final effectiveEndDate = endDate ?? startDate;
+
     final moment = Moment(
       id: momentRef.id,
       name: name,
       type: type,
       startDate: startDate,
-      endDate: endDate,
+      endDate: effectiveEndDate,
       timeSlot: timeSlot,
       repeatSchedule: repeatSchedule,
       notes: notes,
@@ -1504,5 +1530,530 @@ class FirestoreService {
       debugPrint('Error getting partner user ID: $e');
       return null;
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Integration Config
+  // ---------------------------------------------------------------------------
+
+  /// Saves a calendar integration config for the given user.
+  Future<void> saveCalendarIntegration(
+    String userId,
+    CalendarIntegration integration,
+  ) async {
+    await _firestore.collection(_usersCollection).doc(userId).set({
+      'integrations': {
+        'calendar': integration.toJson(),
+      },
+    }, SetOptions(merge: true));
+  }
+
+  /// Removes the calendar integration for the given user.
+  Future<void> removeCalendarIntegration(String userId) async {
+    await _firestore.collection(_usersCollection).doc(userId).update({
+      'integrations.calendar': FieldValue.delete(),
+    });
+  }
+
+  /// Saves Google Drive storage integration config for the given user.
+  Future<void> saveDriveStorageIntegration(
+    String userId,
+    DriveStorageIntegration integration,
+  ) async {
+    await _firestore.collection(_usersCollection).doc(userId).set({
+      'integrations': {
+        'driveStorage': integration.toJson(),
+      },
+    }, SetOptions(merge: true));
+  }
+
+  /// Removes the Drive storage integration for the given user.
+  Future<void> removeDriveStorageIntegration(String userId) async {
+    await _firestore.collection(_usersCollection).doc(userId).update({
+      'integrations.driveStorage': FieldValue.delete(),
+    });
+  }
+
+  /// One-time read of the user's integration config.
+  Future<IntegrationConfig> getIntegrationConfig(String userId) async {
+    final doc =
+        await _firestore.collection(_usersCollection).doc(userId).get();
+    final data = doc.data();
+    if (data == null || data['integrations'] == null) {
+      return IntegrationConfig.empty;
+    }
+    return IntegrationConfig.fromJson(
+      Map<String, dynamic>.from(data['integrations'] as Map),
+    );
+  }
+
+  /// Real-time stream of the user's integration config.
+  Stream<IntegrationConfig> watchIntegrationConfig(String userId) {
+    return _firestore
+        .collection(_usersCollection)
+        .doc(userId)
+        .snapshots()
+        .map((snap) {
+      final data = snap.data();
+      if (data == null || data['integrations'] == null) {
+        return IntegrationConfig.empty;
+      }
+      return IntegrationConfig.fromJson(
+        Map<String, dynamic>.from(data['integrations'] as Map),
+      );
+    });
+  }
+
+  /// Sets the external event ID for a specific user on a moment.
+  /// Stored as a map: `externalEventIds.{userId} = eventId`.
+  Future<void> updateMomentExternalEventId({
+    required String spaceId,
+    required String momentId,
+    required String userId,
+    required String eventId,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
+        .update({'externalEventIds.$userId': eventId});
+  }
+
+  // ---------------------------------------------------------------------------
+  // Memories
+  // ---------------------------------------------------------------------------
+
+  /// Generates a memory document ID.
+  ///
+  /// Moment-linked: `{momentId}_{userId}` (enforces 1 per user per moment).
+  /// Standalone: auto-generated by Firestore.
+  String generateMemoryId({
+    required String spaceId,
+    String? momentId,
+    required String userId,
+  }) {
+    if (momentId != null) return '${momentId}_$userId';
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc()
+        .id;
+  }
+
+  /// Creates a memory + updates moment status + logs activity in a single batch.
+  ///
+  /// The embedded check-in (if any) must be submitted BEFORE calling this,
+  /// because check-in creation has its own schema validation in Firestore rules.
+  /// Creates a memory document without any side effects (no status update,
+  /// no activity log). Used when auto-creating an empty memory for the
+  /// unified view when the doc is missing.
+  Future<void> createMemory({
+    required String spaceId,
+    required Memory memory,
+  }) async {
+    final memoryRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memory.id);
+    await memoryRef.set(memory.toJson());
+  }
+
+  Future<String> sealMemory({
+    required String spaceId,
+    required Memory memory,
+    required String actorName,
+  }) async {
+    final batch = _firestore.batch();
+
+    final memoryRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memory.id);
+    batch.set(memoryRef, memory.toJson());
+
+    final activityRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('activities')
+        .doc();
+    batch.set(activityRef, {
+      'type': ActivityType.memoryCreated.value,
+      'actorId': memory.createdBy,
+      'actorName': actorName,
+      'entityType': EntityType.memory.value,
+      'entityId': memory.id,
+      'timestamp': FieldValue.serverTimestamp(),
+      'metadata': {
+        'memoryTitle': memory.displayTitle,
+        if (memory.momentId != null) 'momentId': memory.momentId,
+      },
+    });
+
+    await batch.commit();
+    return memory.id;
+  }
+
+  /// Updates a memory's content fields. Creator-only.
+  ///
+  /// Batches the Firestore update with a `memoryEdited` activity log.
+  Future<void> updateMemory({
+    required String spaceId,
+    required Memory updatedMemory,
+    required List<String> editedFields,
+    required String actorName,
+  }) async {
+    final batch = _firestore.batch();
+
+    final memoryRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(updatedMemory.id);
+    batch.update(memoryRef, updatedMemory.toUpdateJson());
+
+    final activityRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('activities')
+        .doc();
+    batch.set(activityRef, {
+      'type': ActivityType.memoryEdited.value,
+      'actorId': updatedMemory.createdBy,
+      'actorName': actorName,
+      'entityType': EntityType.memory.value,
+      'entityId': updatedMemory.id,
+      'timestamp': FieldValue.serverTimestamp(),
+      'metadata': {
+        'memoryTitle': updatedMemory.displayTitle,
+        if (updatedMemory.momentId != null) 'momentId': updatedMemory.momentId,
+        'editedFields': editedFields,
+      },
+    });
+
+    await batch.commit();
+  }
+
+  /// Deletes a memory. If this was the last memory for a moment, reverts
+  /// the moment status to `planned` so the prompting system re-engages.
+  ///
+  /// Uses a transaction for the atomic read-then-write on moment status.
+  /// Activity log is fire-and-forget after the transaction.
+  Future<void> deleteMemory({
+    required String spaceId,
+    required Memory memory,
+    required String actorName,
+  }) async {
+    await _firestore.runTransaction((txn) async {
+      final memoryRef = _firestore
+          .collection(_spacesCollection)
+          .doc(spaceId)
+          .collection('memories')
+          .doc(memory.id);
+
+      txn.delete(memoryRef);
+    });
+
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.memoryDeleted,
+      actorId: memory.createdBy,
+      actorName: actorName,
+      entityType: EntityType.memory,
+      entityId: memory.id,
+      metadata: {
+        'memoryTitle': memory.displayTitle,
+        if (memory.momentId != null) 'momentId': memory.momentId,
+      },
+    );
+  }
+
+  /// Adds or replaces a partner reaction on a memory.
+  Future<void> setReaction({
+    required String spaceId,
+    required String memoryId,
+    required String userId,
+    required String emoji,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memoryId)
+        .update({'reactions.$userId': emoji});
+  }
+
+  /// Removes a partner reaction from a memory.
+  Future<void> removeReaction({
+    required String spaceId,
+    required String memoryId,
+    required String userId,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memoryId)
+        .update({'reactions.$userId': FieldValue.delete()});
+  }
+
+  /// Watches all memories in a space, ordered by date descending (newest first).
+  Stream<List<Memory>> watchMemories(String spaceId) {
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => Memory.fromFirestore(doc)).toList());
+  }
+
+  /// Watches a single memory document for real-time updates.
+  Stream<Memory?> watchMemory(String spaceId, String memoryId) {
+    return _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memoryId)
+        .snapshots()
+        .map((doc) => doc.exists ? Memory.fromFirestore(doc) : null);
+  }
+
+  /// Fetches a single memory by ID.
+  Future<Memory?> getMemory({
+    required String spaceId,
+    required String memoryId,
+  }) async {
+    final doc = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memoryId)
+        .get();
+    return doc.exists ? Memory.fromFirestore(doc) : null;
+  }
+
+  /// Fetches all memories for a specific moment, ordered by creation time.
+  Future<List<Memory>> getMemoriesForMoment({
+    required String spaceId,
+    required String momentId,
+  }) async {
+    final snap = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .where('momentId', isEqualTo: momentId)
+        .orderBy('createdAt')
+        .get();
+    return snap.docs.map((doc) => Memory.fromFirestore(doc)).toList();
+  }
+
+  /// Gets past moments that still need a user action (lived/missed).
+  ///
+  /// Returns moments where:
+  ///   - effectiveEndDate < today (moment is in the past)
+  ///   - status is still `planned` (not yet marked lived or missed)
+  ///   - within 14-day cutoff window
+  ///
+  /// For Connect/Celebrate moments, endDate may be null — startDate is used.
+  /// Returns moments sorted newest-first.
+  Future<List<Moment>> getPastMomentsAwaitingMemory(
+    String spaceId, {
+    required String userId,
+  }) async {
+    final snap = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .get();
+
+    final now = DateTime.now().toUtc();
+    final today = DateTime.utc(now.year, now.month, now.day);
+    final cutoff = today.subtract(const Duration(days: 14));
+
+    final candidateMoments = snap.docs
+        .map((doc) => Moment.fromFirestore(doc))
+        .where((m) {
+          if (m.status != MomentStatus.planned) return false;
+          if (m.type == MomentType.external) return false;
+          final effectiveEnd = m.endDate ?? m.startDate;
+          return effectiveEnd.isBefore(today) && effectiveEnd.isAfter(cutoff);
+        })
+        .toList();
+
+    if (candidateMoments.isEmpty) return [];
+
+    // Exclude moments the user already has a memory for
+    final memorySnap = await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .where('createdBy', isEqualTo: userId)
+        .get();
+    final respondedMomentIds = memorySnap.docs
+        .map((d) => (d.data()['momentId'] as String?))
+        .whereType<String>()
+        .toSet();
+
+    return candidateMoments
+        .where((m) => !respondedMomentIds.contains(m.id))
+        .toList()
+      ..sort((a, b) =>
+          (b.endDate ?? b.startDate).compareTo(a.endDate ?? a.startDate));
+  }
+
+  /// Updates a moment's lifecycle status.
+  Future<void> updateMomentStatus({
+    required String spaceId,
+    required String momentId,
+    required MomentStatus status,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('moments')
+        .doc(momentId)
+        .update({'status': status.value});
+  }
+
+  /// Creates a memory from a prompt card response (lived or missed).
+  ///
+  /// Atomic batch write:
+  ///   1. Create memory doc with sentiment + denormalized moment data
+  ///   2. Log memoryCreated activity
+  ///
+  /// Does NOT change the moment's status — moment lifecycle is independent.
+  Future<void> createPromptMemory({
+    required String spaceId,
+    required Moment moment,
+    required String userId,
+    required String userName,
+    required MemorySentiment sentiment,
+  }) async {
+    final memoryId = generateMemoryId(
+      spaceId: spaceId,
+      momentId: moment.id,
+      userId: userId,
+    );
+
+    final memory = Memory(
+      id: memoryId,
+      createdBy: userId,
+      date: moment.startDate,
+      createdAt: DateTime.now(),
+      momentId: moment.id,
+      momentName: moment.name,
+      momentType: moment.type.value,
+      momentDate: moment.startDate,
+      momentEndDate: moment.endDate,
+      momentTimeSlot: moment.timeSlot?.value,
+      momentNotes: moment.notes,
+      momentPlace: moment.place,
+      sentiment: sentiment,
+    );
+
+    final batch = _firestore.batch();
+
+    final memoryRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memoryId);
+    batch.set(memoryRef, memory.toJson());
+
+    final activityRef = _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('activities')
+        .doc();
+    batch.set(activityRef, {
+      'type': ActivityType.memoryCreated.value,
+      'actorId': userId,
+      'actorName': userName,
+      'entityType': EntityType.memory.value,
+      'entityId': memoryId,
+      'timestamp': FieldValue.serverTimestamp(),
+      'metadata': {
+        'memoryTitle': moment.name,
+        'momentId': moment.id,
+        'sentiment': sentiment.value,
+      },
+    });
+
+    await batch.commit();
+  }
+
+  /// Updates a single field on a memory document.
+  ///
+  /// Used for inline editing in the unified view — saves individual fields
+  /// without requiring a full document update.
+  Future<void> updateMemoryField({
+    required String spaceId,
+    required String memoryId,
+    required String field,
+    required dynamic value,
+  }) async {
+    await _firestore
+        .collection(_spacesCollection)
+        .doc(spaceId)
+        .collection('memories')
+        .doc(memoryId)
+        .update({
+      field: value,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Memory Activity Logging
+  // ---------------------------------------------------------------------------
+
+  /// Logs a memory reaction activity.
+  Future<void> logMemoryReactionActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+    required String memoryId,
+    required String memoryTitle,
+    required String emoji,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.memoryReaction,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.memory,
+      entityId: memoryId,
+      metadata: {'memoryTitle': memoryTitle, 'emoji': emoji},
+    );
+  }
+
+  /// Logs a moment-missed activity.
+  Future<void> logMomentMissedActivity({
+    required String spaceId,
+    required String userId,
+    required String userName,
+    required String momentId,
+    required String momentName,
+    required String momentType,
+    required bool rescheduled,
+  }) async {
+    await logActivity(
+      spaceId: spaceId,
+      type: ActivityType.momentMissed,
+      actorId: userId,
+      actorName: userName,
+      entityType: EntityType.moment,
+      entityId: momentId,
+      metadata: {
+        'momentName': momentName,
+        'momentType': momentType,
+        'rescheduled': rescheduled,
+      },
+    );
   }
 }

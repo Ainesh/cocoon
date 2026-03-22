@@ -15,8 +15,9 @@ import '../theme/app_colors.dart';
 IconData getMomentTypeIcon(MomentType type) {
   return switch (type) {
     MomentType.celebrate => Icons.auto_awesome_rounded,
-    MomentType.connect => Icons.power_rounded, // Fallback for non-SVG contexts
+    MomentType.connect => Icons.power_rounded,
     MomentType.escape => Icons.flight_rounded,
+    MomentType.external => Icons.sync_rounded,
   };
 }
 

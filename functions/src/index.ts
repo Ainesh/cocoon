@@ -102,11 +102,53 @@ function buildNotificationContent(activity: Activity): NotificationContent {
       };
     }
 
+    // Deprecated: use memory_created for sealed moments going forward
     case "moment_completed": {
       const momentName = metadata.momentName as string | undefined;
       return {
         title: `${name} completed a moment! 🎊`,
         body: momentName ? `"${momentName}" is done` : "A moment was completed",
+      };
+    }
+
+    case "moment_missed": {
+      const momentName = metadata.momentName as string | undefined;
+      return {
+        title: `${name} marked a moment as missed`,
+        body: momentName ? `"${momentName}"` : "A moment was missed",
+      };
+    }
+
+    case "memory_created": {
+      const memoryTitle = metadata.memoryTitle as string | undefined;
+      return {
+        title: `${name} sealed a memory`,
+        body: `for "${memoryTitle || "a moment"}"`,
+      };
+    }
+
+    case "memory_edited": {
+      const memoryTitle = metadata.memoryTitle as string | undefined;
+      return {
+        title: `${name} edited a memory`,
+        body: `"${memoryTitle || "a memory"}"`,
+      };
+    }
+
+    case "memory_deleted": {
+      const memoryTitle = metadata.memoryTitle as string | undefined;
+      return {
+        title: `${name} removed a memory`,
+        body: `"${memoryTitle || "a memory"}"`,
+      };
+    }
+
+    case "memory_reaction": {
+      const emoji = metadata.emoji as string | undefined;
+      const memoryTitle = metadata.memoryTitle as string | undefined;
+      return {
+        title: `${name} reacted to your memory`,
+        body: `${emoji || ""} on "${memoryTitle || "your memory"}"`,
       };
     }
 
@@ -154,6 +196,11 @@ function getDefaultConfig(activityType: string): NotificationConfig {
     moment_edited: {enabled: true, priority: "low"},
     moment_deleted: {enabled: true, priority: "normal"},
     moment_completed: {enabled: true, priority: "low"},
+    moment_missed: {enabled: true, priority: "normal"},
+    memory_created: {enabled: true, priority: "normal"},
+    memory_edited: {enabled: true, priority: "low"},
+    memory_deleted: {enabled: true, priority: "normal"},
+    memory_reaction: {enabled: true, priority: "normal"},
     space_joined: {enabled: true, priority: "high"},
     space_created: {enabled: false, priority: "silent"},
     space_renamed: {enabled: true, priority: "low"},

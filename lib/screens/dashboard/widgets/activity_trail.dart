@@ -143,7 +143,7 @@ class _ActivityTrailState extends State<ActivityTrail> {
           Text(
             'ACTIVITY',
             style: GoogleFonts.outfit(
-              color: AppColors.warmMuted,
+              color: AppColors.accentRed,
               fontSize: 10,
               fontWeight: FontWeight.w600,
               letterSpacing: 1.5,
@@ -369,6 +369,21 @@ class _ActivityItem extends StatelessWidget {
     // For check-in activities, show a tiny Voronoi mosaic
     if (activity.type == ActivityType.checkin) {
       return _buildCheckinMosaicIcon();
+    }
+
+    // For memory activities, use a dedicated icon
+    if (activity.type.isMemoryActivity) {
+      return Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Center(
+          child: Icon(_getActivityIcon(), color: color, size: 14),
+        ),
+      );
     }
 
     // For moment activities, always use the moment type icon
@@ -680,14 +695,22 @@ class _ActivityItem extends StatelessWidget {
   IconData _getActivityIcon() {
     switch (activity.type) {
       case ActivityType.checkin:
-        return Icons
-            .donut_large_rounded; // Dotted circle style for health check-in
+        return Icons.donut_large_rounded;
       case ActivityType.momentPlanned:
       case ActivityType.momentEdited:
       case ActivityType.momentDeleted:
       case ActivityType.momentCompleted:
-        // This won't be used since we always use moment type icons for moments
         return Icons.event_rounded;
+      case ActivityType.momentMissed:
+        return Icons.event_busy;
+      case ActivityType.memoryCreated:
+        return Icons.center_focus_strong;
+      case ActivityType.memoryEdited:
+        return Icons.edit;
+      case ActivityType.memoryDeleted:
+        return Icons.delete_outline;
+      case ActivityType.memoryReaction:
+        return Icons.favorite;
       case ActivityType.spaceCreated:
         return Icons.home_rounded;
       case ActivityType.spaceJoined:
@@ -705,13 +728,24 @@ class _ActivityItem extends StatelessWidget {
     switch (activity.type) {
       // Moment activities - slider color scheme
       case ActivityType.momentPlanned:
-        return _createColor; // Red - warm/new
+        return _createColor;
       case ActivityType.momentDeleted:
-        return _deleteColor; // Blue - cool/removed
+        return _deleteColor;
       case ActivityType.momentEdited:
-        return _editColor; // Purple - middle
+        return _editColor;
       case ActivityType.momentCompleted:
-        return _createColor; // Red - warm/success
+        return _createColor;
+      case ActivityType.momentMissed:
+        return AppColors.warmMuted;
+
+      // Memory activities
+      case ActivityType.memoryCreated:
+      case ActivityType.memoryReaction:
+        return AppColors.accentRed;
+      case ActivityType.memoryEdited:
+        return AppColors.accentPurple;
+      case ActivityType.memoryDeleted:
+        return AppColors.warmMuted;
 
       // Check-in - theme red
       case ActivityType.checkin:

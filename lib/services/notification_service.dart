@@ -509,6 +509,18 @@ class NotificationNavigation {
   /// Whether this is a check-in notification.
   bool get isCheckIn => type == 'checkin';
 
+  /// Whether this is a memory prompt notification.
+  bool get isMemoryPrompt => type == 'memory_prompt';
+
+  /// Whether this is a memory-created notification.
+  bool get isMemoryCreated => type == 'memory_created';
+
+  /// Whether this is a memory-reaction notification.
+  bool get isMemoryReaction => type == 'memory_reaction';
+
+  /// Whether this is any memory-related notification.
+  bool get isMemory => type.startsWith('memory_');
+
   @override
   String toString() =>
       'NotificationNavigation(type: $type, spaceId: $spaceId, '

@@ -13,8 +13,9 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../models/moment.dart';
 import '../../utils/date_utils.dart';
-import '../../widgets/inline_calendar.dart';
+import '../../widgets/app_calendar.dart';
 import '../../services/auth_service.dart';
+import '../../services/calendar_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_typography.dart';
@@ -58,7 +59,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   // UI state
   bool _isSubmitting = false;
-  bool _isCalendarExpanded = false;
+  bool _isCalendarExpanded = true;
   DateTime _focusedDay = DateTime.now();
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
@@ -306,6 +307,20 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   Future<void> _performDelete() async {
     try {
+      // Remove from synced calendar first
+      if (moment.isSyncedToCalendar) {
+        final userId = _authService.currentUser?.uid;
+        if (userId != null) {
+          final config =
+              await _firestoreService.getIntegrationConfig(userId);
+          if (config.hasCalendar) {
+            await CalendarService().deleteCalendarEvents(
+              moment: moment,
+              integration: config.calendar!,
+            );
+          }
+        }
+      }
       await _firestoreService.deleteMoment(
         spaceId: widget.spaceId,
         momentId: moment.id,
@@ -388,11 +403,10 @@ class _EditMomentScreenState extends State<EditMomentScreen>
 
   void _dismissKeyboard() {
     FocusScope.of(context).unfocus();
-    if (_isCalendarExpanded) setState(() => _isCalendarExpanded = false);
   }
 
   Widget _buildInlineCalendar() {
-    return InlineDateCalendar(
+    return AppDateCalendar(
       focusedDay: _focusedDay,
       selectedDay: _startDate,
       onDaySelected: (selected, focused) {
@@ -404,12 +418,12 @@ class _EditMomentScreenState extends State<EditMomentScreen>
           }
         });
       },
-      onPageChanged: (focused) => _focusedDay = focused,
+      onPageChanged: (focused) => setState(() => _focusedDay = focused),
     );
   }
 
   Widget _buildRangeCalendar() {
-    return InlineRangeCalendar(
+    return AppRangeCalendar(
       focusedDay: _focusedDay,
       rangeStartDay: _rangeStart ?? _startDate,
       rangeEndDay: _rangeEnd ?? _endDate,
@@ -426,7 +440,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
           }
         });
       },
-      onPageChanged: (focused) => _focusedDay = focused,
+      onPageChanged: (focused) => setState(() => _focusedDay = focused),
     );
   }
 
@@ -468,7 +482,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
       // Clear editing presence before leaving
       await _clearPresence();
 
-      // Create updated moment to return
+      // Create updated moment to return (preserve sync state)
       final updatedMoment = Moment(
         id: moment.id,
         createdBy: moment.createdBy,
@@ -484,7 +498,27 @@ class _EditMomentScreenState extends State<EditMomentScreen>
         createdAt: moment.createdAt,
         updatedAt: DateTime.now().toUtc(),
         version: moment.version + 1,
+        externalEventIds: moment.externalEventIds,
       );
+
+      // Update synced calendar event if it exists
+      if (moment.externalEventIds != null &&
+          moment.externalEventIds!.isNotEmpty &&
+          userId != null) {
+        try {
+          final config =
+              await _firestoreService.getIntegrationConfig(userId);
+          if (config.hasCalendar) {
+            await CalendarService().updateCalendarEvent(
+              moment: updatedMoment.copyWith(
+                externalEventIds: moment.externalEventIds,
+              ),
+              integration: config.calendar!,
+              userId: userId,
+            );
+          }
+        } catch (_) {}
+      }
 
       HapticFeedback.heavyImpact();
       if (mounted) context.pop(updatedMoment);
@@ -926,10 +960,7 @@ class _EditMomentScreenState extends State<EditMomentScreen>
             }
           },
           onHorizontalDragEnd: (_) {
-            setState(() {
-              _dragPosition = null;
-              _isCalendarExpanded = false;
-            });
+            setState(() => _dragPosition = null);
             FocusScope.of(context).unfocus();
           },
           child: Container(
@@ -982,7 +1013,6 @@ class _EditMomentScreenState extends State<EditMomentScreen>
                           FocusScope.of(context).unfocus();
                           setState(() {
                             _dragPosition = null;
-                            _isCalendarExpanded = false;
                           });
                         },
                         behavior: HitTestBehavior.opaque,

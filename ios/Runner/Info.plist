@@ -45,6 +45,10 @@
 		<string>fetch</string>
 		<string>processing</string>
 	</array>
+	<key>NSCalendarsUsageDescription</key>
+	<string>Cocoon needs access to your calendar to sync planned moments as events.</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Cocoon needs full calendar access to create and manage moment events in your calendar.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

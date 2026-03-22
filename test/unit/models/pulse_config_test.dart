@@ -266,9 +266,9 @@ void main() {
       expect(PulseAttribute.fromId('invalid'), isNull);
     });
 
-    test('all 5 attributes have unique IDs', () {
+    test('all 8 attributes have unique IDs', () {
       final ids = PulseAttribute.values.map((a) => a.id).toSet();
-      expect(ids.length, 5);
+      expect(ids.length, 8);
     });
   });
 }

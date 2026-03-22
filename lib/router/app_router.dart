@@ -7,11 +7,15 @@ library;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../models/memory.dart';
 import '../models/moment.dart';
 import '../screens/checkin/checkin_screen.dart';
 import '../screens/join_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/main_shell.dart';
+import '../screens/memory/create_memory_screen.dart';
+import '../screens/memory/edit_memory_screen.dart';
+import '../screens/memory/memory_detail_page.dart';
 import '../screens/moment/edit_moment_screen.dart';
 import '../screens/moment/plan_moment_screen.dart';
 import '../screens/onboarding/onboarding_flow.dart';
@@ -113,6 +117,48 @@ abstract final class AppRouter {
       pageBuilder: (context, state) {
         final spaceId = state.pathParameters['spaceId'] ?? '';
         return _slideTransition(state, PlanMomentScreen(spaceId: spaceId));
+      },
+    ),
+
+    // Create Memory - Seal a new memory (moment passed via extra for linked)
+    GoRoute(
+      path: '/memory/:spaceId/create',
+      name: 'createMemory',
+      pageBuilder: (context, state) {
+        final spaceId = state.pathParameters['spaceId'] ?? '';
+        final moment = state.extra as Moment?;
+        return _slideTransition(
+          state,
+          CreateMemoryScreen(spaceId: spaceId, moment: moment),
+        );
+      },
+    ),
+
+    // Memory Detail - View memory (loaded by ID, opens detail sheet)
+    GoRoute(
+      path: '/memory/:spaceId/:memoryId',
+      name: 'memoryDetail',
+      pageBuilder: (context, state) {
+        final spaceId = state.pathParameters['spaceId'] ?? '';
+        final memoryId = state.pathParameters['memoryId'] ?? '';
+        return _fadeTransition(
+          state,
+          MemoryDetailPage(spaceId: spaceId, memoryId: memoryId),
+        );
+      },
+    ),
+
+    // Edit Memory - Edit existing memory (memory passed via extra)
+    GoRoute(
+      path: '/memory/:spaceId/:memoryId/edit',
+      name: 'editMemory',
+      pageBuilder: (context, state) {
+        final spaceId = state.pathParameters['spaceId'] ?? '';
+        final memory = state.extra as Memory;
+        return _slideUpTransition(
+          state,
+          EditMemoryScreen(spaceId: spaceId, memory: memory),
+        );
       },
     ),
 
