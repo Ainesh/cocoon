@@ -1,11 +1,10 @@
 /// Dashboard card prompting users about past moments.
 ///
-/// Swipe-to-reveal pattern:
-/// - Swipe RIGHT → reveals "Lived it" behind the card → creates memory
-/// - Swipe LEFT  → reveals "Missed it" behind the card → creates memory
+/// Swipe-to-dismiss pattern:
+/// - Swipe RIGHT → "Lived it" → creates memory
+/// - Swipe LEFT  → "Missed it" → creates memory
 ///
-/// The card slides straight horizontally (no rotation). Action zones with
-/// icons and labels are revealed underneath as the card moves.
+/// The card slides straight horizontally over a transparent background.
 /// Shows a first-time hint nudge animation until the user interacts.
 library;
 
@@ -260,187 +259,76 @@ class _MemoryPromptCardState extends State<MemoryPromptCard>
     return LayoutBuilder(
       builder: (context, constraints) {
         _cardWidth = constraints.maxWidth;
-        final fraction =
-            _cardWidth > 0 ? (_effectiveOffset / _cardWidth).clamp(-1.0, 1.0) : 0.0;
-        final livedReveal = (fraction * 2.5).clamp(0.0, 1.0);
-        final missedReveal = (-fraction * 2.5).clamp(0.0, 1.0);
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(20),
-          child: SizedBox(
-            width: double.infinity,
-            child: Stack(
-              children: [
-                // Background action zones (revealed behind the card)
-                Positioned.fill(
-                  child: Row(
+        return GestureDetector(
+          onHorizontalDragStart: _onDragStart,
+          onHorizontalDragUpdate: _onDragUpdate,
+          onHorizontalDragEnd: _onDragEnd,
+          child: Transform.translate(
+            offset: Offset(_effectiveOffset, 0),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.darkCardLight,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'HOW WAS IT?',
+                    style: GoogleFonts.outfit(
+                      color: AppColors.accentRed,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
                     children: [
-                      // Left zone — "Lived it" (revealed on right swipe)
+                      getMomentTypeIconWidget(
+                          widget.moment.type,
+                          size: 28),
+                      const SizedBox(width: 10),
                       Expanded(
-                        child: Container(
-                          color: Color.lerp(
-                            AppColors.darkCardLight,
-                            AppColors.accentRed.withValues(alpha: 0.15),
-                            livedReveal,
-                          ),
-                          alignment: Alignment.centerLeft,
-                          padding: const EdgeInsets.only(left: 24),
-                          child: Opacity(
-                            opacity: livedReveal,
-                            child: Transform.scale(
-                              scale: 0.8 + livedReveal * 0.2,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.favorite_rounded,
-                                    color: AppColors.accentRed,
-                                    size: 20 + livedReveal * 4,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Lived it',
-                                    style: GoogleFonts.outfit(
-                                      color: AppColors.accentRed,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.moment.name,
+                              style:
+                                  AppTypography.headlineSmall(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ),
+                            const SizedBox(height: 2),
+                            Text(
+                              AppDateFormat.short(
+                                  widget.moment.startDate),
+                              style: AppTypography.bodySmall(
+                                  color: AppColors.warmDim),
+                            ),
+                          ],
                         ),
                       ),
-                      // Right zone — "Missed it" (revealed on left swipe)
-                      Expanded(
-                        child: Container(
-                          color: Color.lerp(
-                            AppColors.darkCardLight,
-                            AppColors.warmMuted.withValues(alpha: 0.12),
-                            missedReveal,
-                          ),
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 24),
-                          child: Opacity(
-                            opacity: missedReveal,
-                            child: Transform.scale(
-                              scale: 0.8 + missedReveal * 0.2,
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Missed it',
-                                    style: GoogleFonts.outfit(
-                                      color: AppColors.warmMuted,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Icon(
-                                    Icons.close_rounded,
-                                    color: AppColors.warmMuted,
-                                    size: 20 + missedReveal * 4,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                      Icon(
+                        Icons.swap_horiz_rounded,
+                        color: AppColors.warmMuted
+                            .withValues(alpha: 0.3),
+                        size: 20,
                       ),
                     ],
                   ),
-                ),
-
-                // Foreground card (slides horizontally)
-                GestureDetector(
-                  onHorizontalDragStart: _onDragStart,
-                  onHorizontalDragUpdate: _onDragUpdate,
-                  onHorizontalDragEnd: _onDragEnd,
-                  child: Transform.translate(
-                    offset: Offset(_effectiveOffset, 0),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.darkCardLight,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: _borderColor(livedReveal, missedReveal),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'HOW WAS IT?',
-                            style: GoogleFonts.outfit(
-                              color: AppColors.accentRed,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              getMomentTypeIconWidget(
-                                  widget.moment.type,
-                                  size: 28),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.moment.name,
-                                      style:
-                                          AppTypography.headlineSmall(),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      AppDateFormat.short(
-                                          widget.moment.startDate),
-                                      style: AppTypography.bodySmall(
-                                          color: AppColors.warmDim),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              // Directional arrow hint
-                              Icon(
-                                Icons.swap_horiz_rounded,
-                                color: AppColors.warmMuted
-                                    .withValues(alpha: 0.3),
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
       },
     );
-  }
-
-  Color _borderColor(double livedReveal, double missedReveal) {
-    if (livedReveal > 0.1) {
-      return AppColors.accentRed.withValues(alpha: livedReveal * 0.4);
-    }
-    if (missedReveal > 0.1) {
-      return AppColors.warmMuted.withValues(alpha: missedReveal * 0.3);
-    }
-    return Colors.transparent;
   }
 }

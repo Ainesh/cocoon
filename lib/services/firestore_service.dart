@@ -1952,6 +1952,7 @@ class FirestoreService {
       momentEndDate: moment.endDate,
       momentTimeSlot: moment.timeSlot?.value,
       momentNotes: moment.notes,
+      momentPlace: moment.place,
       sentiment: sentiment,
     );
 

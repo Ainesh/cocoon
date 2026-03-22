@@ -70,7 +70,6 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
   final _photos = <Uint8List>[];
   final _thumbs = <Uint8List>[];
   final _captionController = TextEditingController();
-  final _placeController = TextEditingController();
   final _musicController = TextEditingController();
   final _titleController = TextEditingController();
   DateTime? _date;
@@ -121,7 +120,6 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
   @override
   void dispose() {
     _captionController.dispose();
-    _placeController.dispose();
     _musicController.dispose();
     _titleController.dispose();
     _scrollController.dispose();
@@ -314,15 +312,13 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
         momentName: momentName,
         momentType: momentTypeVal,
         momentDate: momentDate,
+        momentPlace: widget.moment?.place,
         title: _isStandalone ? _titleController.text.trim() : null,
         photoPaths: photoPaths,
         thumbPaths: thumbPaths,
         caption: _captionController.text.trim().isEmpty
             ? null
             : _captionController.text.trim(),
-        place: _placeController.text.trim().isEmpty
-            ? null
-            : _placeController.text.trim(),
         music: _musicController.text.trim().isEmpty
             ? null
             : _musicController.text.trim(),
@@ -392,8 +388,6 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
                   _buildPhotoSection(),
                   const SizedBox(height: 12),
                   _buildCaptionField(),
-                  const SizedBox(height: 12),
-                  _buildPlaceField(),
                   const SizedBox(height: 12),
                   _buildMusicField(),
                   const SizedBox(height: 12),
@@ -533,26 +527,6 @@ class _CreateMemoryScreenState extends State<CreateMemoryScreen> {
           hintStyle: AppTypography.bodyMedium(color: AppColors.warmMuted),
           border: InputBorder.none,
           counterStyle: TextStyle(color: AppColors.warmMuted, fontSize: 11),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceField() {
-    return ActiveCard(
-      heading: 'Place',
-      isActive: _placeController.text.isNotEmpty,
-      helperText: 'Where were you?',
-      child: TextField(
-        controller: _placeController,
-        style: AppTypography.bodyMedium(),
-        maxLength: 100,
-        onChanged: (_) => setState(() {}),
-        decoration: InputDecoration(
-          hintText: 'Where were you?',
-          hintStyle: AppTypography.bodyMedium(color: AppColors.warmMuted),
-          border: InputBorder.none,
-          counterText: '',
         ),
       ),
     );

@@ -22,6 +22,7 @@ import '../../services/auth_service.dart';
 import '../../services/calendar_service.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/theme.dart';
+import '../../widgets/moment_type_icon.dart';
 import '../../models/activity.dart';
 import '../checkin/checkin_details_sheet.dart';
 import '../moment/moment_details_sheet.dart';
@@ -64,6 +65,7 @@ class DashboardTabState extends State<DashboardTab> {
 
   // Prompt state
   Moment? _promptMoment;
+  Moment? _livedMoment;
 
   // UI state
   bool _isLoading = true;
@@ -254,7 +256,12 @@ class DashboardTabState extends State<DashboardTab> {
         sentiment: MemorySentiment.lived,
       );
 
-      if (mounted) _loadPromptMoment();
+      if (mounted) {
+        setState(() {
+          _livedMoment = moment;
+          _promptMoment = null;
+        });
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -622,9 +629,79 @@ class DashboardTabState extends State<DashboardTab> {
               ),
               const SizedBox(height: 12),
             ],
+            if (_livedMoment != null) ...[
+              _buildLivedMomentCard(),
+              const SizedBox(height: 16),
+            ],
             _buildActivityTrail(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildLivedMomentCard() {
+    final moment = _livedMoment!;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              getMomentTypeIconWidget(moment.type, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  moment.name,
+                  style: GoogleFonts.outfit(
+                    color: AppColors.warmLight,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.mediumImpact();
+              context.push(
+                '/memory/${widget.spaceId}/create',
+                extra: moment,
+              );
+              setState(() => _livedMoment = null);
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.accentRed.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  'Record Memory',
+                  style: GoogleFonts.outfit(
+                    color: AppColors.accentRed,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

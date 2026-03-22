@@ -11,6 +11,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/pulse_config.dart';
 import '../services/auth_service.dart';
+import '../theme/app_colors.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import 'dashboard/dashboard_tab.dart';
@@ -188,11 +189,18 @@ class _MainShellState extends State<MainShell> {
         elevation: 0,
         title: Text(
           _selectedTab == 1 ? 'Moments' : _selectedTab == 2 ? 'Memories' : (_spaceName ?? 'Home'),
-          style: GoogleFonts.cormorantGaramond(
-            fontWeight: FontWeight.w600,
-            fontSize: 26,
-            color: _refinedRed,
-          ),
+          style: _selectedTab == 2
+              ? GoogleFonts.outfit(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 2,
+                  color: AppColors.warmLight,
+                )
+              : GoogleFonts.cormorantGaramond(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 26,
+                  color: _refinedRed,
+                ),
         ),
         centerTitle: true,
         actions: [

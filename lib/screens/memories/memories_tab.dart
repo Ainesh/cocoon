@@ -12,19 +12,15 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../models/memory.dart';
 import '../../models/moment.dart';
-import '../../models/pulse_config.dart';
-import '../../models/user_checkin.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../../services/storage_service.dart';
 import '../../theme/app_colors.dart';
 import '../../theme/app_spacing.dart';
-import '../../theme/app_typography.dart';
 import '../../utils/date_utils.dart';
+import '../../widgets/memory_sliders.dart';
 import '../../widgets/moment_type_icon.dart';
 import '../../widgets/neumorphic_container.dart';
 import '../memory/memory_detail_sheet.dart';
@@ -124,6 +120,7 @@ class _MemoriesTabState extends State<MemoriesTab> {
           momentName: rep.momentName ?? '',
           momentType: rep.momentType,
           date: rep.momentDate ?? rep.date,
+          place: group.map((m) => m.momentPlace).whereType<String>().firstOrNull,
         ),
         memories: group,
       ));
@@ -192,31 +189,18 @@ class _MemoriesTabState extends State<MemoriesTab> {
     final entries = _buildTimeline();
 
     return ListView.builder(
+      reverse: true,
       physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.screenPadding,
-        AppSpacing.sm,
+        AppSpacing.xxl * 3,
         AppSpacing.screenPadding,
-        AppSpacing.xxl,
+        AppSpacing.sm,
       ),
-      itemCount: entries.length + 1,
+      itemCount: entries.length,
       itemBuilder: (context, index) {
-        if (index == 0) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-            child: Text(
-              'Memories',
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 36,
-                fontWeight: FontWeight.w600,
-                fontStyle: FontStyle.italic,
-                color: AppColors.accentRed,
-              ),
-            ),
-          );
-        }
         return _TimelineEntryCard(
-          entry: entries[index - 1],
+          entry: entries[index],
           currentUserId: _authService.currentUser?.uid,
           nameCache: _nameCache,
           spaceId: widget.spaceId,
@@ -380,6 +364,7 @@ class _TimelineEntryCardState extends State<_TimelineEntryCard> {
     final MomentType? type;
     final String title;
     final DateTime date;
+    final String? place;
 
     if (entry.header != null) {
       type = entry.header!.momentType != null
@@ -387,52 +372,84 @@ class _TimelineEntryCardState extends State<_TimelineEntryCard> {
           : null;
       title = entry.header!.momentName;
       date = entry.header!.date;
+      place = entry.header!.place;
     } else {
       type = null;
       title = entry.memories.first.displayTitle;
       date = entry.memories.first.date;
+      place = null;
     }
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        if (type != null) ...[
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: AppColors.accentRed.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Center(
-              child: getMomentTypeIconWidget(
-                type,
-                size: 18,
-                color: AppColors.accentRed,
+        Row(
+          children: [
+            if (type != null) ...[
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.accentRed.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Center(
+                  child: getMomentTypeIconWidget(
+                    type,
+                    size: 18,
+                    color: AppColors.accentRed,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.outfit(
+                  color: AppColors.warmLight,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-        ],
-        Expanded(
-          child: Text(
-            title,
-            style: GoogleFonts.outfit(
-              color: AppColors.warmLight,
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
+            const SizedBox(width: 8),
+            Text(
+              AppDateFormat.compact(date),
+              style: GoogleFonts.inter(
+                color: AppColors.accentRed,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Text(
-          AppDateFormat.compact(date),
-          style: GoogleFonts.inter(
-            color: AppColors.warmDim,
-            fontSize: 12,
+        if (place != null && place.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(
+                top: 4, left: type != null ? 48 : 0),
+            child: Row(
+              children: [
+                Icon(Icons.place_outlined,
+                    size: 13, color: AppColors.warmDim),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    place,
+                    style: GoogleFonts.inter(
+                      color: AppColors.warmDim,
+                      fontSize: 12,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -470,8 +487,6 @@ class _PhotoSliderState extends State<_PhotoSlider> {
   final _scrollController = ScrollController();
   List<String> _urls = [];
   bool _loading = false;
-  double _sliderHeight = 200;
-  List<double> _imageHeights = [];
   bool _isSyncing = false;
   int _lastReportedMember = 0;
 
@@ -515,7 +530,7 @@ class _PhotoSliderState extends State<_PhotoSlider> {
     if (targetPhoto >= widget.photoPaths.length) return;
     if (!_scrollController.hasClients) return;
 
-    final tileWidth = MediaQuery.of(context).size.width * 0.8;
+    final tileWidth = MediaQuery.of(context).size.width * 0.88;
     final targetOffset = targetPhoto * (tileWidth + 8);
 
     _isSyncing = true;
@@ -534,7 +549,7 @@ class _PhotoSliderState extends State<_PhotoSlider> {
 
   void _onScrollEnd(ScrollMetrics metrics) {
     if (_isSyncing || widget.photoOwnerIndices.isEmpty) return;
-    final tileWidth = MediaQuery.of(context).size.width * 0.8;
+    final tileWidth = MediaQuery.of(context).size.width * 0.88;
     final photoIndex = (metrics.pixels / (tileWidth + 8))
         .round()
         .clamp(0, widget.photoOwnerIndices.length - 1);
@@ -581,47 +596,9 @@ class _PhotoSliderState extends State<_PhotoSlider> {
       setState(() {
         _urls = urls;
         _loading = false;
-        _imageHeights = List.filled(urls.length, 0);
       });
-      _resolveImageHeights(urls);
     } catch (_) {
       if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  void _resolveImageHeights(List<String> urls) {
-    if (urls.isEmpty) return;
-    final tileWidth = MediaQuery.of(context).size.width * 0.8;
-    int resolved = 0;
-
-    for (int i = 0; i < urls.length; i++) {
-      final stream =
-          NetworkImage(urls[i]).resolve(ImageConfiguration.empty);
-      late ImageStreamListener listener;
-      listener = ImageStreamListener(
-        (info, _) {
-          stream.removeListener(listener);
-          final h = tileWidth * info.image.height / info.image.width;
-          _imageHeights[i] = h.clamp(120.0, tileWidth);
-          resolved++;
-          if (resolved == urls.length && mounted) {
-            final maxH =
-                _imageHeights.reduce((a, b) => a > b ? a : b);
-            setState(() => _sliderHeight = maxH);
-          }
-        },
-        onError: (_, __) {
-          stream.removeListener(listener);
-          _imageHeights[i] = 200;
-          resolved++;
-          if (resolved == urls.length && mounted) {
-            final maxH =
-                _imageHeights.reduce((a, b) => a > b ? a : b);
-            setState(() => _sliderHeight = maxH);
-          }
-        },
-      );
-      stream.addListener(listener);
     }
   }
 
@@ -635,7 +612,7 @@ class _PhotoSliderState extends State<_PhotoSlider> {
   Widget build(BuildContext context) {
     if (_loading && _urls.isEmpty) {
       return Container(
-        height: 200,
+        height: MediaQuery.of(context).size.width * 0.88 * 1.25,
         margin: const EdgeInsets.only(left: 16, right: 16),
         decoration: BoxDecoration(
           color: AppColors.cardVariant,
@@ -656,12 +633,11 @@ class _PhotoSliderState extends State<_PhotoSlider> {
 
     if (_itemCount == 0) return const SizedBox.shrink();
 
-    final tileWidth = MediaQuery.of(context).size.width * 0.8;
+    final tileWidth = MediaQuery.of(context).size.width * 0.88;
+    final sliderHeight = tileWidth * 1.25;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      height: _sliderHeight,
+    return SizedBox(
+      height: sliderHeight,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification is ScrollStartNotification &&
@@ -677,43 +653,32 @@ class _PhotoSliderState extends State<_PhotoSlider> {
         child: ListView.builder(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,
-          physics: _SnapScrollPhysics(itemExtent: tileWidth + 8),
+          physics: SnapScrollPhysics(itemExtent: tileWidth + 8),
           padding: const EdgeInsets.only(left: 16, right: 16),
           itemCount: _itemCount,
           itemBuilder: (context, index) {
             if (index >= _urls.length) {
               return Padding(
                 padding: const EdgeInsets.only(right: 8),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SizedBox(
-                    width: tileWidth,
-                    height: _sliderHeight.clamp(150.0, 250.0),
-                    child: _buildAddCard(),
-                  ),
+                child: SizedBox(
+                  width: tileWidth,
+                  height: sliderHeight,
+                  child: _buildAddCard(),
                 ),
               );
             }
 
-            final cardH = _imageHeights.length > index &&
-                    _imageHeights[index] > 0
-                ? _imageHeights[index]
-                : _sliderHeight;
-
             return Padding(
               padding: const EdgeInsets.only(right: 8),
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: GestureDetector(
-                  onTap: () => _openGallery(index),
-                  child: SizedBox(
-                    width: tileWidth,
-                    height: cardH,
-                    child: ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(AppSpacing.radiusMedium),
-                      child: _buildPhoto(_urls[index]),
-                    ),
+              child: GestureDetector(
+                onTap: () => _openGallery(index),
+                child: SizedBox(
+                  width: tileWidth,
+                  height: sliderHeight,
+                  child: ClipRRect(
+                    borderRadius:
+                        BorderRadius.circular(AppSpacing.radiusMedium),
+                    child: _buildPhoto(_urls[index]),
                   ),
                 ),
               ),
@@ -852,7 +817,7 @@ class _MemberCardSliderState extends State<_MemberCardSlider> {
     if (mi < 0 || mi >= widget.memories.length) return;
     if (_scrollController == null || !_scrollController!.hasClients) return;
 
-    final cardWidth = MediaQuery.of(context).size.width * 0.8;
+    final cardWidth = MediaQuery.of(context).size.width * 0.88;
     final targetOffset = mi * (cardWidth + 8);
 
     _isSyncing = true;
@@ -871,7 +836,7 @@ class _MemberCardSliderState extends State<_MemberCardSlider> {
 
   void _onScrollEnd(ScrollMetrics metrics) {
     if (_isSyncing) return;
-    final cardWidth = MediaQuery.of(context).size.width * 0.8;
+    final cardWidth = MediaQuery.of(context).size.width * 0.88;
     final memberIdx = (metrics.pixels / (cardWidth + 8))
         .round()
         .clamp(0, widget.memories.length - 1);
@@ -894,7 +859,7 @@ class _MemberCardSliderState extends State<_MemberCardSlider> {
     if (sorted.length == 1) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: _MemberMemoryCard(
+        child: MemoryMemberCard(
           memory: sorted.first,
           creatorName:
               widget.nameCache[sorted.first.createdBy] ?? 'Someone',
@@ -904,7 +869,7 @@ class _MemberCardSliderState extends State<_MemberCardSlider> {
       );
     }
 
-    final cardWidth = MediaQuery.of(context).size.width * 0.8;
+    final cardWidth = MediaQuery.of(context).size.width * 0.88;
 
     return SizedBox(
       height: _estimateCardHeight(sorted),
@@ -923,7 +888,7 @@ class _MemberCardSliderState extends State<_MemberCardSlider> {
         child: ListView.builder(
           controller: _scrollController,
           scrollDirection: Axis.horizontal,
-          physics: _SnapScrollPhysics(itemExtent: cardWidth + 8),
+          physics: SnapScrollPhysics(itemExtent: cardWidth + 8),
           padding: const EdgeInsets.only(left: 16, right: 16),
           itemCount: sorted.length,
           itemBuilder: (context, index) {
@@ -931,7 +896,7 @@ class _MemberCardSliderState extends State<_MemberCardSlider> {
               padding: const EdgeInsets.only(right: 8),
               child: SizedBox(
                 width: cardWidth,
-                child: _MemberMemoryCard(
+                child: MemoryMemberCard(
                   memory: sorted[index],
                   creatorName:
                       widget.nameCache[sorted[index].createdBy] ??
@@ -953,7 +918,7 @@ class _MemberCardSliderState extends State<_MemberCardSlider> {
     for (final m in sorted) {
       double h = 72;
       if (m.hasCaption) h += 52;
-      if (m.hasPlace || m.hasMusic) h += 30;
+      if (m.hasMusic) h += 30;
       if (m.hasCheckin) {
         h += 24;
       } else if (m.createdBy == widget.currentUserId) {
@@ -966,337 +931,6 @@ class _MemberCardSliderState extends State<_MemberCardSlider> {
 }
 
 // =============================================================================
-// Member Memory Card — individual memory's non-image fields
-// =============================================================================
-
-class _MemberMemoryCard extends StatefulWidget {
-  const _MemberMemoryCard({
-    required this.memory,
-    required this.creatorName,
-    required this.spaceId,
-    this.isCurrentUser = false,
-  });
-
-  final Memory memory;
-  final String creatorName;
-  final String spaceId;
-  final bool isCurrentUser;
-
-  @override
-  State<_MemberMemoryCard> createState() => _MemberMemoryCardState();
-}
-
-class _MemberMemoryCardState extends State<_MemberMemoryCard> {
-  Map<String, int>? _checkinScores;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchCheckinScores();
-  }
-
-  @override
-  void didUpdateWidget(_MemberMemoryCard old) {
-    super.didUpdateWidget(old);
-    if (old.memory.checkinId != widget.memory.checkinId) {
-      _fetchCheckinScores();
-    }
-  }
-
-  Future<void> _fetchCheckinScores() async {
-    final checkinId = widget.memory.checkinId;
-    if (checkinId == null) return;
-
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('spaces')
-          .doc(widget.spaceId)
-          .collection('checkins')
-          .doc(checkinId)
-          .get();
-      if (!mounted || !doc.exists) return;
-      final checkin = UserCheckIn.fromFirestore(doc);
-      setState(() => _checkinScores = checkin.scores);
-    } catch (_) {
-      // Scores unavailable — leave null
-    }
-  }
-
-  static Color _scoreColor(int score) =>
-      Color.lerp(
-        AppColors.morningColor,
-        AppColors.nightColor,
-        ((score - 1) / 99).clamp(0.0, 1.0),
-      ) ??
-      AppColors.nightColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final m = widget.memory;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.cardVariant,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMedium),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Memory label
-          Text(
-            widget.isCurrentUser
-                ? 'YOUR MEMORY'
-                : "${widget.creatorName}'s memory".toUpperCase(),
-            style: GoogleFonts.outfit(
-              color: AppColors.accentRed,
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 1.2,
-            ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-
-          // Caption
-          if (m.hasCaption)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Text(
-                m.caption!,
-                style: AppTypography.bodyMedium(),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-
-          // Place / Music tags
-          if (m.hasPlace || m.hasMusic)
-            Padding(
-              padding: const EdgeInsets.only(top: 6),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  if (m.hasPlace)
-                    _Tag(icon: Icons.place_outlined, text: m.place!),
-                  if (m.hasMusic)
-                    _Tag(
-                        icon: Icons.music_note_outlined, text: m.music!),
-                ],
-              ),
-            ),
-
-          // Pulse check-in — score-coloured attribute icons
-          if (m.hasCheckin)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: _checkinScores != null && _checkinScores!.isNotEmpty
-                  ? Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (int i = 0;
-                            i < _checkinScores!.entries.length;
-                            i++) ...[
-                          if (i > 0) const SizedBox(width: 10),
-                          _buildScoreIcon(
-                            _checkinScores!.entries.elementAt(i).key,
-                            _checkinScores!.entries.elementAt(i).value,
-                          ),
-                        ],
-                      ],
-                    )
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: AppColors.accentRed,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Checked in',
-                          style: GoogleFonts.inter(
-                            color: AppColors.warmDim,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-
-          // Check-in prompt for current user
-          if (!m.hasCheckin && widget.isCurrentUser)
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  context.push('/checkin/${widget.spaceId}');
-                },
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.favorite_border_rounded,
-                      size: 14,
-                      color: AppColors.accentRed.withValues(alpha: 0.7),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      'How did it feel? Check in',
-                      style: GoogleFonts.inter(
-                        color: AppColors.accentRed.withValues(alpha: 0.7),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-          // Date + edited date
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Row(
-              children: [
-                Text(
-                  AppDateFormat.compact(m.date),
-                  style: GoogleFonts.inter(
-                    color: AppColors.warmMuted,
-                    fontSize: 11,
-                  ),
-                ),
-                if (m.isEdited) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    '· edited ${AppDateFormat.compact(m.updatedAt!)}',
-                    style: GoogleFonts.inter(
-                      color: AppColors.warmMuted.withValues(alpha: 0.6),
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScoreIcon(String attrId, int score) {
-    final color = _scoreColor(score);
-    final attr = PulseAttribute.fromId(attrId);
-    if (attr != null) return attr.buildIcon(color: color, size: 16);
-    return Icon(Icons.circle, color: color, size: 16);
-  }
-}
-
-// =============================================================================
-// Tag Chip
-// =============================================================================
-
-class _Tag extends StatelessWidget {
-  const _Tag({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: AppColors.darkCardLight,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusSmall),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 13, color: AppColors.warmMuted),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              text,
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                color: AppColors.warmDim,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// =============================================================================
-// Snap Scroll Physics — snaps to left-aligned item boundaries
-// =============================================================================
-
-class _SnapScrollPhysics extends ScrollPhysics {
-  const _SnapScrollPhysics({required this.itemExtent, super.parent});
-
-  final double itemExtent;
-
-  static final SpringDescription _snapSpring =
-      SpringDescription(mass: 0.5, stiffness: 300, damping: 22);
-
-  @override
-  _SnapScrollPhysics applyTo(ScrollPhysics? ancestor) {
-    return _SnapScrollPhysics(
-      itemExtent: itemExtent,
-      parent: buildParent(ancestor),
-    );
-  }
-
-  double _targetPixels(
-      ScrollMetrics position, Tolerance tolerance, double velocity) {
-    double page = position.pixels / itemExtent;
-    if (velocity < -tolerance.velocity) {
-      page = page.floorToDouble();
-    } else if (velocity > tolerance.velocity) {
-      page = page.ceilToDouble();
-    } else {
-      page = page.roundToDouble();
-    }
-    return (page * itemExtent).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-  }
-
-  @override
-  Simulation? createBallisticSimulation(
-      ScrollMetrics position, double velocity) {
-    if ((velocity <= 0.0 && position.pixels <= position.minScrollExtent) ||
-        (velocity >= 0.0 && position.pixels >= position.maxScrollExtent)) {
-      return super.createBallisticSimulation(position, velocity);
-    }
-    final target = _targetPixels(position, toleranceFor(position), velocity);
-    if (target != position.pixels) {
-      return ScrollSpringSimulation(
-          _snapSpring, position.pixels, target, velocity);
-    }
-    return null;
-  }
-
-  @override
-  bool get allowImplicitScrolling => false;
-}
-
-// =============================================================================
 // Internal Data Structures
 // =============================================================================
 
@@ -1305,11 +939,13 @@ class _GroupHeaderData {
     required this.momentName,
     this.momentType,
     required this.date,
+    this.place,
   });
 
   final String momentName;
   final String? momentType;
   final DateTime date;
+  final String? place;
 }
 
 class _TimelineEntry {

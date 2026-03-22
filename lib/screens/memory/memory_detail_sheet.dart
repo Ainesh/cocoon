@@ -3,6 +3,8 @@ library;
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -47,6 +49,10 @@ class _MemoryDetailContentState extends State<_MemoryDetailContent> {
   StreamSubscription? _memorySub;
   final _photoUrls = <String>[];
   bool _loadingPhotos = false;
+  bool _isReordering = false;
+  List<String> _reorderPhotoPaths = [];
+  List<String> _reorderThumbPaths = [];
+  List<String> _reorderPhotoUrls = [];
   String _creatorName = '';
 
   String? get _currentUserId => _authService.currentUser?.uid;
@@ -165,6 +171,77 @@ class _MemoryDetailContentState extends State<_MemoryDetailContent> {
   }
 
   // ---------------------------------------------------------------------------
+  // Reorder
+  // ---------------------------------------------------------------------------
+
+  void _enterReorderMode() {
+    if (_photoUrls.length != _memory.photoPaths.length) return;
+    HapticFeedback.mediumImpact();
+    setState(() {
+      _isReordering = true;
+      _reorderPhotoPaths = [..._memory.photoPaths];
+      _reorderThumbPaths = [..._memory.thumbPaths];
+      _reorderPhotoUrls = [..._photoUrls];
+    });
+  }
+
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      final idx = newIndex > oldIndex ? newIndex - 1 : newIndex;
+      final path = _reorderPhotoPaths.removeAt(oldIndex);
+      _reorderPhotoPaths.insert(idx, path);
+      final thumb = _reorderThumbPaths.removeAt(oldIndex);
+      _reorderThumbPaths.insert(idx, thumb);
+      final url = _reorderPhotoUrls.removeAt(oldIndex);
+      _reorderPhotoUrls.insert(idx, url);
+    });
+    HapticFeedback.selectionClick();
+  }
+
+  void _cancelReorder() {
+    setState(() => _isReordering = false);
+  }
+
+  Future<void> _savePhotoOrder(
+    List<String> newPhotoPaths,
+    List<String> newThumbPaths,
+  ) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('spaces')
+          .doc(widget.spaceId)
+          .collection('memories')
+          .doc(_memory.id)
+          .update({
+        'photoPaths': newPhotoPaths,
+        'thumbPaths': newThumbPaths,
+      });
+      if (mounted) {
+        setState(() {
+          _memory = _memory.copyWith(
+            photoPaths: [...newPhotoPaths],
+            thumbPaths: [...newThumbPaths],
+          );
+          _photoUrls
+            ..clear()
+            ..addAll(_reorderPhotoUrls);
+          _isReordering = false;
+        });
+        HapticFeedback.mediumImpact();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to reorder: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
 
@@ -240,23 +317,138 @@ class _MemoryDetailContentState extends State<_MemoryDetailContent> {
         child: Center(child: CircularProgressIndicator(color: AppColors.accentRed)),
       );
     }
-    return SizedBox(
-      height: 220,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: _photoUrls.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) => ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Image.network(
-            _photoUrls[i], height: 220, fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => Container(
-              width: 180, height: 220, color: AppColors.cardVariant,
-              child: const Icon(Icons.broken_image, color: AppColors.warmMuted),
+    if (_isReordering) return _buildReorderView();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (_isCreator && _photoUrls.length > 1)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: GestureDetector(
+                onTap: _enterReorderMode,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.swap_vert, size: 16, color: AppColors.warmDim),
+                    const SizedBox(width: 4),
+                    Text('Reorder', style: AppTypography.bodySmall(color: AppColors.warmDim)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        SizedBox(
+          height: 220,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _photoUrls.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) => ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.network(
+                _photoUrls[i], height: 220, fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  width: 180, height: 220, color: AppColors.cardVariant,
+                  child: const Icon(Icons.broken_image, color: AppColors.warmMuted),
+                ),
+              ),
             ),
           ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildReorderView() {
+    final itemCount = _reorderPhotoUrls.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'REORDER PHOTOS',
+              style: GoogleFonts.outfit(
+                color: AppColors.warmMuted,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.5,
+              ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: _cancelReorder,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Text('Cancel', style: AppTypography.bodySmall(color: AppColors.warmDim)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _savePhotoOrder(_reorderPhotoPaths, _reorderThumbPaths),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    child: Text('Done', style: AppTypography.bodySmall(color: AppColors.accentRed)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          height: itemCount * 72.0,
+          child: ReorderableListView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: itemCount,
+            onReorder: _onReorder,
+            proxyDecorator: (child, _, __) => Material(
+              color: Colors.transparent,
+              elevation: 6,
+              shadowColor: Colors.black54,
+              borderRadius: BorderRadius.circular(10),
+              child: child,
+            ),
+            itemBuilder: (context, index) {
+              return Container(
+                key: ValueKey(_reorderPhotoPaths[index]),
+                height: 68,
+                margin: const EdgeInsets.symmetric(vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.darkCardLight,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(width: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        _reorderPhotoUrls[index],
+                        width: 52, height: 52, fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          width: 52, height: 52, color: AppColors.cardVariant,
+                          child: const Icon(Icons.broken_image, size: 20, color: AppColors.warmMuted),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text('Photo ${index + 1}', style: AppTypography.bodySmall()),
+                    const Spacer(),
+                    const Icon(Icons.drag_handle, color: AppColors.warmMuted),
+                    const SizedBox(width: 12),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

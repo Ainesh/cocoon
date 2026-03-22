@@ -19,8 +19,8 @@ import '../../services/calendar_service.dart';
 import '../../services/storage_service.dart';
 import '../../utils/date_utils.dart';
 import '../../services/firestore_service.dart';
-import '../../widgets/emoji_reaction_picker.dart';
 import '../../theme/theme.dart';
+import '../../widgets/memory_sliders.dart';
 import '../../widgets/moment_type_icon.dart';
 import '../../widgets/painters/circle_progress_painters.dart';
 
@@ -101,6 +101,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   // Memory state for unified view
   Memory? _userMemory;
   Memory? _partnerMemory;
+  String? _partnerName;
   StreamSubscription? _userMemorySub;
   bool _showingPartnerMemory = false;
   final _storageService = StorageService();
@@ -312,7 +313,12 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     if (!mounted) return;
     final partner = memories.where((m) => m.createdBy != userId).firstOrNull;
     if (partner != null) {
-      setState(() => _partnerMemory = partner);
+      final profile = await _firestoreService.getUserProfile(partner.createdBy);
+      if (!mounted) return;
+      setState(() {
+        _partnerMemory = partner;
+        _partnerName = profile?['name'] as String?;
+      });
     }
   }
 
@@ -468,8 +474,8 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    // Type badge with icon
-                    _buildTypeBadge(),
+                    // Type badge with icon (hidden for past moments)
+                    if (!moment.isPast) _buildTypeBadge(),
                     const SizedBox(height: 20),
 
                     // Moment name - large and prominent
@@ -608,7 +614,7 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     Widget wrapWithLongPress(Widget child, MomentEditField field) {
       return GestureDetector(
         onDoubleTap: _onDoubleTap,
-        onLongPress: () {
+        onLongPress: moment.isPast ? null : () {
           HapticFeedback.mediumImpact();
           _goToEditScreen(field);
         },
@@ -1162,98 +1168,104 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
       );
     }
 
+    final memories = <Memory>[
+      if (_userMemory != null) _userMemory!,
+      if (_partnerMemory != null) _partnerMemory!,
+    ];
+
     final userId = _authService.currentUser?.uid;
+
+    if (userId != null) {
+      memories.sort((a, b) {
+        if (a.createdBy == userId && b.createdBy != userId) return -1;
+        if (a.createdBy != userId && b.createdBy == userId) return 1;
+        return a.createdAt.compareTo(b.createdAt);
+      });
+    }
+
     final isOwner = memory.createdBy == userId;
     final canEdit = isOwner && !_showingPartnerMemory;
+
+    final cardWidth = MediaQuery.of(context).size.width * 0.8;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section label
-        Row(
-          children: [
-            Icon(Icons.center_focus_strong_rounded, color: AppColors.accentRed, size: 16),
-            const SizedBox(width: 6),
-            Text(
-              _showingPartnerMemory ? "PARTNER'S MEMORY" : 'YOUR MEMORY',
-              style: GoogleFonts.outfit(
-                color: AppColors.accentRed,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.5,
-              ),
-            ),
-            const Spacer(),
-            if (_partnerMemory != null)
-              GestureDetector(
-                onTap: () {
-                  HapticFeedback.lightImpact();
-                  setState(() => _showingPartnerMemory = !_showingPartnerMemory);
-                  if (_showingPartnerMemory && _partnerMemory != null) {
-                    _resolveMemoryPhotos(_partnerMemory!);
-                  } else if (_userMemory != null) {
-                    _resolveMemoryPhotos(_userMemory!);
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardVariant,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    _showingPartnerMemory ? 'See yours' : "Partner's view",
-                    style: GoogleFonts.inter(
-                      color: AppColors.warmDim,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
+        _buildMemoryPhotoField(memory, canEdit),
         const SizedBox(height: 12),
 
-        // Photos
-        _buildMemoryPhotoField(memory, canEdit),
-        const SizedBox(height: 10),
+        if (memories.length == 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 0),
+            child: MemoryMemberCard(
+              memory: memories.first,
+              creatorName: _getCreatorName(memories.first.createdBy),
+              spaceId: widget.spaceId,
+              isCurrentUser: memories.first.createdBy == userId,
+            ),
+          )
+        else
+          SizedBox(
+            height: _estimateCardHeight(memories, userId),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollStartNotification &&
+                    notification.dragDetails != null) {
+                  HapticFeedback.lightImpact();
+                } else if (notification is ScrollEndNotification) {
+                  HapticFeedback.selectionClick();
+                }
+                return false;
+              },
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: SnapScrollPhysics(
+                  itemExtent: cardWidth + 8,
+                  parent: const ClampingScrollPhysics(),
+                ),
+                padding: const EdgeInsets.only(right: 16),
+                itemCount: memories.length,
+                itemBuilder: (context, index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: SizedBox(
+                      width: cardWidth,
+                      child: MemoryMemberCard(
+                        memory: memories[index],
+                        creatorName: _getCreatorName(memories[index].createdBy),
+                        spaceId: widget.spaceId,
+                        isCurrentUser: memories[index].createdBy == userId,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
 
-        // Caption
-        _buildMemoryTextField(
-          value: memory.caption,
-          placeholder: 'How was it?',
-          icon: Icons.edit_note_rounded,
-          canEdit: canEdit,
-          onSave: (text) => _saveMemoryField('caption', text),
-        ),
-        const SizedBox(height: 8),
-
-        // Place
-        _buildMemoryTextField(
-          value: memory.place,
-          placeholder: 'Where were you?',
-          icon: Icons.place_outlined,
-          canEdit: canEdit,
-          onSave: (text) => _saveMemoryField('place', text),
-        ),
-        const SizedBox(height: 8),
-
-        // Music
-        _buildMemoryTextField(
-          value: memory.music,
-          placeholder: 'A song that reminds you',
-          icon: Icons.music_note_outlined,
-          canEdit: canEdit,
-          onSave: (text) => _saveMemoryField('music', text),
-        ),
-
-        // Reactions
-        if (memory.reactions.isNotEmpty || !_showingPartnerMemory) ...[
-          const SizedBox(height: 12),
-          _buildMemoryReactions(memory),
-        ],
       ],
     );
+  }
+
+  String _getCreatorName(String createdBy) {
+    if (createdBy == _authService.currentUser?.uid) return 'You';
+    return _partnerName ?? 'Partner';
+  }
+
+  double _estimateCardHeight(List<Memory> memories, String? userId) {
+    double max = 72;
+    for (final m in memories) {
+      double h = 72;
+      if (m.hasCaption) h += 52;
+      if (m.hasMusic) h += 30;
+      if (m.hasCheckin) {
+        h += 24;
+      } else if (m.createdBy == userId) {
+        h += 34;
+      }
+      if (h > max) max = h;
+    }
+    return max;
   }
 
   Widget _buildMemoryPhotoField(Memory memory, bool canEdit) {
@@ -1305,157 +1317,6 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     );
   }
 
-  Widget _buildMemoryTextField({
-    required String? value,
-    required String placeholder,
-    required IconData icon,
-    required bool canEdit,
-    required ValueChanged<String?> onSave,
-  }) {
-    final hasValue = value != null && value.isNotEmpty;
-
-    return GestureDetector(
-      onTap: canEdit ? () => _showFieldEditor(placeholder, value, onSave) : null,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: hasValue ? AppColors.darkCardLight : AppColors.cardVariant.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(10),
-          border: !hasValue && canEdit
-              ? Border.all(color: AppColors.warmMuted.withValues(alpha: 0.15))
-              : null,
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: hasValue ? AppColors.warmDim : AppColors.warmMuted),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                (value != null && value.isNotEmpty) ? value : placeholder,
-                style: GoogleFonts.inter(
-                  color: hasValue ? AppColors.warmLight : AppColors.warmMuted,
-                  fontSize: 13,
-                  fontStyle: hasValue ? FontStyle.normal : FontStyle.italic,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (canEdit && !hasValue)
-              Icon(Icons.add_rounded, size: 16, color: AppColors.warmMuted),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMemoryReactions(Memory memory) {
-    final userId = _authService.currentUser?.uid;
-    final myReaction = userId != null ? memory.reactions[userId] : null;
-    final partnerReaction = memory.reactions.entries
-        .where((e) => e.key != userId)
-        .map((e) => e.value)
-        .firstOrNull;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (partnerReaction != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Text(partnerReaction, style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 6),
-                Text('Partner reacted', style: GoogleFonts.inter(color: AppColors.warmDim, fontSize: 12)),
-              ],
-            ),
-          ),
-        if (!_showingPartnerMemory)
-          EmojiReactionPicker(
-            selectedEmoji: myReaction,
-            onSelected: (emoji) => _toggleReaction(memory, emoji),
-          ),
-      ],
-    );
-  }
-
-  void _showFieldEditor(String label, String? currentValue, ValueChanged<String?> onSave) {
-    final controller = TextEditingController(text: currentValue ?? '');
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppColors.pureBlack,
-      isScrollControlled: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: GoogleFonts.outfit(color: AppColors.warmLight, fontSize: 16, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              style: GoogleFonts.inter(color: AppColors.warmLight, fontSize: 14),
-              maxLines: label.contains('How') ? 3 : 1,
-              maxLength: label.contains('How') ? 280 : 100,
-              decoration: InputDecoration(
-                hintText: label,
-                hintStyle: GoogleFonts.inter(color: AppColors.warmMuted),
-                border: InputBorder.none,
-                counterStyle: TextStyle(color: AppColors.warmMuted, fontSize: 11),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: Text('Cancel', style: TextStyle(color: AppColors.warmMuted)),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed: () {
-                    final text = controller.text.trim();
-                    onSave(text.isEmpty ? null : text);
-                    Navigator.pop(ctx);
-                  },
-                  child: Text('Save', style: TextStyle(color: AppColors.accentRed)),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _saveMemoryField(String field, dynamic value) async {
-    final memory = _userMemory;
-    if (memory == null) return;
-
-    try {
-      await _firestoreService.updateMemoryField(
-        spaceId: widget.spaceId,
-        memoryId: memory.id,
-        field: field,
-        value: value ?? FieldValue.delete(),
-      );
-      HapticFeedback.lightImpact();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e'), backgroundColor: AppColors.error),
-        );
-      }
-    }
-  }
-
   Future<void> _pickMemoryPhotos() async {
     // Defer to the create memory screen for photo management
     // since it handles compression + upload + multi-photo
@@ -1463,36 +1324,6 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
     if (memory == null) return;
     Navigator.pop(context);
     context.push('/memory/${widget.spaceId}/create', extra: moment);
-  }
-
-  Future<void> _toggleReaction(Memory memory, String emoji) async {
-    final userId = _authService.currentUser?.uid;
-    if (userId == null) return;
-
-    try {
-      if (memory.reactions[userId] == emoji) {
-        await _firestoreService.removeReaction(
-          spaceId: widget.spaceId, memoryId: memory.id, userId: userId,
-        );
-      } else {
-        await _firestoreService.setReaction(
-          spaceId: widget.spaceId, memoryId: memory.id, userId: userId, emoji: emoji,
-        );
-        final profile = await _firestoreService.getUserProfile(userId);
-        final userName = profile?['name'] as String? ?? 'Someone';
-        await _firestoreService.logMemoryReactionActivity(
-          spaceId: widget.spaceId, userId: userId, userName: userName,
-          memoryId: memory.id, memoryTitle: memory.displayTitle, emoji: emoji,
-        );
-      }
-      HapticFeedback.lightImpact();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
-        );
-      }
-    }
   }
 
   Future<void> _onLivedMoment() async {
@@ -1552,11 +1383,11 @@ class _MomentDetailsContentState extends State<_MomentDetailsContent>
   Widget _buildActions(BuildContext context) {
     return Column(
       children: [
-        if (_calendarIntegration != null && !_isExternal) ...[
+        if (_calendarIntegration != null && !_isExternal && !moment.isPast) ...[
           _buildSyncButton(),
           const SizedBox(height: 8),
         ],
-        if (onDelete != null && moment.status != MomentStatus.cancelled)
+        if (onDelete != null && moment.status != MomentStatus.cancelled && !moment.isPast)
           _buildHoldToDeleteButton(),
       ],
     );

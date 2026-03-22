@@ -51,8 +51,6 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
 
   late final _captionController =
       TextEditingController(text: widget.memory.caption ?? '');
-  late final _placeController =
-      TextEditingController(text: widget.memory.place ?? '');
   late final _musicController =
       TextEditingController(text: widget.memory.music ?? '');
   late final _titleController =
@@ -72,9 +70,6 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
     if (_captionController.text.trim() != (m.caption ?? '')) {
       fields.add('caption');
     }
-    if (_placeController.text.trim() != (m.place ?? '')) {
-      fields.add('place');
-    }
     if (_musicController.text.trim() != (m.music ?? '')) {
       fields.add('music');
     }
@@ -92,7 +87,6 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
   void initState() {
     super.initState();
     _captionController.addListener(() => setState(() {}));
-    _placeController.addListener(() => setState(() {}));
     _musicController.addListener(() => setState(() {}));
     _titleController.addListener(() => setState(() {}));
     _resolveExistingThumbs();
@@ -101,7 +95,6 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
   @override
   void dispose() {
     _captionController.dispose();
-    _placeController.dispose();
     _musicController.dispose();
     _titleController.dispose();
     _scrollController.dispose();
@@ -220,9 +213,6 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
         caption: _captionController.text.trim().isEmpty
             ? null
             : _captionController.text.trim(),
-        place: _placeController.text.trim().isEmpty
-            ? null
-            : _placeController.text.trim(),
         music: _musicController.text.trim().isEmpty
             ? null
             : _musicController.text.trim(),
@@ -289,8 +279,6 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
                   _buildPhotoSection(),
                   const SizedBox(height: 12),
                   _buildCaptionField(),
-                  const SizedBox(height: 12),
-                  _buildPlaceField(),
                   const SizedBox(height: 12),
                   _buildMusicField(),
                   const SizedBox(height: 80),
@@ -361,24 +349,6 @@ class _EditMemoryScreenState extends State<EditMemoryScreen> {
           hintStyle: AppTypography.bodyMedium(color: AppColors.warmMuted),
           border: InputBorder.none,
           counterStyle: TextStyle(color: AppColors.warmMuted, fontSize: 11),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlaceField() {
-    return ActiveCard(
-      heading: 'Place',
-      isActive: _placeController.text.isNotEmpty,
-      child: TextField(
-        controller: _placeController,
-        style: AppTypography.bodyMedium(),
-        maxLength: 100,
-        decoration: InputDecoration(
-          hintText: 'Where were you?',
-          hintStyle: AppTypography.bodyMedium(color: AppColors.warmMuted),
-          border: InputBorder.none,
-          counterText: '',
         ),
       ),
     );

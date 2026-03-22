@@ -167,7 +167,7 @@ void main() {
       expect(json['photoPaths'], hasLength(2));
       expect(json['thumbPaths'], hasLength(2));
       expect(json['caption'], 'Great evening!');
-      expect(json['place'], 'Downtown');
+      expect(json.containsKey('place'), false); // place moved to Moment model
       expect(json['music'], 'Something by The Beatles');
       expect(json['checkinId'], 'checkin_789');
       expect(json['reactions'], isA<Map>());
@@ -214,7 +214,7 @@ void main() {
       expect(json['photoPaths'], hasLength(2));
       expect(json['thumbPaths'], hasLength(2));
       expect(json['caption'], 'Great evening!');
-      expect(json['place'], 'Downtown');
+      expect(json.containsKey('place'), false); // place moved to Moment model
       expect(json['music'], 'Something by The Beatles');
       expect(json['updatedAt'], isA<FieldValue>());
     });
@@ -239,7 +239,7 @@ void main() {
       final json = memory.toUpdateJson();
 
       expect(json['caption'], isA<FieldValue>());
-      expect(json['place'], isA<FieldValue>());
+      expect(json.containsKey('place'), false); // place moved to Moment model
       expect(json['music'], isA<FieldValue>());
     });
   });

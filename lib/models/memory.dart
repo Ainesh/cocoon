@@ -107,6 +107,7 @@ class Memory {
     this.momentEndDate,
     this.momentTimeSlot,
     this.momentNotes,
+    this.momentPlace,
     this.title,
     this.photoPaths = const [],
     this.thumbPaths = const [],
@@ -147,6 +148,9 @@ class Memory {
 
   /// Denormalized moment notes at seal time.
   final String? momentNotes;
+
+  /// Denormalized moment place at seal time.
+  final String? momentPlace;
 
   // ---------------------------------------------------------------------------
   // Standalone Fields
@@ -255,6 +259,7 @@ class Memory {
           : null,
       momentTimeSlot: json['momentTimeSlot'] as String?,
       momentNotes: json['momentNotes'] as String?,
+      momentPlace: json['momentPlace'] as String?,
       title: json['title'] as String?,
       createdBy: json['createdBy'] as String? ?? '',
       photoPaths: List<String>.from(json['photoPaths'] ?? []),
@@ -292,12 +297,12 @@ class Memory {
       if (momentEndDate != null) 'momentEndDate': Timestamp.fromDate(momentEndDate!),
       if (momentTimeSlot != null) 'momentTimeSlot': momentTimeSlot,
       if (momentNotes != null) 'momentNotes': momentNotes,
+      if (momentPlace != null) 'momentPlace': momentPlace,
       if (title != null) 'title': title,
       'createdBy': createdBy,
       'photoPaths': photoPaths,
       'thumbPaths': thumbPaths,
       if (caption != null) 'caption': caption,
-      if (place != null) 'place': place,
       if (music != null) 'music': music,
       if (checkinId != null) 'checkinId': checkinId,
       if (sentiment != null) 'sentiment': sentiment!.value,
@@ -315,7 +320,6 @@ class Memory {
       'photoPaths': photoPaths,
       'thumbPaths': thumbPaths,
       if (caption != null) 'caption': caption else 'caption': FieldValue.delete(),
-      if (place != null) 'place': place else 'place': FieldValue.delete(),
       if (music != null) 'music': music else 'music': FieldValue.delete(),
       if (title != null) 'title': title,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -335,6 +339,7 @@ class Memory {
     DateTime? momentEndDate,
     String? momentTimeSlot,
     String? momentNotes,
+    String? momentPlace,
     String? title,
     String? createdBy,
     List<String>? photoPaths,
@@ -359,6 +364,7 @@ class Memory {
       momentEndDate: momentEndDate ?? this.momentEndDate,
       momentTimeSlot: momentTimeSlot ?? this.momentTimeSlot,
       momentNotes: momentNotes ?? this.momentNotes,
+      momentPlace: momentPlace ?? this.momentPlace,
       title: title ?? this.title,
       createdBy: createdBy ?? this.createdBy,
       photoPaths: photoPaths ?? this.photoPaths,
