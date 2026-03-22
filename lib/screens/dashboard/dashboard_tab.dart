@@ -2,6 +2,9 @@
 ///
 /// Uses ValueNotifier for localized rebuilds — stream updates only rebuild
 /// the specific card that changed, not the entire dashboard.
+///
+/// Supports solo mode: when only one member exists, the HealthCard is
+/// replaced with a PersonalTrendCard and an InvitePartnerCard is shown.
 library;
 
 import 'dart:async';
@@ -10,6 +13,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/memory.dart';
 import '../../models/moment.dart';
@@ -31,6 +36,9 @@ import 'widgets/event_cards.dart';
 import 'widgets/health_card.dart';
 import 'widgets/health_details_sheet.dart';
 import 'widgets/memory_prompt_card.dart';
+import 'widgets/personal_trend_card.dart';
+
+const _kInviteCardDismissedKey = 'invite_card_dismissed';
 
 /// Dashboard tab widget.
 class DashboardTab extends StatefulWidget {
@@ -42,7 +50,8 @@ class DashboardTab extends StatefulWidget {
   State<DashboardTab> createState() => DashboardTabState();
 }
 
-class DashboardTabState extends State<DashboardTab> {
+class DashboardTabState extends State<DashboardTab>
+    with SingleTickerProviderStateMixin {
   final _firestoreService = FirestoreService();
   final _authService = AuthService();
   final _scoreEngine = const ScoreEngine();
@@ -62,6 +71,9 @@ class DashboardTabState extends State<DashboardTab> {
 
   // Non-streamed data
   int _streak = 0;
+  int _memberCount = 0;
+  bool _inviteCardDismissed = false;
+  String? _inviteCode;
 
   // Prompt state
   Moment? _promptMoment;
@@ -82,6 +94,15 @@ class DashboardTabState extends State<DashboardTab> {
   // Cache check-ins for recomputation when config changes
   List<UserCheckIn> _cachedCheckIns = [];
 
+  // Streak badge animation
+  late final AnimationController _streakPulseController;
+
+  // ---------------------------------------------------------------------------
+  // Computed
+  // ---------------------------------------------------------------------------
+
+  bool get _isSoloMode => _memberCount == 1;
+
   // ---------------------------------------------------------------------------
   // Lifecycle
   // ---------------------------------------------------------------------------
@@ -89,9 +110,14 @@ class DashboardTabState extends State<DashboardTab> {
   @override
   void initState() {
     super.initState();
+    _streakPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     _subscribeToStreams();
     _loadInitialData();
     _loadPromptMoment();
+    _loadInviteCardState();
   }
 
   @override
@@ -101,6 +127,7 @@ class DashboardTabState extends State<DashboardTab> {
     _configSubscription?.cancel();
     _momentsNotifier.dispose();
     _scoreNotifier.dispose();
+    _streakPulseController.dispose();
     super.dispose();
   }
 
@@ -173,13 +200,36 @@ class DashboardTabState extends State<DashboardTab> {
     _scoreNotifier.value = result;
   }
 
-  /// Load initial data that isn't streamed (streak).
+  /// Load initial data that isn't streamed (streak, member count, invite).
   Future<void> _loadInitialData() async {
     try {
-      _streak = await _firestoreService.getCheckInStreak(widget.spaceId);
+      final results = await Future.wait([
+        _firestoreService.getCheckInStreak(widget.spaceId),
+        _firestoreService.getSpaceWithMembers(widget.spaceId),
+      ]);
+
+      final streak = results[0] as int;
+      final space = results[1] as Map<String, dynamic>?;
+      final memberIds =
+          List<String>.from(space?['memberIds'] as List? ?? []);
 
       if (mounted) {
-        setState(() => _isLoading = false);
+        final oldStreak = _streak;
+        setState(() {
+          _streak = streak;
+          _memberCount = memberIds.length;
+          _isLoading = false;
+        });
+
+        // Pulse the streak badge when a new day is achieved
+        if (streak > oldStreak && oldStreak > 0) {
+          _streakPulseController.forward(from: 0);
+        }
+
+        // Load invite code if solo
+        if (_memberCount == 1) {
+          _loadInviteCode();
+        }
 
         // Animate health score on first load
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -192,6 +242,43 @@ class DashboardTabState extends State<DashboardTab> {
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadInviteCode() async {
+    try {
+      final userId = _authService.currentUser?.uid;
+      if (userId == null) return;
+      final code = await _firestoreService.getOrCreateInvite(
+        spaceId: widget.spaceId,
+        userId: userId,
+      );
+      if (mounted) setState(() => _inviteCode = code);
+    } catch (e) {
+      debugPrint('Error loading invite code: $e');
+    }
+  }
+
+  Future<void> _loadInviteCardState() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _inviteCardDismissed = prefs.getBool(_kInviteCardDismissedKey) ?? false;
+    });
+  }
+
+  Future<void> _dismissInviteCard() async {
+    HapticFeedback.lightImpact();
+    setState(() => _inviteCardDismissed = true);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kInviteCardDismissedKey, true);
+  }
+
+  void _shareInviteCode() {
+    if (_inviteCode == null) return;
+    Share.share(
+      'Join my space on Kairos! Use code: $_inviteCode',
+      subject: 'Kairos Invite',
+    );
   }
 
   Future<void> _loadPromptMoment() async {
@@ -213,7 +300,28 @@ class DashboardTabState extends State<DashboardTab> {
     HapticFeedback.mediumImpact();
 
     try {
-      _streak = await _firestoreService.getCheckInStreak(widget.spaceId);
+      final results = await Future.wait([
+        _firestoreService.getCheckInStreak(widget.spaceId),
+        _firestoreService.getSpaceWithMembers(widget.spaceId),
+      ]);
+
+      if (!mounted) return;
+
+      final streak = results[0] as int;
+      final space = results[1] as Map<String, dynamic>?;
+      final memberIds =
+          List<String>.from(space?['memberIds'] as List? ?? []);
+      final oldStreak = _streak;
+
+      setState(() {
+        _streak = streak;
+        _memberCount = memberIds.length;
+      });
+
+      if (streak > oldStreak && oldStreak > 0) {
+        _streakPulseController.forward(from: 0);
+      }
+
       _recomputeScores();
       _loadPromptMoment();
 
@@ -382,7 +490,9 @@ class DashboardTabState extends State<DashboardTab> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Once all the members of the space start checking in, this mosaic will come alive with colours that represent your relationship health.',
+                _isSoloMode
+                    ? 'This is your personal pulse trend. Once your partner joins and you both check in, this mosaic will come alive with colours that reflect your shared health.'
+                    : 'Once all the members of the space start checking in, this mosaic will come alive with colours that represent your relationship health.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.inter(
                   color: AppColors.warmDim,
@@ -619,8 +729,14 @@ class DashboardTabState extends State<DashboardTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildStreakBadge(),
+            const SizedBox(height: 12),
             _buildMainGrid(),
             const SizedBox(height: 12),
+            if (_isSoloMode && !_inviteCardDismissed) ...[
+              _buildInvitePartnerCard(),
+              const SizedBox(height: 12),
+            ],
             if (_promptMoment != null) ...[
               MemoryPromptCard(
                 moment: _promptMoment!,
@@ -639,6 +755,200 @@ class DashboardTabState extends State<DashboardTab> {
       ),
     );
   }
+
+  // ---------------------------------------------------------------------------
+  // Streak Badge
+  // ---------------------------------------------------------------------------
+
+  Widget _buildStreakBadge() {
+    final isActive = _streak > 0;
+
+    return GestureDetector(
+      onTap: _showHealthDetails,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedBuilder(
+        animation: _streakPulseController,
+        builder: (context, child) {
+          final pulseScale =
+              1.0 + (_streakPulseController.value * 0.15 *
+                  (1 - _streakPulseController.value));
+          return Transform.scale(
+            scale: _streakPulseController.isAnimating ? pulseScale : 1.0,
+            child: child,
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive
+                ? AppColors.accentRed.withValues(alpha: 0.12)
+                : AppColors.darkCardLight,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.local_fire_department_rounded,
+                color: isActive
+                    ? AppColors.accentRed
+                    : AppColors.warmMuted,
+                size: 18,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$_streak',
+                style: GoogleFonts.outfit(
+                  color: isActive
+                      ? AppColors.accentRed
+                      : AppColors.warmMuted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                _streak == 1 ? 'day' : 'days',
+                style: GoogleFonts.inter(
+                  color: isActive
+                      ? AppColors.accentRed.withValues(alpha: 0.7)
+                      : AppColors.warmMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Invite Partner Card (Solo Mode)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildInvitePartnerCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.darkCardLight,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppColors.accentRed.withValues(alpha: 0.2),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.person_add_alt_1_rounded,
+                color: AppColors.accentRed,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Invite your partner',
+                  style: GoogleFonts.outfit(
+                    color: AppColors.warmLight,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              GestureDetector(
+                onTap: _dismissInviteCard,
+                child: Icon(
+                  Icons.close_rounded,
+                  color: AppColors.warmMuted,
+                  size: 18,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Share this code so your partner can join your space and start checking in together.',
+            style: GoogleFonts.inter(
+              color: AppColors.warmDim,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (_inviteCode != null) ...[
+            Row(
+              children: [
+                // Code display
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardVariant,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        _inviteCode!,
+                        style: GoogleFonts.outfit(
+                          color: AppColors.warmLight,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 3,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                // Share button
+                GestureDetector(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    _shareInviteCode();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentRed,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      Icons.share_rounded,
+                      color: AppColors.pureBlack,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ] else
+            Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.warmMuted,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Lived Moment Card
+  // ---------------------------------------------------------------------------
 
   Widget _buildLivedMomentCard() {
     final moment = _livedMoment!;
@@ -706,6 +1016,10 @@ class DashboardTabState extends State<DashboardTab> {
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Main Grid
+  // ---------------------------------------------------------------------------
+
   Widget _buildMainGrid() {
     return SizedBox(
       height: 320,
@@ -756,25 +1070,12 @@ class DashboardTabState extends State<DashboardTab> {
             ),
           ),
           const SizedBox(width: 12),
-          // Right column — Health card + Check-in
+          // Right column — Health/Trend card + Check-in
           Expanded(
             flex: 1,
             child: Column(
               children: [
-                Expanded(
-                  child: ValueListenableBuilder<ScoreResult>(
-                    valueListenable: _scoreNotifier,
-                    builder: (context, result, _) {
-                      return RepaintBoundary(
-                        child: HealthCard(
-                          key: _healthCardKey,
-                          scoreResult: result,
-                          onTap: _showHealthDetails,
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                Expanded(child: _buildHealthOrTrendCard()),
                 const SizedBox(height: 12),
                 CheckInCard(
                   onTap: () => context.push('/checkin/${widget.spaceId}'),
@@ -784,6 +1085,30 @@ class DashboardTabState extends State<DashboardTab> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Renders HealthCard (shared mode) or PersonalTrendCard (solo mode).
+  Widget _buildHealthOrTrendCard() {
+    if (_isSoloMode) {
+      return PersonalTrendCard(
+        checkIns: _cachedCheckIns,
+        streak: _streak,
+        onTap: _showHealthPreview,
+      );
+    }
+
+    return ValueListenableBuilder<ScoreResult>(
+      valueListenable: _scoreNotifier,
+      builder: (context, result, _) {
+        return RepaintBoundary(
+          child: HealthCard(
+            key: _healthCardKey,
+            scoreResult: result,
+            onTap: _showHealthDetails,
+          ),
+        );
+      },
     );
   }
 
