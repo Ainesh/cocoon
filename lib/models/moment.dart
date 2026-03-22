@@ -8,6 +8,8 @@ library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'memory.dart';
+
 // =============================================================================
 // Enums
 // =============================================================================
@@ -144,9 +146,11 @@ class Moment {
     this.timeSlot,
     this.repeatSchedule = RepeatSchedule.never,
     this.notes,
+    this.place,
     this.createdAt,
     this.updatedAt,
     this.version = 1,
+    this.status = MomentStatus.planned,
     this.externalEventIds,
   });
 
@@ -174,6 +178,9 @@ class Moment {
   /// Optional notes about the moment.
   final String? notes;
 
+  /// Optional place/location for the moment.
+  final String? place;
+
   /// User ID who created this moment.
   final String createdBy;
 
@@ -185,6 +192,9 @@ class Moment {
 
   /// Optimistic lock version — incremented on each update.
   final int version;
+
+  /// Lifecycle status: planned (default), lived (has memory), missed.
+  final MomentStatus status;
 
   /// Per-user external calendar event IDs after syncing (userId → eventId).
   final Map<String, String>? externalEventIds;
@@ -218,6 +228,7 @@ class Moment {
         json['repeatSchedule'] as String? ?? 'never',
       ),
       notes: json['notes'] as String?,
+      place: json['place'] as String?,
       createdBy: json['createdBy'] as String? ?? '',
       createdAt: json['createdAt'] != null
           ? (json['createdAt'] as Timestamp).toDate()
@@ -226,6 +237,7 @@ class Moment {
           ? (json['updatedAt'] as Timestamp).toDate()
           : null,
       version: json['version'] as int? ?? 1,
+      status: MomentStatus.fromValue(json['status'] as String? ?? 'planned'),
       externalEventIds: json['externalEventIds'] != null
           ? Map<String, String>.from(json['externalEventIds'] as Map)
           : null,
@@ -246,12 +258,14 @@ class Moment {
       'timeSlot': timeSlot?.value,
       'repeatSchedule': repeatSchedule.value,
       'notes': notes,
+      if (place != null) 'place': place,
       'createdBy': createdBy,
       'createdAt': createdAt != null
           ? Timestamp.fromDate(createdAt!)
           : FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
       'version': version,
+      'status': status.value,
       if (externalEventIds != null) 'externalEventIds': externalEventIds,
     };
   }
@@ -259,6 +273,9 @@ class Moment {
   // ---------------------------------------------------------------------------
   // Computed Properties
   // ---------------------------------------------------------------------------
+
+  /// Whether a place has been set.
+  bool get hasPlace => place != null && place!.isNotEmpty;
 
   /// Returns the display title with emoji.
   String get displayTitle => '${type.emoji} $name';
@@ -395,10 +412,12 @@ class Moment {
     DateTime? endDate,
     TimeSlot? timeSlot,
     RepeatSchedule? repeatSchedule,
+    String? place,
     String? createdBy,
     DateTime? createdAt,
     DateTime? updatedAt,
     int? version,
+    MomentStatus? status,
     Map<String, String>? externalEventIds,
   }) {
     return Moment(
@@ -409,10 +428,12 @@ class Moment {
       endDate: endDate ?? this.endDate,
       timeSlot: timeSlot ?? this.timeSlot,
       repeatSchedule: repeatSchedule ?? this.repeatSchedule,
+      place: place ?? this.place,
       createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       version: version ?? this.version,
+      status: status ?? this.status,
       externalEventIds: externalEventIds ?? this.externalEventIds,
     );
   }

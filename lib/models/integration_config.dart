@@ -83,15 +83,44 @@ class CalendarIntegration {
       'CalendarIntegration(${provider.value}, enabled=$enabled)';
 }
 
+/// Google Drive storage integration state.
+class DriveStorageIntegration {
+  const DriveStorageIntegration({
+    required this.enabled,
+    this.linkedAt,
+  });
+
+  final bool enabled;
+  final DateTime? linkedAt;
+
+  factory DriveStorageIntegration.fromJson(Map<String, dynamic> json) {
+    return DriveStorageIntegration(
+      enabled: json['enabled'] as bool? ?? false,
+      linkedAt: json['linkedAt'] != null
+          ? (json['linkedAt'] as Timestamp).toDate()
+          : null,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'enabled': enabled,
+      'linkedAt': linkedAt != null ? Timestamp.fromDate(linkedAt!) : null,
+    };
+  }
+}
+
 /// Top-level integration config for a user.
 ///
 /// Extensible — future integrations (Spotify, Photos, etc.) add fields here.
 class IntegrationConfig {
-  const IntegrationConfig({this.calendar});
+  const IntegrationConfig({this.calendar, this.driveStorage});
 
   final CalendarIntegration? calendar;
+  final DriveStorageIntegration? driveStorage;
 
   bool get hasCalendar => calendar != null && calendar!.enabled;
+  bool get hasDriveStorage => driveStorage != null && driveStorage!.enabled;
 
   factory IntegrationConfig.fromJson(Map<String, dynamic> json) {
     return IntegrationConfig(
@@ -99,17 +128,28 @@ class IntegrationConfig {
           ? CalendarIntegration.fromJson(
               Map<String, dynamic>.from(json['calendar'] as Map))
           : null,
+      driveStorage: json['driveStorage'] != null
+          ? DriveStorageIntegration.fromJson(
+              Map<String, dynamic>.from(json['driveStorage'] as Map))
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       if (calendar != null) 'calendar': calendar!.toJson(),
+      if (driveStorage != null) 'driveStorage': driveStorage!.toJson(),
     };
   }
 
-  IntegrationConfig copyWith({CalendarIntegration? calendar}) {
-    return IntegrationConfig(calendar: calendar ?? this.calendar);
+  IntegrationConfig copyWith({
+    CalendarIntegration? calendar,
+    DriveStorageIntegration? driveStorage,
+  }) {
+    return IntegrationConfig(
+      calendar: calendar ?? this.calendar,
+      driveStorage: driveStorage ?? this.driveStorage,
+    );
   }
 
   static const empty = IntegrationConfig();

@@ -82,9 +82,9 @@ Kairos helps couples stay intentionally connected through:
   - Icons match check-in sliders (same SVGs/Material icons throughout)
 
 ### 📊 Dashboard
-- **Navigation** — Stretchy 2-tab selector (Dashboard ↔ Moments)
+- **Navigation** — Stretchy 3-tab selector (Dashboard ↔ Moments ↔ Memories)
   - Solid red sliding highlight with drag + snap
-  - Dashboard icon (space_dashboard) + calendar icon (event)
+  - Dashboard icon (space_dashboard) + calendar icon (event) + book icon (auto_stories)
 - **Relationship Health Card** — Voronoi Mosaic
   - Animated Voronoi mosaic fills a rounded rectangle with organic tiles
   - Tiles appear one-by-one with zoom-in → glow → zoom-out → settle animation
@@ -99,23 +99,36 @@ Kairos helps couples stay intentionally connected through:
   - Secondary moment in compact view
   - "+ X moments this month" indicator (muted) when more scheduled
   - Adaptive sizing: card shrinks when fewer moments planned
+  - Build-time filter: excludes `isPast` moments (handles stale stream data across midnight) and the current prompt moment by ID
+- **Memory Prompt Card** — Swipe-to-reveal card for past moments
+  - Appears above the grid when a past moment (within 14 days) has no memory from the current user
+  - Shows moment type icon, name, date, and a subtle swap_horiz hint icon
+  - **Swipe right** → "Lived it" — creates a memory with `lived` sentiment
+  - **Swipe left** → "Missed it" — creates a memory with `missed` sentiment
+  - Swipe-to-reveal pattern: action zones (heart icon / X icon) are revealed behind the card as it slides
+  - Card border tints to match direction; icons scale up as threshold approaches
+  - Custom haptic patterns: celebratory triple-tap for lived, somber double-thud for missed
+  - `selectionClick` haptic on threshold crossing; fling support for quick swipes
+  - **First-time hint** — nudge animation (card tilts right then left, looping 2-3 times) until user interacts; persisted via `has_swiped_prompt` SharedPreferences key
+  - Per-user prompt: each partner gets their own independent prompt (checks if memory exists for current user)
 - **Plan a Moment** — Adaptive button that expands when Coming Up is small
 - **Check-in Button** — Quick access to daily check-in
 - **Pull-to-refresh** with haptic feedback
 
 ### 💫 Plan a Moment
-Three types of moments with progressive reveal UI:
+Four types of moments with progressive reveal UI:
 
 | Type | Icon | Purpose | Duration | Fields |
 |------|------|---------|----------|--------|
 | **Connect** | 🔗 | Quality time | Part of day | Activity, Date, Time slot |
 | **Celebrate** | ✨ | Special occasions | Full day | Occasion, Date |
 | **Escape** | ✈️ | Getaways | Multi-day | Destination, Date range |
+| **External** | 📅 | Synced calendar events | Varies | Imported from Google/Apple Calendar |
 
 **Features:**
 - Type selection with muted icons, red highlight on selected
 - Preset suggestions with custom input option
-- Inline `table_calendar` date picker (no popup dialogs)
+- Inline custom calendar date picker (no popup dialogs)
 - Quick date pills: Today, Tomorrow, weekday names, Pick a date
 - Range calendar for Escape with solid red highlight bar
 - Stretchy time slot slider with color gradient (morning blue → night red)
@@ -166,7 +179,7 @@ Three types of moments with progressive reveal UI:
   - Drag vertically to set 1-100 score with haptic feedback every 5 units
   - "PULSE CHECK" header + helper text
   - Adaptive spacing: bars tighten when 4-5 attributes are active
-- **Dynamic Attributes** — 5 available: Connection ❤️, Intimacy 🔥, Peace ☮️, Trust 🤝, Communication 💬
+- **Dynamic Attributes** — 5 available: Connection ❤️, Intimacy 🔥, Peace ☮️, Trust 🤝, Expression 💬
   - Each user picks 3 in Settings → Pulse Attributes
   - Both users see the union of all picks on the check-in screen
   - Overlapping picks get 2× weight in scoring
@@ -188,9 +201,9 @@ The second tab alongside Dashboard — a dedicated view for all planned moments.
   - Edit and delete actions from the details sheet
 - **Custom Calendar** — Built from scratch using `AppDateCalendar` / `AppRangeCalendar`
   - Shared between Moments tab and Plan/Edit moment flows
-  - No external calendar dependency (replaced `table_calendar`)
+  - No external calendar dependency
   - UTC midnight date normalization for consistent storage
-- **Data** — Uses `watchUpcomingMoments` with 365-day lookahead and in-memory month filter
+- **Data** — Uses `watchAllMoments` (past + future) with in-memory month filter
 
 ### 🔗 Calendar Integration
 External calendar sync — connect Google Calendar or Apple Calendar to sync moments as events.
@@ -206,8 +219,73 @@ External calendar sync — connect Google Calendar or Apple Calendar to sync mom
 - **External Events Toggle** — On the Moments tab, toggle to show external events
   - Persisted via SharedPreferences
   - Only visible when integration is linked
-- **Data** — `externalEventId` field on Moment model; `integrations.calendar` on user document
+- **Data** — `externalEventIds` map on Moment model; `integrations.calendar` on user document
 - **Packages** — `googleapis`, `googleapis_auth`, `device_calendar`, `http`
+
+### ☁️ Google Drive Photo Storage
+Optional user-connected storage backend — store memory photos in the user's own Google Drive instead of Firebase Storage.
+
+- **Integrations Settings** — Toggle in Settings → Integrations to enable/disable Drive storage
+  - Uses `drive.file` scope (only accesses files the app creates)
+  - Per-user linking — each partner connects independently
+- **Folder Structure** — `Kairos / {spaceName} / {memoryId} /` in the user's Drive
+- **Shareable Links** — Photos are set to "anyone with link can view" so the partner sees them without auth
+- **Unlimited Photos** — Drive-backed memories allow up to 10 photos (vs 3 for Firebase Storage)
+- **Per-Memory Routing** — `storageProvider` field on each memory doc (`'firebase'` | `'drive'`) enables mixing old and new storage
+- **Data** — Drive file IDs stored in `photoPaths`/`thumbPaths`; `integrations.driveStorage` on user document
+
+### 📸 Memories
+Post-moment reflection system — capture how a moment felt through photos, caption, place, music, and an embedded pulse check-in.
+
+- **Memory Creation** — Single scrollable form with ActiveCard sections
+  - **From a moment**: Pre-filled with moment name, type icon, date
+  - **Standalone**: User provides title + past-only date picker for spontaneous experiences
+  - Photos: pick up to 3 (Firebase) or 10 (Google Drive), cross-platform compression via `image` package
+  - Caption (280 chars), place (100 chars), music (100 chars) — all optional
+  - Embedded pulse check-in (reuses VerticalBarSlider) — optional, counts toward health score
+  - Slide-to-seal action with atomic batch write (memory + activity)
+- **Memories Tab** — 3rd tab with unified timeline cards (newest first, only memories with content shown)
+  - Each card: icon + title + date header, photo slider, member memory card slider
+  - **Photo slider**: full-resolution images at 80% screen width, per-image card heights (landscape shorter, portrait capped at square), snaps to left-aligned positions with custom `_SnapScrollPhysics` (stiff spring: mass 0.5, stiffness 300, damping 22)
+  - **Member card slider**: 80% screen width, same snap physics, "YOUR MEMORY" / "PARTNER'S MEMORY" labels
+  - **Synced sliders**: photo slider and member card slider are bidirectionally synced via `ValueNotifier<int>` — swiping to a partner's photo auto-scrolls to their memory card and vice versa; `_isSyncing` flag prevents feedback loops
+  - Member cards show: "YOUR MEMORY" / "PARTNER'S MEMORY" label, caption, place/music tags, score-coloured pulse icons, date + edited date, check-in prompt for current user if no check-in attached
+  - **Photo gallery**: tapping any photo opens `MemoryPhotosView` — fullscreen `PageView` with `InteractiveViewer` (pinch-to-zoom), back button, memory title, page indicator dots
+  - Haptic feedback: `lightImpact` on drag start, `selectionClick` on snap settle (suppressed during synced scrolls)
+  - Empty state with CTA to create first memory
+- **Memory Detail Sheet** — DraggableScrollableSheet with full content
+  - Photo carousel (full-size resolution from storage paths)
+  - Partner reaction display + EmojiReactionPicker (6 curated emojis)
+  - Edit/delete buttons visible only to the creator
+  - Real-time updates via Firestore stream
+  - "Edited" badge when memory has been modified
+- **Memory Editing** — Creator-only edit screen
+  - Photo diff: keep existing, add new, remove unwanted
+  - All text fields editable; pulse check-in read-only (scores feed health pipeline)
+  - Storage cleanup for removed photos (Firebase or Drive); upload new with index offset
+  - Batch update with editedFields tracking in activity log
+- **Memory Deletion** — Confirmation dialog, Storage cleanup, Firestore transaction
+  - Memory deletion does not affect moment status (decoupled)
+  - Check-in data preserved (part of health scoring pipeline)
+- **Partner Reactions** — Lightweight emoji responses on memories
+  - 6 curated emojis: ❤️ 😂 🥹 🔥 🥰 ✨
+  - Toggle behavior (tap same emoji to remove)
+  - Inline `reactions` map on memory doc with field-level security rules
+  - Activity log + push notification on reaction
+- **Moment Lifecycle** — Decoupled from memory creation
+  - Moment status: `planned` (default) or `cancelled` — shared, objective (did the event happen?)
+  - Memory sentiment: `lived` or `missed` — per-user, subjective (how did you experience it?)
+  - Both "Lived it" and "Missed it" create a memory document (with different sentiment)
+  - Memory creation does NOT change moment status — they are independent
+  - Each partner gets their own prompt and responds independently
+  - 14-day prompt cutoff prevents stale prompts; per-user memory check excludes already-responded moments
+  - Doc ID convention: `{momentId}_{userId}` enforces 1 memory per user per moment
+- **Storage** — Dual backend: Firebase Storage (default, 3 photos) or Google Drive (user-connected, 10 photos)
+  - `storageProvider` field per memory (`'firebase'` | `'drive'`) enables mixing
+  - Firebase: storage paths resolved via `getDownloadURL()` with in-memory cache
+  - Drive: file IDs resolved via `webContentLink` with shareable "anyone with link" permissions
+  - Cross-platform compression via `image` package (pure Dart, works on web)
+- **Data** — Storage paths/IDs (not URLs) with client-side URL resolution + caching; denormalized moment name/type/date on memory doc
 
 ### 🔔 Push Notifications
 Real-time notifications triggered by partner activities via Firebase Cloud Functions:
@@ -222,6 +300,7 @@ Real-time notifications triggered by partner activities via Firebase Cloud Funct
 - **Tap-to-navigate deep links**: Tapping a notification opens the relevant content
   - Check-in notifications → Opens check-in screen
   - Moment notifications → Opens moment details bottom sheet on dashboard
+  - Memory notifications → Opens memory detail sheet or creation screen
   - Space events → Opens dashboard
   - Works from all 3 app states: foreground, background, and terminated
   - Uses pending navigation pattern to handle timing between FCM events and widget lifecycle
@@ -234,6 +313,11 @@ Real-time notifications triggered by partner activities via Firebase Cloud Funct
 | Moment Edited | Low | ✅ |
 | Moment Deleted | Normal | ✅ |
 | Moment Completed | Low | ✅ |
+| Moment Missed | Low | ✅ |
+| Memory Created | Normal | ✅ |
+| Memory Edited | Low | ✅ |
+| Memory Deleted | Normal | ✅ |
+| Memory Reaction | Low | ✅ |
 | Space Joined | High | ✅ |
 | Space Renamed | Low | ✅ |
 | Invite Accepted | High | ✅ |
@@ -259,6 +343,11 @@ A comprehensive activity tracking system that logs all couple interactions:
 | **Moment Planned** | New moment created | Moment name, type, dates |
 | **Moment Edited** | Existing moment updated | Changed fields (dates, time, notes) |
 | **Moment Deleted** | Moment cancelled | Moment name, type |
+| **Moment Missed** | Moment marked as didn't happen | Moment name, rescheduled flag |
+| **Memory Created** | Memory sealed | Memory title, linked moment |
+| **Memory Edited** | Memory content updated | Memory title, edited fields |
+| **Memory Deleted** | Memory removed | Memory title, linked moment |
+| **Memory Reaction** | Partner reacted to memory | Memory title, emoji |
 | **Space Joined** | Partner joined the space | Actor name |
 | **Space Created** | Space was created | Creator name |
 
@@ -278,7 +367,7 @@ A comprehensive activity tracking system that logs all couple interactions:
 
 #### Pulse Attributes
 
-5 available attributes: **Connection**, **Intimacy**, **Peace**, **Trust**, **Communication**
+5 available attributes: **Connection**, **Intimacy**, **Peace**, **Trust**, **Expression**
 
 Each user picks up to 3. The active set is the union of both users' picks (3-5 attributes). Attributes picked by both users receive **2× weight**; picked by one get **1×**.
 
@@ -347,7 +436,7 @@ The scoring engine (`lib/scoring/`) is pure Dart with no Flutter dependencies. I
 1. **Simplicity First** — `setState` for local state, no complex state management
 2. **Real-time by Default** — Firestore streams for live updates
 3. **Modular Screens** — Large screens split into focused widgets
-4. **DRY Component Library** — Shared widgets (`InlineDateCalendar`, `InlineRangeCalendar`, `ActiveCard`, `SlideToAction`, etc.) with barrel exports
+4. **DRY Component Library** — Shared widgets (`AppDateCalendar`, `AppRangeCalendar`, `ActiveCard`, `SlideToAction`, etc.) with barrel exports
 5. **Centralized Theming** — 10-colour palette, `AppTypography` styles, `AppDateFormat` utils
 6. **Progressive Disclosure** — UI reveals as user completes steps
 7. **Haptic Feedback** — Tactile response for all meaningful interactions
@@ -403,7 +492,7 @@ All dates are stored and compared as **UTC midnight**. Local timezone conversion
 | **Storage** (Firestore) | UTC midnight | `DateTime.utc(2026, 3, 10)` |
 | **Model** (Moment) | UTC midnight | `moment.startDate.isUtc == true` |
 | **Comparison** (isToday, isPast) | UTC midnight | `_todayUtc()` vs `startDate` |
-| **Calendar** (table_calendar) | UTC → normalized | `AppDateFormat.toUtcDate(selected)` |
+| **Calendar** (AppDateCalendar) | UTC → normalized | `AppDateFormat.toUtcDate(selected)` |
 | **Display** (UI) | Local via formatters | `AppDateFormat.short(date)` → "Tue, Mar 10" |
 
 **TimeSlot** (`morning`, `afternoon`, `evening`, `night`) is a relative label — always interpreted in the user's local context alongside the stored date. No UTC conversion needed.
@@ -627,7 +716,7 @@ bool get _canSubmit => _selectedType != null && _momentName.isNotEmpty;
 
 ```dart
 // Good: Shared calendar widget used by PAM + edit moment
-InlineDateCalendar(
+AppDateCalendar(
   focusedDay: _focusedDay,
   selectedDay: _startDate,
   onDaySelected: (selected, focused) { ... },
@@ -758,7 +847,10 @@ lib/
 ├── models/
 │   ├── activity.dart            # Activity model for activity trail
 │   ├── avatar_data.dart         # Avatar and color data
-│   ├── moment.dart              # Moment model (Connect, Celebrate, Escape)
+│   ├── external_calendar.dart   # ExternalCalendar + ExternalEvent models
+│   ├── integration_config.dart  # CalendarIntegration, DriveStorageIntegration
+│   ├── memory.dart              # Memory model, MomentStatus, MemorySentiment enums
+│   ├── moment.dart              # Moment model (Connect, Celebrate, Escape, External)
 │   ├── notification_preferences.dart # Notification config per activity type
 │   ├── pulse_config.dart        # PulseAttribute enum (5), PulseConfig (picks + weights)
 │   └── user_checkin.dart        # Check-in model (scores map + configSnapshot)
@@ -794,7 +886,19 @@ lib/
 │   │       ├── activity_trail.dart     # Activity history with pagination
 │   │       ├── event_cards.dart        # ComingUpCard, PlanMomentCard
 │   │       ├── health_card.dart        # Animated Voronoi health score
-│   │       └── health_details_sheet.dart
+│   │       ├── health_details_sheet.dart
+│   │       └── memory_prompt_card.dart  # Dashboard memory prompt
+│   │
+│   ├── memories/                # Memories showcase module
+│   │   └── memories_tab.dart         # Timeline with moment grouping
+│   │
+│   ├── memory/                  # Memory CRUD module
+│   │   ├── memory.dart               # Barrel export
+│   │   ├── create_memory_screen.dart  # Seal a new memory
+│   │   ├── edit_memory_screen.dart    # Edit existing memory
+│   │   ├── memory_detail_page.dart    # Route target — loads memory by ID, shows sheet
+│   │   ├── memory_detail_sheet.dart   # Read-only detail + reactions
+│   │   └── memory_photos_view.dart   # Fullscreen photo gallery (PageView + zoom)
 │   │
 │   └── moment/                  # Moment planning module
 │       ├── moment.dart               # Barrel export
@@ -804,11 +908,15 @@ lib/
 │
 ├── services/
 │   ├── auth_service.dart        # Firebase Auth + Google Sign-In
+│   ├── calendar_service.dart    # Google Calendar + Apple Calendar sync
 │   ├── firestore_service.dart   # All Firestore CRUD + streams
-│   └── notification_service.dart # FCM setup + local notifications
+│   ├── notification_service.dart # FCM setup + local notifications
+│   ├── storage_service.dart     # Firebase Storage upload/delete + URL cache + Drive routing
+│   └── drive_storage_service.dart # Google Drive photo upload/resolve/delete
 │
 ├── utils/
-│   └── date_utils.dart          # AppDateFormat — shared date formatting
+│   ├── date_utils.dart          # AppDateFormat — shared date formatting
+│   └── image_compressor.dart    # Cross-platform image resize (pure Dart)
 │
 └── widgets/                     # Reusable component library
     ├── widgets.dart             # Barrel export
@@ -816,11 +924,15 @@ lib/
     ├── active_card.dart         # Card with active/highlighted state
     ├── animated_tap_button.dart # Button with tap animation
     ├── avatar_selector.dart     # Avatar & color picker
-    ├── inline_calendar.dart     # InlineDateCalendar, InlineRangeCalendar
+    ├── app_calendar.dart         # AppDateCalendar, AppRangeCalendar
     ├── moment_type_icon.dart    # getMomentTypeIconWidget helper
     ├── neumorphic_container.dart # PremiumCard, SectionHeader, EmptyState
     ├── dotted_slider.dart       # ScoreSelector, VerticalBarSlider
     ├── slide_to_action.dart     # Swipe-to-confirm
+    ├── photo_picker_grid.dart   # Photo selection grid (max 3)
+    ├── memory_card.dart         # Timeline memory card
+    ├── moment_group_header.dart # Grouped moment header
+    ├── emoji_reaction_picker.dart # Curated emoji reactions
     ├── animations/
     │   └── suspenseful_curve.dart
     └── painters/
@@ -836,28 +948,69 @@ lib/
 ### Moment
 
 ```dart
-enum MomentType { celebrate, connect, escape }
+enum MomentType { celebrate, connect, escape, external }
 enum TimeSlot { morning, afternoon, evening, night }
-enum RepeatSchedule { never, daily, weekly, monthly, yearly }
 
 class Moment {
   final String id;
   final String name;
   final MomentType type;
   final DateTime startDate;
-  final DateTime? endDate;        // Only for escape
+  final DateTime? endDate;        // Only for escape / multi-day
   final TimeSlot? timeSlot;       // Only for connect
-  final RepeatSchedule repeatSchedule;
   final String? notes;
   final String createdBy;
   final DateTime? createdAt;
+  final DateTime? updatedAt;
   final int version;              // Optimistic lock (incremented on each update)
+  final MomentStatus status;      // planned (default) | cancelled
+  final Map<String, String>? externalEventIds;  // Calendar sync IDs
   
   // Computed properties
   String get relativeDate;        // "Today", "Tomorrow", "In 3 days"
   int get nights;                 // Days between start and end
   bool get isToday;
   bool get isPast;
+  bool get isUpcoming;
+  bool get spansToday;            // Multi-day moment includes today
+}
+```
+
+### Memory
+
+```dart
+enum MomentStatus { planned, cancelled }
+enum MemorySentiment { lived, missed }
+
+class Memory {
+  final String id;                // {momentId}_{userId} or auto-generated
+  final String? momentId;         // Linked moment ID, null for standalone
+  final String? momentName;       // Denormalized at seal time
+  final String? momentType;       // Denormalized at seal time
+  final DateTime? momentDate;     // Denormalized startDate at seal time
+  final DateTime? momentEndDate;  // Denormalized endDate (Escape only)
+  final String? momentTimeSlot;   // Denormalized timeSlot (Connect only)
+  final String? momentNotes;      // Denormalized notes at seal time
+  final String? title;            // Standalone memories only
+  final String createdBy;
+  final List<String> photoPaths;  // Storage paths (max 3 Firebase / 10 Drive)
+  final List<String> thumbPaths;  // 300px thumbnail paths
+  final String? caption;          // Max 280 chars
+  final String? place;            // Max 100 chars
+  final String? music;            // Max 100 chars
+  final String? checkinId;        // Linked pulse check-in
+  final MemorySentiment? sentiment; // lived or missed (null = legacy, treated as lived)
+  final Map<String, String> reactions;  // userId → emoji
+  final DateTime date;            // When the experience happened
+  final DateTime createdAt;
+  final DateTime? updatedAt;      // Non-null if edited
+
+  // Computed
+  bool get isStandalone;
+  bool get hasPhotos;
+  bool get hasContent;            // photos || caption || place || music || checkin
+  bool get isEdited;
+  String get displayTitle;
 }
 ```
 
@@ -918,7 +1071,7 @@ class ScoreResult {
   final Map<String, double> weights;         // Active config weights
 }
 
-enum InsightLabel { thriving, growing, steady, cooling, needsCare, newLabel }
+enum InsightLabel { thriving, growing, steady, cooling, struggling, justStarting }
 ```
 
 ### Activity
@@ -930,6 +1083,11 @@ enum ActivityType {
   momentEdited,
   momentDeleted,
   momentCompleted,
+  momentMissed,
+  memoryCreated,
+  memoryEdited,
+  memoryDeleted,
+  memoryReaction,
   spaceCreated,
   spaceJoined,
   spaceRenamed,
@@ -1089,10 +1247,13 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 | `/login` | Welcome | No | Auth options |
 | `/join?code=ABC` | Join | No | Partner invitation |
 | `/onboarding` | Create Space | Yes | New user setup |
-| `/dashboard/:id` | Main Shell | Yes | Dashboard + coming soon |
-| `/checkin/:id` | Check-in | Yes | Submit scores |
-| `/moment/:id` | Plan Moment | Yes | Create new moment |
-| `/moment/:id/edit?focus=X` | Edit Moment | Yes | Edit existing moment |
+| `/dashboard/:spaceId` | Main Shell | Yes | Dashboard + Moments + Memories |
+| `/checkin/:spaceId` | Check-in | Yes | Submit scores |
+| `/moment/:spaceId` | Plan Moment | Yes | Create new moment |
+| `/moment/:spaceId/edit?focus=X` | Edit Moment | Yes | Edit existing moment |
+| `/memory/:spaceId/create` | Create Memory | Yes | Seal a memory (moment via extra) |
+| `/memory/:spaceId/:memoryId` | Memory Detail | Yes | Load memory by ID, show detail sheet |
+| `/memory/:spaceId/:memoryId/edit` | Edit Memory | Yes | Edit existing memory |
 
 ---
 
@@ -1113,10 +1274,17 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 | `google_fonts` | ^8.0.0 | Typography |
 | `flutter_svg` | ^2.2.3 | SVG icons |
 | `fl_chart` | ^1.1.1 | Trend charts |
-| `table_calendar` | ^3.2.0 | Inline date picker |
+| `url_launcher` | ^6.x | Opening external URLs |
+| `googleapis` | ^14.x | Google Calendar / Drive APIs |
+| `googleapis_auth` | ^2.x | Google OAuth for APIs |
+| `device_calendar` | ^4.x | Apple Calendar integration |
+| `http` | ^1.x | HTTP requests for API calls |
 | `flutter_animate` | ^4.5.2 | Animations |
 | `font_awesome_flutter` | ^10.12.0 | Additional icons |
 | `cupertino_icons` | ^1.0.8 | iOS-style icons |
+| `firebase_storage` | ^13.0.6 | Photo upload/download for memories |
+| `image_picker` | ^1.1.2 | Device gallery access |
+| `image` | ^4.5.3 | Cross-platform image compression (pure Dart) |
 
 ---
 
@@ -1138,6 +1306,10 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 - Invite codes are validated server-side
 - Pulse config: users can only modify their own attribute picks
 - Check-in creation requires `scores` + `configSnapshot` fields and `userId == auth.uid`
+- Memory creation requires `createdBy == auth.uid` and required fields present
+- Memory updates: creator can edit content; partner can only update their own `reactions` key (field-level diff validation)
+- Memory deletion restricted to creator only
+- Firebase Storage: 10 MB cap, image content type enforced, member-gated access
 
 ### Best Practices Followed
 - ✅ `mounted` checks after all async operations
@@ -1157,12 +1329,10 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 
 | Issue | Location | Priority | Notes |
 |-------|----------|----------|-------|
-| Unused `RepeatSchedule` | `Moment` model | Low | Field exists but UI removed |
 | Duplicated time slider | PAM + edit moment | Medium | ~100 lines each, tightly coupled to screen state |
 | `main_shell.dart` local constants | `main_shell.dart` | Low | Uses local `_refinedRed` etc. instead of `AppColors` |
 | No offline support | Services | Medium | App requires network |
 | Deprecated `scale` usage | action_button, animated_tap_button | Low | Use `scaleByDouble` |
-| Past months empty in Moments tab | `moments_tab.dart` | Low | Corner case: `watchUpcomingMoments` only returns future moments; swiping to past months shows empty. Add `watchMomentsInMonth` query if needed |
 | No offline calendar data | `moments_tab.dart` | Low | Corner case: swiping to a month with no network shows empty; app requires network (see No offline support) |
 
 ### Planned Features
@@ -1170,9 +1340,10 @@ Firebase configuration is managed via `firebase_options.dart` (auto-generated by
 | Feature | Description | Complexity |
 |---------|-------------|------------|
 | ~~Push Notifications~~ | ~~Remind to check in, moment alerts~~ | ✅ Done |
+| ~~Memory Reactions~~ | ~~Emoji reactions on partner's memories~~ | ✅ Done |
 | **Recurring Moments** | Weekly date nights, etc. | Medium |
 | **Shared Notes** | Both partners can edit | Low |
-| **Photo Memories** | Attach photos to moments | Medium |
+| ~~Photo Memories~~ | ~~Attach photos to moments~~ | ✅ Done (Memories feature) |
 | **Export Data** | PDF reports of relationship health | High |
 | **Home Widgets** | iOS/Android home screen widgets | High |
 | **Offline Mode** | Local-first with sync | High |
@@ -1273,4 +1444,4 @@ MIT License — see [LICENSE](LICENSE) file for details.
 
 ---
 
-*Last updated: March 11, 2026*
+*Last updated: March 19, 2026*

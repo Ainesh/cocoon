@@ -15,6 +15,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../models/external_calendar.dart';
 import '../../models/integration_config.dart';
+import '../../models/memory.dart';
 import '../../models/moment.dart';
 import '../../services/auth_service.dart';
 import '../../services/calendar_service.dart';
@@ -184,7 +185,7 @@ class _MomentsTabState extends State<MomentsTab> {
     setState(() => _isLoading = true);
 
     _momentsSub = _firestoreService
-        .watchUpcomingMoments(widget.spaceId, daysAhead: 365)
+        .watchAllMoments(widget.spaceId)
         .listen(
       (moments) {
         if (!mounted) return;
@@ -209,6 +210,7 @@ class _MomentsTabState extends State<MomentsTab> {
     showMomentDetailsSheet(
       context: context,
       moment: moment,
+      spaceId: widget.spaceId,
       onEdit: (field) async {
         final focus = switch (field) {
           MomentEditField.date => 'date',
@@ -226,31 +228,37 @@ class _MomentsTabState extends State<MomentsTab> {
       },
       onDelete: () async {
         try {
-          // Remove from synced calendar first
+          // Remove from synced calendar
           if (moment.isSyncedToCalendar && _calendarIntegration != null) {
             await _calendarService.deleteCalendarEvents(
               moment: moment,
               integration: _calendarIntegration!,
             );
           }
-          await _firestoreService.deleteMoment(
+
+          // Mark as missed (not physically deleted)
+          await _firestoreService.updateMomentStatus(
             spaceId: widget.spaceId,
             momentId: moment.id,
+            status: MomentStatus.cancelled,
           );
+
           final userId = _authService.currentUser?.uid;
           if (userId != null) {
             final profile = await _firestoreService.getUserProfile(userId);
             final userName = profile?['name'] as String? ?? 'Someone';
-            await _firestoreService.logMomentDeletedActivity(
+            await _firestoreService.logMomentMissedActivity(
               spaceId: widget.spaceId,
               userId: userId,
               userName: userName,
+              momentId: moment.id,
               momentName: moment.name,
               momentType: moment.type.value,
+              rescheduled: false,
             );
           }
         } catch (e) {
-          debugPrint('Error deleting moment: $e');
+          debugPrint('Error cancelling moment: $e');
         }
       },
     );
@@ -263,6 +271,7 @@ class _MomentsTabState extends State<MomentsTab> {
     showMomentDetailsSheet(
       context: context,
       moment: event.toMoment(providerLabel: providerLabel),
+      spaceId: widget.spaceId,
     );
   }
 

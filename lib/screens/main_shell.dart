@@ -11,9 +11,11 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../models/pulse_config.dart';
 import '../services/auth_service.dart';
+import '../theme/app_colors.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import 'dashboard/dashboard_tab.dart';
+import 'memories/memories_tab.dart';
 import 'moments/moments_tab.dart';
 import 'settings/integrations_sheet.dart';
 
@@ -52,6 +54,7 @@ class _MainShellState extends State<MainShell> {
     _tabs = [
       DashboardTab(key: _dashboardKey, spaceId: widget.spaceId),
       MomentsTab(spaceId: widget.spaceId),
+      MemoriesTab(spaceId: widget.spaceId),
       const _ComingSoonPage(),
     ];
     _loadSpaceName();
@@ -120,14 +123,16 @@ class _MainShellState extends State<MainShell> {
     );
 
     if (nav.isCheckIn) {
-      // Check-in notification → open check-in screen
       context.push('/checkin/$spaceId');
+    } else if (nav.isMemoryPrompt && nav.entityId.isNotEmpty) {
+      _navigateToMemoryCreate(spaceId, nav.entityId);
+    } else if ((nav.isMemoryCreated || nav.isMemoryReaction) &&
+        nav.entityId.isNotEmpty) {
+      context.push('/memory/$spaceId/${nav.entityId}');
     } else if (nav.isMoment && nav.entityId.isNotEmpty) {
-      // Moment notification → switch to dashboard tab and open moment details
       if (_selectedTab != 0) {
         setState(() => _selectedTab = 0);
       }
-      // Small delay to ensure dashboard is visible before showing sheet
       Future.delayed(const Duration(milliseconds: 300), () {
         if (!mounted) return;
         _dashboardKey.currentState?.openEntityById(
@@ -136,10 +141,29 @@ class _MainShellState extends State<MainShell> {
         );
       });
     } else {
-      // Default: go to dashboard
       if (_selectedTab != 0) {
         setState(() => _selectedTab = 0);
       }
+    }
+  }
+
+  /// Loads the moment and navigates to the memory creation screen.
+  Future<void> _navigateToMemoryCreate(String spaceId, String momentId) async {
+    try {
+      final moment = await _firestoreService.getMoment(
+        spaceId: spaceId,
+        momentId: momentId,
+      );
+      if (!mounted) return;
+      if (moment != null) {
+        context.push('/memory/$spaceId/create', extra: moment);
+      } else {
+        context.push('/memory/$spaceId/create');
+      }
+    } catch (e) {
+      debugPrint('Error loading moment for memory prompt: $e');
+      if (!mounted) return;
+      context.push('/memory/$spaceId/create');
     }
   }
 
@@ -164,12 +188,19 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         title: Text(
-          _selectedTab == 1 ? 'Moments' : (_spaceName ?? 'Home'),
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.w700,
-            fontSize: 22,
-            color: _lightText,
-          ),
+          _selectedTab == 1 ? 'Moments' : _selectedTab == 2 ? 'Memories' : (_spaceName ?? 'Home'),
+          style: _selectedTab == 2
+              ? GoogleFonts.outfit(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 2,
+                  color: AppColors.warmLight,
+                )
+              : GoogleFonts.cormorantGaramond(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 26,
+                  color: _refinedRed,
+                ),
         ),
         centerTitle: true,
         actions: [
@@ -205,6 +236,24 @@ class _MainShellState extends State<MainShell> {
                   ),
                 ),
               ),
+            )
+          else if (_selectedTab == 2)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              child: IconButton(
+                icon: const Icon(
+                  Icons.add_circle_rounded,
+                  color: _refinedRed,
+                ),
+                tooltip: 'Add a memory',
+                onPressed: () => context.push('/memory/${widget.spaceId}/create'),
+                style: IconButton.styleFrom(
+                  backgroundColor: _cardVariant,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -213,18 +262,21 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  /// 5 visual slots in the nav bar. Slots 0-1 map to tabs 0-1.
-  /// Slots 2-4 all map to tab 2 (Coming Soon) as one wide region.
+  /// 5 visual slots in the nav bar:
+  /// Slot 0 → Tab 0 (Dashboard)
+  /// Slot 1 → Tab 1 (Moments)
+  /// Slot 2 → Tab 2 (Memories)
+  /// Slots 3-4 → Tab 3 (Coming Soon)
   static const _slotIcons = [
     Icons.space_dashboard_rounded,
     Icons.calendar_today_rounded,
-    Icons.hardware_rounded,
+    Icons.center_focus_strong_rounded,
     Icons.hardware_rounded,
     Icons.hardware_rounded,
   ];
 
   /// Maps a visual slot index to the logical tab index.
-  static int _slotToTab(int slot) => slot >= 2 ? 2 : slot;
+  static int _slotToTab(int slot) => slot >= 3 ? 3 : slot;
 
   Widget _buildNavBar() {
     const slotCount = 5;
@@ -288,6 +340,7 @@ class _MainShellState extends State<MainShell> {
             }
 
             return GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onHorizontalDragStart: (d) {
                 setState(
                   () => _dragPosition =
@@ -347,28 +400,30 @@ class _MainShellState extends State<MainShell> {
                         ),
                       ),
                     ),
-                    Row(
-                      children: List.generate(slotCount, (i) {
-                        final tab = _slotToTab(i);
-                        return Expanded(
-                          child: Padding(
-                            padding: EdgeInsets.only(
-                              left: i == 0 ? 0 : gap / 2,
-                              right:
-                                  i == slotCount - 1 ? 0 : gap / 2,
-                            ),
-                            child: Center(
-                              child: Icon(
-                                _slotIcons[i],
-                                color: _selectedTab == tab
-                                    ? _pureBlack
-                                    : _dimText,
-                                size: 20,
+                    IgnorePointer(
+                      child: Row(
+                        children: List.generate(slotCount, (i) {
+                          final tab = _slotToTab(i);
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                left: i == 0 ? 0 : gap / 2,
+                                right:
+                                    i == slotCount - 1 ? 0 : gap / 2,
+                              ),
+                              child: Center(
+                                child: Icon(
+                                  _slotIcons[i],
+                                  color: _selectedTab == tab
+                                      ? _pureBlack
+                                      : _dimText,
+                                  size: 20,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
+                      ),
                     ),
                   ],
                 ),
@@ -844,7 +899,6 @@ class _PulseAttributePickerSheetState
   }
 }
 
-/// Coming Soon placeholder page.
 class _ComingSoonPage extends StatelessWidget {
   const _ComingSoonPage();
 

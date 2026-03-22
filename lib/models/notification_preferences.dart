@@ -230,6 +230,41 @@ class NotificationPreferences {
         enabled: true,
         priority: NotificationPriority.high,
       ),
+
+      // Memory created: Normal - partner created a memory
+      ActivityType.memoryCreated: const ActivityNotificationConfig(
+        activityType: ActivityType.memoryCreated,
+        enabled: true,
+        priority: NotificationPriority.normal,
+      ),
+
+      // Memory edited: Low - minor update
+      ActivityType.memoryEdited: const ActivityNotificationConfig(
+        activityType: ActivityType.memoryEdited,
+        enabled: true,
+        priority: NotificationPriority.low,
+      ),
+
+      // Memory deleted: Normal - they should know
+      ActivityType.memoryDeleted: const ActivityNotificationConfig(
+        activityType: ActivityType.memoryDeleted,
+        enabled: true,
+        priority: NotificationPriority.normal,
+      ),
+
+      // Memory reaction: Low - lightweight interaction
+      ActivityType.memoryReaction: const ActivityNotificationConfig(
+        activityType: ActivityType.memoryReaction,
+        enabled: true,
+        priority: NotificationPriority.low,
+      ),
+
+      // Moment missed: Low - informational
+      ActivityType.momentMissed: const ActivityNotificationConfig(
+        activityType: ActivityType.momentMissed,
+        enabled: true,
+        priority: NotificationPriority.low,
+      ),
     };
   }
 

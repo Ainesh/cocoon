@@ -8,9 +8,13 @@ export 'active_card.dart';
 export 'animated_tap_button.dart';
 export 'avatar_selector.dart';
 export 'dotted_slider.dart';
+export 'emoji_reaction_picker.dart';
 export 'moment_type_icon.dart'; // getMomentTypeIcon, getMomentTypeIconWidget
 export 'neumorphic_container.dart'; // Includes PremiumCard, SectionHeader
 export 'app_calendar.dart';
+export 'memory_card.dart';
+export 'moment_group_header.dart';
+export 'photo_picker_grid.dart';
 export 'slide_to_action.dart';
 
 // Painters
