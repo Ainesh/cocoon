@@ -1,4 +1,4 @@
-/// Notification service for Cocoon app.
+/// Notification service for Kairos app.
 ///
 /// Handles Firebase Cloud Messaging (FCM) setup, token management,
 /// and local notification display. Works with Firestore to store
@@ -264,7 +264,7 @@ class NotificationService {
 
     // Show as local notification (encode full data as JSON payload for tap handling)
     await _showLocalNotification(
-      title: notification.title ?? 'Cocoon',
+      title: notification.title ?? 'Kairos',
       body: notification.body ?? '',
       payload: jsonEncode(message.data),
       channelId: _getChannelFromData(message.data),

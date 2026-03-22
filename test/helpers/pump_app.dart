@@ -1,4 +1,4 @@
-/// Helper to wrap widgets in a [MaterialApp] with the Cocoon theme for testing.
+/// Helper to wrap widgets in a [MaterialApp] with the Kairos theme for testing.
 ///
 /// Usage:
 /// ```dart
@@ -13,7 +13,7 @@ import 'package:couple_space/theme/app_colors.dart';
 
 /// Extension on [WidgetTester] to pump widgets with the app theme.
 extension PumpApp on WidgetTester {
-  /// Pumps a widget wrapped in [MaterialApp] with the Cocoon dark theme.
+  /// Pumps a widget wrapped in [MaterialApp] with the Kairos dark theme.
   Future<void> pumpApp(
     Widget widget, {
     NavigatorObserver? navigatorObserver,

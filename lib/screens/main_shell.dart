@@ -659,7 +659,8 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-/// Pulse attribute picker — each user picks up to 3 of 5.
+/// Pulse attribute picker — matches onboarding attribute grid design.
+/// Auto-saves on sheet close. 4×2 grid with glowing red chips.
 class _PulseAttributePickerSheet extends StatefulWidget {
   const _PulseAttributePickerSheet({
     required this.spaceId,
@@ -680,7 +681,7 @@ class _PulseAttributePickerSheetState
     extends State<_PulseAttributePickerSheet> {
   PulseConfig? _config;
   List<String> _myPicks = [];
-  bool _isSaving = false;
+  List<String> _originalPicks = [];
 
   @override
   void initState() {
@@ -689,36 +690,31 @@ class _PulseAttributePickerSheetState
   }
 
   Future<void> _loadConfig() async {
-    final config =
-        await widget.firestoreService.getPulseConfig(widget.spaceId);
+    final config = await widget.firestoreService.getPulseConfig(widget.spaceId);
     if (!mounted) return;
     setState(() {
       _config = config;
       _myPicks = List.from(
         config.userPicks[widget.userId] ?? ['connection', 'intimacy', 'peace'],
       );
+      _originalPicks = List.from(_myPicks);
     });
   }
 
-  Future<void> _save() async {
+  Future<void> _saveIfChanged() async {
     if (_myPicks.isEmpty || _myPicks.length > 3) return;
-    setState(() => _isSaving = true);
+    final changed =
+        _myPicks.length != _originalPicks.length ||
+        !_myPicks.every((p) => _originalPicks.contains(p));
+    if (!changed) return;
+
     try {
       await widget.firestoreService.updateUserPicks(
         spaceId: widget.spaceId,
         userId: widget.userId,
         picks: _myPicks,
       );
-      if (mounted) Navigator.pop(context);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+    } catch (_) {}
   }
 
   void _toggle(String attrId) {
@@ -736,163 +732,141 @@ class _PulseAttributePickerSheetState
     if (_config == null) {
       return const SizedBox(
         height: 200,
-        child: Center(
-          child: CircularProgressIndicator(color: _refinedRed),
-        ),
+        child: Center(child: CircularProgressIndicator(color: _refinedRed)),
       );
     }
 
-    // Get partner's picks for display
-    final partnerPicks = _config!.userPicks.entries
-        .where((e) => e.key != widget.userId)
-        .expand((e) => e.value)
-        .toSet();
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(
-        24,
-        16,
-        24,
-        MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Handle
-          Container(
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: _dimText.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Pulse Attributes',
-            style: GoogleFonts.outfit(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: _lightText,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Pick up to 3 attributes that matter to you',
-            style: GoogleFonts.inter(fontSize: 13, color: _dimText),
-          ),
-          const SizedBox(height: 24),
-
-          // Attribute pills
-          Wrap(
-            spacing: 12,
-            runSpacing: 12,
-            alignment: WrapAlignment.center,
-            children: [
-              for (final attr in PulseAttribute.values)
-                _buildPill(attr, partnerPicks.contains(attr.id)),
-            ],
-          ),
-
-          const SizedBox(height: 28),
-          // Save button — matches SlideToAction style
-          GestureDetector(
-            onTap: _isSaving ? null : _save,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+    return PopScope(
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _saveIfChanged();
+      },
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          24,
+          16,
+          24,
+          MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
-                color: _refinedRed,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Center(
-                child: _isSaving
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(
-                        'Save (${_myPicks.length}/3)',
-                        style: GoogleFonts.outfit(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 16,
-                        ),
-                      ),
+                color: _dimText.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            Text(
+              'Pulse',
+              style: GoogleFonts.outfit(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                color: _lightText,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Select what matters to you',
+              style: GoogleFonts.inter(fontSize: 14, color: _dimText),
+            ),
+            const SizedBox(height: 28),
+
+            // 4×2 attribute grid — matches onboarding
+            _buildAttributeGrid(),
+
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildPill(PulseAttribute attr, bool partnerPicked) {
-    final isSelected = _myPicks.contains(attr.id);
-    final canSelect = _myPicks.length < 3 || isSelected;
-    final pillColor = isSelected ? _refinedRed : _dimText;
-
-    return GestureDetector(
-      onTap: canSelect
-          ? () {
-              HapticFeedback.selectionClick();
-              _toggle(attr.id);
-            }
-          : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? _refinedRed.withValues(alpha: 0.12)
-              : _cardVariant,
-          borderRadius: BorderRadius.circular(40),
-          border: Border.all(
-            color: isSelected
-                ? _refinedRed.withValues(alpha: 0.5)
-                : _dimText.withValues(alpha: 0.15),
-            width: 1.5,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: _refinedRed.withValues(alpha: 0.25),
-                    blurRadius: 16,
-                    spreadRadius: 0,
-                  ),
-                ]
-              : null,
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
+  Widget _buildAttributeGrid() {
+    final attrs = PulseAttribute.values;
+    return Column(
+      children: [
+        Row(
           children: [
-            // Use the same SVG/icon as check-in bars
-            attr.buildIcon(color: pillColor, size: 18),
-            const SizedBox(width: 10),
-            Text(
-              attr.displayName,
-              style: GoogleFonts.outfit(
-                color: isSelected ? _lightText : _dimText,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                fontSize: 15,
-              ),
-            ),
-            if (partnerPicked) ...[
-              const SizedBox(width: 8),
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: _refinedRed.withValues(alpha: 0.8),
-                  shape: BoxShape.circle,
-                ),
-              ),
+            for (int i = 0; i < 4 && i < attrs.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(child: _buildAttributeChip(attrs[i])),
             ],
           ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            for (int i = 4; i < 8 && i < attrs.length; i++) ...[
+              if (i > 4) const SizedBox(width: 10),
+              Expanded(child: _buildAttributeChip(attrs[i])),
+            ],
+          ],
+        ),
+        const SizedBox(height: 14),
+        Text(
+          '${_myPicks.length} of 3',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: _myPicks.length == 3 ? _refinedRed : _dimText,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAttributeChip(PulseAttribute attr) {
+    final isSelected = _myPicks.contains(attr.id);
+    final isFull = _myPicks.length >= 3;
+    final isFaded = isFull && !isSelected;
+
+    return GestureDetector(
+      onTap: isFaded
+          ? null
+          : () {
+              HapticFeedback.selectionClick();
+              _toggle(attr.id);
+            },
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: isFaded ? 0.3 : 1.0,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected ? _refinedRed : _cardVariant,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: _refinedRed.withValues(alpha: 0.4),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              attr.buildIcon(
+                color: isSelected ? _pureBlack : _dimText,
+                size: 22,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                attr.displayName,
+                style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? _pureBlack : _dimText,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,4 +1,4 @@
-/// Cocoon welcome screen.
+/// Kairos welcome screen.
 ///
 /// Login with email/password or social auth (Google/Apple).
 library;
@@ -196,7 +196,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildLogo() {
     return SvgPicture.asset(
-      'assets/icons/cocoon_logo.svg',
+      'assets/icons/kairos_logo.svg',
       width: 70,
       height: 70,
     );
@@ -204,7 +204,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Widget _buildTitle() {
     return Text(
-      'Cocoon',
+      'Kairos',
       style: GoogleFonts.outfit(
         fontSize: 42,
         fontWeight: FontWeight.w600,

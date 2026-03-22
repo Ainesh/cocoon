@@ -122,15 +122,15 @@ class _CheckInScreenState extends State<CheckInScreen>
     _configSubscription = _firestoreService
         .watchPulseConfig(widget.spaceId)
         .listen((config) {
-      if (!mounted) return;
-      setState(() {
-        _pulseConfig = config;
-        // Initialize scores for any new attributes with default 50
-        for (final attrId in config.activeAttributes) {
-          _scores.putIfAbsent(attrId, () => 50);
-        }
-      });
-    });
+          if (!mounted) return;
+          setState(() {
+            _pulseConfig = config;
+            // Initialize scores for any new attributes with default 50
+            for (final attrId in config.activeAttributes) {
+              _scores.putIfAbsent(attrId, () => 50);
+            }
+          });
+        });
   }
 
   void _subscribeToCheckIns() {
@@ -419,7 +419,9 @@ class _CheckInScreenState extends State<CheckInScreen>
                               label: attrs[i].displayName,
                               displayProgress: barEase < 1.0
                                   ? _barFill(
-                                      _scores[attrs[i].id] ?? 50, barEase)
+                                      _scores[attrs[i].id] ?? 50,
+                                      barEase,
+                                    )
                                   : null,
                             ),
                           ),

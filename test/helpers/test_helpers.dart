@@ -225,13 +225,11 @@ UserCheckIn createTestCheckIn({
   int peace = 80,
   String notes = '',
 }) {
-  final effectiveScores = scores ??
-      {
-        'connection': connection,
-        'intimacy': intimacy,
-        'peace': peace,
-      };
-  final effectiveSnapshot = configSnapshot ??
+  final effectiveScores =
+      scores ??
+      {'connection': connection, 'intimacy': intimacy, 'peace': peace};
+  final effectiveSnapshot =
+      configSnapshot ??
       ConfigSnapshot(
         activeAttributes: effectiveScores.keys.toList(),
         weights: {
@@ -276,7 +274,8 @@ PulseConfig createTestPulseConfig({
   DateTime? updatedAt,
 }) {
   return PulseConfig(
-    userPicks: userPicks ??
+    userPicks:
+        userPicks ??
         {
           'user_a': ['connection', 'trust', 'communication'],
           'user_b': ['connection', 'intimacy', 'trust'],
@@ -304,9 +303,10 @@ ScoreResult createTestScoreResult({
 }) {
   return ScoreResult(
     overallScore: overallScore,
-    attributeScores: attributeScores ??
-        {'connection': 75, 'intimacy': 68, 'peace': 72},
-    attributeTrends: attributeTrends ??
+    attributeScores:
+        attributeScores ?? {'connection': 75, 'intimacy': 68, 'peace': 72},
+    attributeTrends:
+        attributeTrends ??
         {'connection': 0.1, 'intimacy': 0.05, 'peace': -0.02},
     overallTrend: overallTrend,
     weeklyScores: List.generate(
@@ -324,8 +324,14 @@ ScoreResult createTestScoreResult({
     userCheckInCount: userCheckInCount,
     partnerCheckInCount: partnerCheckInCount,
     streak: streak,
-    weights: weights ??
-        {'connection': 0.333, 'intimacy': 0.167, 'peace': 0.167, 'trust': 0.333},
+    weights:
+        weights ??
+        {
+          'connection': 0.333,
+          'intimacy': 0.167,
+          'peace': 0.167,
+          'trust': 0.333,
+        },
   );
 }
 
@@ -399,9 +405,11 @@ Map<String, dynamic> createTestCheckInJson({
   int peace = 80,
   String notes = '',
 }) {
-  final effectiveScores = scores ??
+  final effectiveScores =
+      scores ??
       {'connection': connection, 'intimacy': intimacy, 'peace': peace};
-  final effectiveWeights = weights ??
+  final effectiveWeights =
+      weights ??
       {for (final k in effectiveScores.keys) k: 1.0 / effectiveScores.length};
 
   final compactScores = <String, dynamic>{};

@@ -1,4 +1,4 @@
-/// Plan a Moment screen for Cocoon app.
+/// Plan a Moment screen for Kairos app.
 ///
 /// Allows users to plan three types of moments:
 /// - **Celebrate**: Special occasions (anniversaries, milestones)

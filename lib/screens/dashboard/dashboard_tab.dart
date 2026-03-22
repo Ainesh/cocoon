@@ -147,11 +147,11 @@ class DashboardTabState extends State<DashboardTab>
     _configSubscription = _firestoreService
         .watchPulseConfig(widget.spaceId)
         .listen((config) {
-      if (mounted) {
-        _pulseConfig = config;
-        _recomputeScores();
-      }
-    });
+          if (mounted) {
+            _pulseConfig = config;
+            _recomputeScores();
+          }
+        });
 
     // Check-ins → compute ScoreResult via engine
     _checkInsSubscription = _firestoreService
@@ -182,8 +182,11 @@ class DashboardTabState extends State<DashboardTab>
     final currentUserId = _authService.currentUser?.uid;
     final source = CheckInScoreSource(_cachedCheckIns);
     final now = DateTime.now();
-    final cutoff = DateTime(now.year, now.month, now.day)
-        .subtract(const Duration(days: 29));
+    final cutoff = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: 29));
 
     final contributions = source.getContributions(
       from: cutoff,
@@ -328,9 +331,7 @@ class DashboardTabState extends State<DashboardTab>
       // Re-animate health score on refresh
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
-          _healthCardKey.currentState?.animateHealthScore(
-            forceReanimate: true,
-          );
+          _healthCardKey.currentState?.animateHealthScore(forceReanimate: true);
         }
       });
     } catch (e) {
@@ -466,9 +467,7 @@ class DashboardTabState extends State<DashboardTab>
       context: context,
       builder: (ctx) => Dialog(
         backgroundColor: AppColors.darkCardLight,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -516,8 +515,9 @@ class DashboardTabState extends State<DashboardTab>
                 child: TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
                   style: TextButton.styleFrom(
-                    backgroundColor:
-                        AppColors.accentRed.withValues(alpha: 0.15),
+                    backgroundColor: AppColors.accentRed.withValues(
+                      alpha: 0.15,
+                    ),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -686,9 +686,11 @@ class DashboardTabState extends State<DashboardTab>
     try {
       if (activity.metadata?['scores'] is Map) {
         final raw = Map<String, dynamic>.from(
-            activity.metadata!['scores'] as Map);
+          activity.metadata!['scores'] as Map,
+        );
         scores = raw.map(
-            (k, v) => MapEntry(k, ((v as Map)['value'] as num).toInt()));
+          (k, v) => MapEntry(k, ((v as Map)['value'] as num).toInt()),
+        );
         configSnapshot = ConfigSnapshot.fromScoresMap(raw);
       }
     } catch (_) {

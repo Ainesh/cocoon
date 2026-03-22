@@ -52,7 +52,7 @@ class _TestLoginScreenState extends State<TestLoginScreen> {
           child: Column(
             children: [
               const SizedBox(height: 60),
-              const Text('Cocoon'),
+              const Text('Kairos'),
               const Text('Grow together, intentionally'),
               if (_hasInviteCode)
                 Container(

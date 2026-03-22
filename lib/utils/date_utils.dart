@@ -1,4 +1,4 @@
-/// Shared date formatting utilities for Cocoon app.
+/// Shared date formatting utilities for Kairos app.
 ///
 /// Centralises all date formatting so the app uses consistent formats.
 /// Import: `import 'package:couple_space/utils/date_utils.dart';`
@@ -6,7 +6,7 @@ library;
 
 import 'package:intl/intl.dart';
 
-/// Cocoon app date formatting helpers.
+/// Kairos app date formatting helpers.
 abstract final class AppDateFormat {
   static const _months = [
     'Jan',

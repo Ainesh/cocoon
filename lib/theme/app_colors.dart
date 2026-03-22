@@ -1,4 +1,4 @@
-/// Centralized color definitions for Cocoon app.
+/// Centralized color definitions for Kairos app.
 ///
 /// Use these constants throughout the app to maintain consistency.
 /// Import: `import 'package:couple_space/theme/app_colors.dart';`
@@ -6,7 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 
-/// Cocoon app color palette - Dark neumorphic theme with warm red accent.
+/// Kairos app color palette - Dark neumorphic theme with warm red accent.
 abstract final class AppColors {
   // ---------------------------------------------------------------------------
   // Backgrounds

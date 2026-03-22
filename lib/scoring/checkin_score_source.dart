@@ -19,15 +19,16 @@ class CheckInScoreSource implements ScoreSource {
     required DateTime to,
   }) {
     return _checkIns
-        .where((c) =>
-            !c.timestamp.isBefore(from) && c.timestamp.isBefore(to))
-        .map((c) => ScoreContribution(
-              sourceType: 'checkin',
-              userId: c.userId,
-              timestamp: c.timestamp,
-              attributeScores: c.scores,
-              configSnapshot: c.configSnapshot,
-            ))
+        .where((c) => !c.timestamp.isBefore(from) && c.timestamp.isBefore(to))
+        .map(
+          (c) => ScoreContribution(
+            sourceType: 'checkin',
+            userId: c.userId,
+            timestamp: c.timestamp,
+            attributeScores: c.scores,
+            configSnapshot: c.configSnapshot,
+          ),
+        )
         .toList();
   }
 }

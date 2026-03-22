@@ -1,4 +1,4 @@
-/// Notification preferences model for Cocoon app.
+/// Notification preferences model for Kairos app.
 ///
 /// Provides configurable notification settings per activity type,
 /// allowing users to control priority levels and enable/disable

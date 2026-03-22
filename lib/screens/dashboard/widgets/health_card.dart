@@ -16,11 +16,7 @@ typedef ShowHealthDetailsCallback = void Function();
 ///
 /// Mosaic stays grayed out until both users have checked in at least once.
 class HealthCard extends StatefulWidget {
-  const HealthCard({
-    super.key,
-    required this.scoreResult,
-    required this.onTap,
-  });
+  const HealthCard({super.key, required this.scoreResult, required this.onTap});
 
   final ScoreResult scoreResult;
   final ShowHealthDetailsCallback onTap;
@@ -61,8 +57,7 @@ class HealthCardState extends State<HealthCard>
   @override
   void didUpdateWidget(HealthCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.scoreResult.overallScore !=
-        widget.scoreResult.overallScore) {
+    if (oldWidget.scoreResult.overallScore != widget.scoreResult.overallScore) {
       _calculateInitialValues();
       if (!_hasAnimated && _hasBothCheckedIn) {
         animateHealthScore();
@@ -175,8 +170,7 @@ class HealthCardState extends State<HealthCard>
                 child: RepaintBoundary(
                   child: CustomPaint(
                     painter: VoronoiMosaicPainter(
-                      animationProgress:
-                          _hasBothCheckedIn ? animProgress : 1.0,
+                      animationProgress: _hasBothCheckedIn ? animProgress : 1.0,
                       targetScore: _hasBothCheckedIn ? _targetProgress : 0.5,
                       seed: _seed,
                       coolColor: _hasBothCheckedIn

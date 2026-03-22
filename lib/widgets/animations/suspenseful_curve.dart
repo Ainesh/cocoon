@@ -1,4 +1,4 @@
-/// Custom animation curves for the Cocoon app.
+/// Custom animation curves for the Kairos app.
 library;
 
 import 'dart:math' as math;

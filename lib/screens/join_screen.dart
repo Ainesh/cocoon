@@ -1,4 +1,4 @@
-/// Cocoon join screen.
+/// Kairos join screen.
 ///
 /// Allows users to join an existing space with an invite code.
 /// Uses social auth (Google/Apple) and then collects profile info.
@@ -206,7 +206,7 @@ class _JoinScreenState extends State<JoinScreen> {
       ),
       child: Center(
         child: SvgPicture.asset(
-          'assets/icons/cocoon_logo.svg',
+          'assets/icons/kairos_logo.svg',
           width: 50,
           height: 50,
         ),

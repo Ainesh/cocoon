@@ -865,3 +865,355 @@ class VoronoiGroupedPainter extends CustomPainter {
     return false;
   }
 }
+
+// ============================================================================
+// Breathing Voronoi mosaic painter (splash screen)
+// ============================================================================
+
+/// Full-screen Voronoi mosaic with per-tile breathing, radial opacity gradient,
+/// center exclusion zone, and fill/disappear transition animations.
+///
+/// Used on the onboarding splash screen. Tiles breathe at random phases,
+/// with a radial falloff that keeps the center clear for a logo. On tap the
+/// tiles fill to full opacity (outer→inner), then disappear (center→outer).
+///
+/// ```dart
+/// CustomPaint(
+///   painter: VoronoiBreathingPainter(
+///     breathPhase: _breathController.value,
+///     fillProgress: _fillController.value,
+///     bandsProgress: _bandsController.value,
+///     exclusionRadius: 0.12,
+///     targetScore: 0.85,
+///     seed: _seed,
+///   ),
+/// )
+/// ```
+class VoronoiBreathingPainter extends CustomPainter {
+  const VoronoiBreathingPainter({
+    required this.breathPhase,
+    required this.seed,
+    this.entranceProgress = 1.0,
+    this.fillProgress = 0.0,
+    this.bandsProgress = 0.0,
+    this.exclusionRadius = 0.12,
+    this.targetScore = 0.85,
+    this.tileCount = 120,
+    this.backgroundColor = const Color(0xFF0A0A0A),
+    this.coolColor = const Color(0xFF60A5FA),
+    this.warmColor = const Color(0xFFE84545),
+  });
+
+  /// 0-1 repeating value that drives the breathing sine wave.
+  final double breathPhase;
+
+  /// 0-1 one-shot: tiles fade in with a staggered radial pattern.
+  /// Outer edge tiles appear first, inner tiles follow. At 1.0 all tiles
+  /// are at their normal breathing opacity.
+  final double entranceProgress;
+
+  /// 0-1 one-shot: dissolves the radial opacity gradient from outside in.
+  /// Breathing continues — the effect is the mosaic intensifying and taking
+  /// over the screen. Exclusion zone also shrinks to zero.
+  final double fillProgress;
+
+  /// 0-1 one-shot: transitions from full-screen mosaic to persistent breathing
+  /// bands in the top and bottom screen quarters. Tiles in the center band
+  /// fade out while edge tiles settle at a resting breathing opacity.
+  final double bandsProgress;
+
+  /// Fraction of the diagonal; tiles whose normalized distance from center
+  /// is below this value are not drawn.
+  final double exclusionRadius;
+
+  /// Color bias 0-1. Higher = more warm/red tiles.
+  final double targetScore;
+
+  final int seed;
+  final int tileCount;
+  final Color backgroundColor;
+  final Color coolColor;
+  final Color warmColor;
+
+  static _CachedMosaic? _cache;
+
+  _CachedMosaic _ensureCache(Size size) {
+    if (_cache != null && _cache!.key == seed && _cache!.size == size) {
+      return _cache!;
+    }
+
+    final rng = math.Random(seed);
+    final maxDim = math.max(size.width, size.height);
+    final cellSize = math.sqrt(size.width * size.height / tileCount);
+
+    final interiorSeeds = _gridSeeds(size.width, size.height, tileCount, rng);
+    final interiorCount = interiorSeeds.length;
+    final phantomSeeds = _borderSeeds(size.width, size.height, cellSize, rng);
+    final allSeeds = [...interiorSeeds, ...phantomSeeds];
+
+    final expandPad = cellSize * _Config.expandPadFactor;
+    final expandedRect = Rect.fromLTWH(
+      -expandPad,
+      -expandPad,
+      size.width + expandPad * 2,
+      size.height + expandPad * 2,
+    );
+
+    final allPaths = _buildVoronoiCells(
+      seeds: allSeeds,
+      bounds: expandedRect,
+      grout: maxDim * _Config.groutFactor,
+      searchRadius: maxDim * _Config.searchRadiusFactor,
+    );
+
+    final paths = allPaths.sublist(0, interiorCount);
+    final order = List<int>.generate(interiorCount, (i) => i)..shuffle(rng);
+    final randoms = List<double>.generate(
+      interiorCount,
+      (_) => rng.nextDouble(),
+    );
+
+    _cache = _CachedMosaic(
+      key: seed,
+      size: size,
+      paths: paths,
+      centers: interiorSeeds,
+      order: order,
+      colorRandoms: randoms,
+    );
+    return _cache!;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = backgroundColor);
+
+    final mosaic = _ensureCache(size);
+    final n = mosaic.paths.length;
+    if (n == 0) return;
+
+    final screenCenter = Offset(size.width / 2, size.height / 2);
+    final maxDist = math.sqrt(
+      screenCenter.dx * screenCenter.dx + screenCenter.dy * screenCenter.dy,
+    );
+    final halfHeight = size.height / 2;
+
+    final s = targetScore.clamp(0.0, 1.0);
+    final warmCount = (n * (_Config.warmFloor + s * (1.0 - _Config.warmFloor)))
+        .round();
+
+    final tileOrder = List<int>.filled(n, 0);
+    for (int i = 0; i < n; i++) {
+      tileOrder[mosaic.order[i]] = i;
+    }
+
+    // Exclusion zone shrinks as fill progresses — tiles fill the center
+    final effectiveExclusion = exclusionRadius * (1.0 - fillProgress);
+
+    final tilePaint = Paint()..style = PaintingStyle.fill;
+
+    for (int i = 0; i < n; i++) {
+      final center = mosaic.centers[i];
+      final dx = center.dx - screenCenter.dx;
+      final dy = center.dy - screenCenter.dy;
+      final dist = math.sqrt(dx * dx + dy * dy);
+      final distNorm = (dist / maxDist).clamp(0.0, 1.0);
+
+      if (effectiveExclusion > 0.001 && distNorm < effectiveExclusion) continue;
+
+      // --- Tile color ---
+      final orderIdx = tileOrder[i];
+      final cr = mosaic.colorRandoms[i];
+      final Color tileColor;
+      if (orderIdx < warmCount) {
+        final t = s + cr * (1.0 - s);
+        tileColor = Color.lerp(coolColor, warmColor, t)!;
+      } else {
+        final lo = (s - 0.3).clamp(_Config.coolFloor, 1.0);
+        final hi = math.max(s, lo + 0.05);
+        tileColor = Color.lerp(coolColor, warmColor, lo + cr * (hi - lo))!;
+      }
+
+      // --- Per-tile opacity ---
+
+      // How much radial dim to apply (1.0 = full near center, 0.0 = none at edge)
+      final edgeRange = effectiveExclusion > 0.001
+          ? (1.0 - effectiveExclusion)
+          : 1.0;
+      final radialDim =
+          1.0 - ((distNorm - effectiveExclusion) / edgeRange).clamp(0.0, 1.0);
+
+      // Fill dissolves the radial gradient, outer tiles first
+      var gradientStrength = 1.0;
+      if (fillProgress > 0) {
+        final fillDelay = 1.0 - distNorm; // outer=0, inner=1
+        gradientStrength =
+            1.0 - ((fillProgress - fillDelay * 0.5) / 0.5).clamp(0.0, 1.0);
+      }
+
+      // Base opacity: uniform 0.72, dimmed by radial gradient
+      // Full gradient: center≈0.08, edge≈0.72
+      // No gradient: everywhere≈0.72
+      var baseOpacity = 0.72 - radialDim * gradientStrength * 0.64;
+
+      // Bands transition: tiles fade radially from center outward (mirrors
+      // the fill direction). Center tiles go to black; top/bottom edge tiles
+      // settle at a resting breathing opacity.
+      if (bandsProgress > 0) {
+        final verticalDist = ((center.dy - screenCenter.dy).abs() / halfHeight)
+            .clamp(0.0, 1.0);
+
+        // Band membership: 0 for center tiles, 1 for top/bottom ~20%
+        final band = ((verticalDist - 0.6) / 0.3).clamp(0.0, 1.0);
+        final bandBase = band * 0.48;
+
+        // Radial stagger: center tiles transition first, outer tiles last
+        final tileDelay = distNorm;
+        final tileBandsT = ((bandsProgress - tileDelay * 0.55) / 0.45).clamp(
+          0.0,
+          1.0,
+        );
+
+        baseOpacity = baseOpacity * (1.0 - tileBandsT) + bandBase * tileBandsT;
+      }
+
+      // Breathing amplitude: continuous across fill→bands transition
+      // Idle: 0.12 → fill peak: 0.20 → bands settled: 0.08
+      final fillAmp = 0.12 + (1.0 - gradientStrength) * 0.08;
+      final breathAmp = fillAmp * (1.0 - bandsProgress) + 0.08 * bandsProgress;
+      final phase = mosaic.colorRandoms[i];
+      final breath =
+          math.sin(breathPhase * 2.0 * math.pi + phase * 2.0 * math.pi) *
+          breathAmp;
+      final opacityFloor = 0.04 * (1.0 - bandsProgress);
+      var opacity = (baseOpacity + breath).clamp(opacityFloor, 0.92);
+
+      // Entrance: tiles fade in from outer edges inward
+      if (entranceProgress < 1.0) {
+        final entranceDelay = 1.0 - distNorm; // outer=0 (first), inner=1 (last)
+        final tileEntrance = ((entranceProgress - entranceDelay * 0.6) / 0.4)
+            .clamp(0.0, 1.0);
+        opacity *= tileEntrance;
+      }
+
+      if (opacity <= 0.005) continue;
+
+      tilePaint.color = tileColor.withValues(alpha: opacity);
+      canvas.drawPath(mosaic.paths[i], tilePaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(VoronoiBreathingPainter old) =>
+      breathPhase != old.breathPhase ||
+      entranceProgress != old.entranceProgress ||
+      fillProgress != old.fillProgress ||
+      bandsProgress != old.bandsProgress ||
+      seed != old.seed ||
+      targetScore != old.targetScore;
+}
+
+// ============================================================================
+// Single Voronoi tile painter (avatar)
+// ============================================================================
+
+/// Paints only the center tile from a small Voronoi grid, giving it the
+/// organic irregular shape characteristic of mosaic tiles.
+///
+/// Surrounding tiles are generated but not drawn — they exist only to
+/// shape the center tile's boundary.
+class VoronoiSingleTilePainter extends CustomPainter {
+  const VoronoiSingleTilePainter({
+    required this.tileColor,
+    required this.seed,
+    this.tileCount = 8,
+    this.backgroundColor = const Color(0xFF0A0A0A),
+  });
+
+  final Color tileColor;
+  final int seed;
+  final int tileCount;
+  final Color backgroundColor;
+
+  static _CachedMosaic? _cache;
+
+  _CachedMosaic _ensureCache(Size size) {
+    if (_cache != null && _cache!.key == seed && _cache!.size == size) {
+      return _cache!;
+    }
+
+    final rng = math.Random(seed);
+    final maxDim = math.max(size.width, size.height);
+    final cellSize = math.sqrt(size.width * size.height / tileCount);
+
+    final interiorSeeds = _gridSeeds(size.width, size.height, tileCount, rng);
+    final interiorCount = interiorSeeds.length;
+    final phantomSeeds = _borderSeeds(size.width, size.height, cellSize, rng);
+    final allSeeds = [...interiorSeeds, ...phantomSeeds];
+
+    final expandPad = cellSize * _Config.expandPadFactor;
+    final expandedRect = Rect.fromLTWH(
+      -expandPad,
+      -expandPad,
+      size.width + expandPad * 2,
+      size.height + expandPad * 2,
+    );
+
+    final allPaths = _buildVoronoiCells(
+      seeds: allSeeds,
+      bounds: expandedRect,
+      grout: maxDim * _Config.groutFactor,
+      searchRadius: maxDim * _Config.searchRadiusFactor,
+    );
+
+    final paths = allPaths.sublist(0, interiorCount);
+
+    _cache = _CachedMosaic(
+      key: seed,
+      size: size,
+      paths: paths,
+      centers: interiorSeeds,
+      order: List<int>.generate(interiorCount, (i) => i),
+      colorRandoms: List<double>.filled(interiorCount, 0),
+    );
+    return _cache!;
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(Offset.zero & size, Paint()..color = backgroundColor);
+    canvas.save();
+    canvas.clipRect(Offset.zero & size);
+
+    final mosaic = _ensureCache(size);
+    if (mosaic.paths.isEmpty) {
+      canvas.restore();
+      return;
+    }
+
+    final widgetCenter = Offset(size.width / 2, size.height / 2);
+    var bestIndex = 0;
+    var bestDist = double.infinity;
+    for (int i = 0; i < mosaic.centers.length; i++) {
+      final d = (mosaic.centers[i] - widgetCenter).distance;
+      if (d < bestDist) {
+        bestDist = d;
+        bestIndex = i;
+      }
+    }
+
+    canvas.drawPath(
+      mosaic.paths[bestIndex],
+      Paint()
+        ..style = PaintingStyle.fill
+        ..color = tileColor,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(VoronoiSingleTilePainter old) =>
+      tileColor != old.tileColor ||
+      seed != old.seed ||
+      tileCount != old.tileCount;
+}

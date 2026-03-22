@@ -1,0 +1,535 @@
+# =============================================================================
+# Kairos Onboarding — Screen Specifications
+# =============================================================================
+# Each screen documents every visual element, its properties, animation
+# timing, sequencing, and interaction behavior. Use this as the single
+# source of truth when prompting changes.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global: Persistent Mosaic Background (owned by OnboardingFlow)
+# -----------------------------------------------------------------------------
+mosaic_background:
+  painter: VoronoiBreathingPainter
+  tile_count: 120
+  target_score: 0.85  # biased red
+  exclusion_radius: 0.12
+  seed: DateTime.now().millisecondsSinceEpoch
+  background_color: AppColors.pureBlack  # 0xFF0A0A0A
+  cool_color: AppColors.morningColor     # 0xFF60A5FA
+  warm_color: AppColors.nightColor       # 0xFFE84545
+
+  animations:
+    entrance:
+      controller: _entranceController
+      duration: 1800ms
+      behavior: forward once on init
+      effect: tiles fade in from outer edges inward (staggered)
+
+    breathing:
+      controller: _breathController
+      duration: 4000ms
+      behavior: repeat forever
+      effect: per-tile sine-wave opacity oscillation, random phases
+
+    fill:
+      controller: _fillController
+      duration: 1800ms
+      behavior: one-shot on screen 0 tap
+      effect: radial gradient dissolves from outside in, breathing intensifies
+
+    bands:
+      controller: _bandsController
+      duration: 3200ms
+      behavior: forward after fill, reverse+forward on _transitionTo()
+      effect: tiles fade radially from center, settle in top/bottom ~20% bands
+      band_threshold: verticalDist > 0.6
+      band_opacity: 0.48
+
+  haptics:
+    breathing_idle: lightImpact every 2s (half of breath cycle)
+    fill: 10 ticks quadratic (mediumImpact x3, heavyImpact x7)
+    fill_tap: mediumImpact
+    bands: 6 ticks sqrt (heavyImpact x2, mediumImpact x2, lightImpact x2)
+
+  transitions:
+    screen_0_to_1:  # splash → space
+      sequence: fill → 300ms hold → bands forward + screen swap
+    screen_N_to_N+1:  # generic via _transitionTo()
+      sequence: |
+        1. Start bands.reverse() (tiles fill center)
+        2. After 600ms, set _currentScreen = -1 (remove old content)
+        3. Wait for reverse to complete
+        4. 300ms hold at full coverage
+        5. Set _currentScreen = newScreen
+        6. bands.forward() (tiles clear to bands)
+
+  screen_layer:
+    duration: 3600ms
+    fade_interval: 0.55 to 0.85  # content fades in during last 30% of timeline
+    curve: easeOut
+
+# -----------------------------------------------------------------------------
+# Screen 0: Kairos Splash
+# -----------------------------------------------------------------------------
+screen_0:
+  name: "Kairos Splash"
+  file: lib/screens/onboarding/screens/the_word_screen.dart
+  background: transparent (mosaic shows through)
+  layout: Stack
+
+  elements:
+    logo:
+      text: "Kairos"
+      font: GoogleFonts.drSugiyama
+      size: 52px
+      color: AppColors.refinedRed  # 0xFFE84545
+      height: 1.2
+      position: Center → Column(mainAxisSize: min)
+      animation:
+        entrance: visible immediately (no stagger, matches splash screen)
+        exit: fades out over 300ms on tap (_textFadeController)
+
+    subtitle:
+      text: "This is the moment"
+      font: GoogleFonts.outfit
+      size: 16px
+      weight: w500
+      color: AppColors.lightText  # 0xFFF5F5F5
+      position: 8px below logo in same centered Column
+      animation:
+        entrance: visible immediately (matches splash screen)
+        exit: fades out with logo (same controller)
+
+    advance:
+      text: "tap to continue"
+      font: GoogleFonts.outfit
+      size: 15px
+      weight: w500
+      color: AppColors.warmDim  # 0xFF9A938A
+      position: Positioned(bottom: safeArea + 32px, left: 0, right: 0)
+      animation:
+        entrance: visible immediately, static (no pulse)
+        exit: fades out with logo
+
+  interaction:
+    tap_anywhere:
+      action: |
+        1. _textFadeController.forward() (300ms fade out all text)
+        2. widget.onTap() → parent triggers fill + bands
+      guard: single-fire (_tapped flag)
+
+  splash_screen_match:
+    file: lib/screens/splash_screen.dart
+    note: |
+      Splash screen renders identical logo + subtitle at same position
+      (Center → Column) so route transition is invisible.
+      Font: DrSugiyama 52px red + Outfit 16px w500 lightText.
+      Background: AppColors.pureBlack. No icon, no loader.
+
+# -----------------------------------------------------------------------------
+# Screen 1: Space
+# -----------------------------------------------------------------------------
+screen_1:
+  name: "Space"
+  file: lib/screens/onboarding/screens/your_space_screen.dart
+  background: transparent
+  layout: Stack(fit: StackFit.expand)
+  keyboard_handling: resizeToAvoidBottomInset false, AnimatedPadding(bottom: keyboardHeight)
+
+  elements:
+    title:
+      text: "Space"
+      font: GoogleFonts.outfit
+      size: 56px
+      weight: w700
+      color: AppColors.lightText
+      height: 1.0
+      position: Spacer(6) above, Spacer(2) below
+      animation:
+        entrance: fade in over 800ms, starts at 600ms after screen appears
+        exit_on_focus: instant (0ms) to opacity 0
+        exit_on_continue: instant to opacity 0 + title hidden
+
+    subtitle_1:
+      text: "Your journey starts by\ncreating a shared space\nfor your relationship"
+      font: AppTypography.bodyLarge
+      color: AppColors.warmDim
+      width_constraint: 280px
+      textAlign: center
+      position: middle slot (AnimatedSwitcher)
+      animation:
+        entrance: fade in 600ms, starts at 3100ms (600+2500)
+        exit_on_focus: instant (0ms) to opacity 0
+
+    subtitle_2:
+      text: "This is where you\ngrow, together"
+      font: GoogleFonts.inter
+      size: 16px
+      weight: w500
+      color: AppColors.lightText
+      position: below subtitle_1 with lg padding
+      animation:
+        entrance: fade in 600ms, starts at 6900ms (600+2500+3800)
+        exit_on_focus: instant (0ms) via AnimatedSwitcher duration=0 when focused
+
+    prompt:
+      text: "tap to name your space"
+      font: GoogleFonts.outfit
+      size: 14px
+      weight: w400
+      color: AppColors.refinedRed
+      position: bottom slot (AnimatedSwitcher), Spacer(2) above, Spacer(6) below
+      animation:
+        entrance: fade in 600ms, starts at 6700ms (4900+1800)
+        exit_on_focus: instant (0ms) via AnimatedSwitcher duration=0
+        exit_on_continue: SizedBox.shrink replaces all bottom content
+
+    input_field:
+      font: GoogleFonts.drSugiyama
+      size: 38px
+      color: AppColors.refinedRed
+      width: 220px
+      cursor_color: AppColors.refinedRed
+      border: underline only when focused (refinedRed, 1.5px), none when enabled
+      autofocus: true
+      textCapitalization: words
+      position: replaces subtitle in middle slot when focused
+      visible_when: _isFocused || _hasText (and !_showTagline)
+
+    name_display:
+      text: "{user input}"
+      font: GoogleFonts.drSugiyama
+      size: 38px
+      color: AppColors.refinedRed
+      position: replaces subtitle in middle slot after unfocus with text
+      animation:
+        entrance: fade in via _taglineController (1200ms)
+        exit_on_continue: zoom 1.0→1.3 + fade out (500ms) while tiles start filling
+      interaction: tappable to re-enter edit mode
+
+    tagline:
+      text: "Your personal, intimate, and\nsafe place to express\nand build memories"
+      font: GoogleFonts.inter
+      size: 16px
+      weight: w500
+      color: AppColors.lightText
+      width_constraint: 280px
+      position: replaces prompt in bottom slot after unfocus with text
+      animation:
+        entrance: fade in via _taglineController (1200ms), same controller as name
+      visible_when: _showTagline && !_isFocused && !_isExiting
+
+    advance:
+      text: "tap to continue"
+      font: GoogleFonts.outfit
+      size: 15px
+      weight: w500
+      color: AppColors.warmDim
+      position: Positioned(bottom: safeArea + 32px)
+      animation:
+        entrance: fade in via _continueController (800ms), starts 2000ms after tagline
+      visible_when: _hasText && !_isExiting
+      hidden_during: exit (opacity 0 instant)
+
+  entrance_sequence:
+    - delay: 600ms  → title fades in (800ms)
+    - delay: 2500ms → subtitle_1 fades in (600ms)
+    - delay: 3800ms → subtitle_2 fades in (600ms)
+    - delay: 1800ms → prompt fades in (600ms)
+
+  interaction_flow:
+    tap_prompt:
+      action: focus input field (postFrameCallback), set _isFocused = true
+      visual: title + subtitles + prompt disappear instantly, input appears
+
+    type_name:
+      visual: red text on underline, keyboard pushes content up via AnimatedPadding
+
+    unfocus_with_text:
+      action: _showTagline = true, _taglineController.forward()
+      visual: |
+        name_display replaces subtitle slot (fade in 1200ms)
+        tagline replaces prompt slot (same controller)
+        2000ms delay → advance fades in
+
+    unfocus_empty:
+      visual: subtitles + prompt reappear
+
+    clear_name:
+      action: reset all (tagline, continue controller, _showTagline)
+      visual: back to subtitle + prompt state
+
+    tap_name_display:
+      action: re-enter edit mode (same as tap_prompt)
+
+    tap_continue:
+      action: |
+        1. _isExiting = true, _titleOp = 0
+        2. widget.onContinue(name) → _transitionTo(2) in parent
+      visual: title drops, advance hides, name zoom-fades (2500ms)
+
+# -----------------------------------------------------------------------------
+# Screen 2: You (Name + Pulse Attributes)
+# -----------------------------------------------------------------------------
+screen_2:
+  name: "You"
+  file: lib/screens/onboarding/screens/about_you_screen.dart
+  background: transparent
+  layout: Stack(fit: StackFit.expand)
+  keyboard_handling: same as screen 1
+
+  elements:
+    title:
+      text: "You"  # always visible once entrance completes (never hides)
+      font: GoogleFonts.outfit
+      size: 56px
+      weight: w700
+      color: AppColors.lightText
+      height: 1.0
+      position: Spacer(4) above, Spacer(1) below
+      animation:
+        entrance: fade in 800ms, starts at 600ms
+        exit_on_focus: instant (0ms)
+
+    subtitle_1:
+      text: "Next, establish your\npresence in the space"
+      font: AppTypography.bodyLarge
+      color: AppColors.warmDim
+      width_constraint: 280px
+      position: middle content area (Phase 0)
+      animation:
+        entrance: fade in 600ms, starts at 3100ms
+
+    prompt_1:
+      text: "tap to enter your name"
+      font: AppTypography.bodyLarge
+      color: AppColors.refinedRed
+      position: below subtitle_1, xxxl gap
+      animation:
+        entrance: fade in 600ms, starts at 4900ms
+
+    input_field:
+      font: GoogleFonts.drSugiyama
+      size: 38px
+      color: AppColors.refinedRed
+      width: 220px
+      border: underline when focused, none when enabled
+      position: replaces all Phase 0 content when focused
+      visible_when: Phase 1 (typing)
+
+    name_display:
+      text: "{user input}"
+      font: GoogleFonts.drSugiyama
+      size: 38px
+      color: AppColors.refinedRed
+      position: top of Phase 2 content
+      animation:
+        entrance: fade in via _taglineController (1200ms)
+      interaction: tappable to re-edit
+
+    prompt_2_hint:
+      text: "Select what pulse attributes\nare the most important\nto you"
+      font: AppTypography.bodyLarge
+      color: AppColors.warmDim
+      width_constraint: 280px
+      position: below name, xxl gap
+      animation:
+        entrance: fade in 600ms, starts 600ms after Phase 2 begins
+        exit: disappears when first attribute is selected, reappears if all deselected
+
+    attribute_grid:
+      layout: 2 rows × 4 columns, 10px gaps
+      position: below prompt_2_hint, xl gap
+      animation:
+        entrance: fade in 600ms, starts 1800ms after Phase 2 begins
+
+      attributes: PulseAttribute.values  # uses PulseAttribute.buildIcon() for uniform icons
+
+      chip_style:
+        unselected:
+          bg: AppColors.cardVariant  # 0xFF2A2A2A
+          icon_color: AppColors.warmMuted
+          text_color: AppColors.warmMuted
+          icon_size: 22px
+          text_size: 10px
+          text_weight: w600
+          font: GoogleFonts.outfit
+          border_radius: 14px
+          padding: vertical 14px
+        selected:
+          bg: AppColors.accentRed
+          icon_color: AppColors.pureBlack
+          text_color: AppColors.pureBlack
+          glow: accentRed alpha 0.4, blur 12, spread 1
+        faded:  # when 3 are selected and this isn't one
+          opacity: 0.3
+          non_tappable: true
+        max_selections: 3
+
+    attribute_counter:
+      text: "{count} of 3"
+      font: AppTypography.bodySmall
+      color: warmMuted (normal) / refinedRed (when full)
+      position: below attribute grid, md gap
+
+    overlap_subtitle:
+      text: "All members get to pick these.\nOverlapping attributes are\nconsidered more important"
+      font: GoogleFonts.inter
+      size: 16px
+      weight: w500
+      color: AppColors.lightText
+      position: below attribute grid, lg padding
+      animation:
+        entrance: fade in 600ms when 3/3 attributes selected
+        exit: fade out when fewer than 3 selected
+      visible_when: _selectedAttrs.length == 3
+
+    advance:
+      text: "tap to continue"
+      font: GoogleFonts.outfit
+      size: 15px
+      weight: w500
+      color: AppColors.warmDim
+      position: Positioned(bottom: safeArea + 32px)
+      animation:
+        entrance: fade in via _continueController (800ms), when ≥1 attribute selected
+        exit: reverse when 0 attributes selected
+
+  entrance_sequence:
+    - delay: 600ms   → title fades in (800ms)
+    - delay: 2500ms  → subtitle_1 fades in (600ms)
+    - delay: 1800ms  → prompt_1_hint + prompt_1 fade in (600ms)
+
+  phase_2_sequence:  # triggered on unfocus with name
+    - _showAttributes = true, _taglineController.forward()
+    - delay: 600ms  → prompt_2_hint fades in (600ms)
+    - delay: 1200ms → attribute_grid fades in (600ms)
+
+  interaction_flow:
+    tap_prompt_1:
+      action: focus input, hide Phase 0 content instantly
+    type_name:
+      visual: red DrSugiyama text, underline while focused
+    unfocus_with_name:
+      action: enter Phase 2 (name + attributes)
+    unfocus_empty:
+      action: back to Phase 0
+    clear_name:
+      action: reset attributes, back to Phase 0
+    tap_attribute:
+      action: toggle selection (max 3), haptic selectionClick
+      visual: glow on/fade off (200ms AnimatedContainer)
+      side_effect: prompt_2_hint hides when ≥1 selected
+    tap_continue:
+      action: |
+        1. _isExiting = true
+        2. widget.onStartExit() → parent starts tile fill immediately
+        3. createSpace(spaceName, userName, avatarKey='default')
+        4. logSpaceCreatedActivity() + updateUserPicks() in parallel
+        5. widget.onSpaceCreated() → parent completes fill→clear to screen 3
+
+# -----------------------------------------------------------------------------
+# Screen 3: Pulse (First Check-In)
+# -----------------------------------------------------------------------------
+screen_3:
+  name: "Check-in"
+  file: lib/screens/onboarding/screens/pulse_screen.dart
+
+  title:
+    content: "Check-in"
+    font: Outfit
+    size: 56
+    weight: w700
+    color: AppColors.lightText
+    position: top (SizedBox xxl + SafeArea)
+    behaviour: always visible
+
+  subtitle:
+    content: "Your space will be alive\nand breathing. Its pulse will\nbe driven by periodic,\nintentional check-ins"
+    font: Inter (bodyLarge)
+    size: 16
+    color: AppColors.warmDim
+    position: below title, lg gap
+    behaviour: visible on entrance, hides during check-in, reappears after
+
+  prompt:
+    content: "tap to check-in"
+    font: Outfit
+    size: 14
+    weight: w400
+    color: AppColors.refinedRed
+    position: center of expanded area
+    behaviour: fades out on tap, reveals mosaic card + bars
+
+  mosaic_card:
+    painter: VoronoiGroupedPainter
+    height: 160px
+    tile_count: 60
+    background: AppColors.darkCardLight
+    border_radius: 16px
+    behaviour: appears on prompt tap (tile animation 1200ms), persists after check-in
+    horizontal_padding: 20% of screen width (min screenPadding)
+
+  sliders:
+    type: VerticalBarSlider (floating below card)
+    count: dynamic (user's selected pulse attributes, default 3)
+    spacing: 24px (≤3 bars) or 12px (>3 bars)
+    behaviour: appear with card, removed after check-in complete
+
+  slide_to_action:
+    content: "Slide to check in"
+    loading_label: "Saving..."
+    position: bottom (Positioned, bottomPad + 20)
+    behaviour: appears after first slider interaction, pinned at bottom
+
+  skip:
+    content: "skip (not recommended)"
+    font: Outfit 15px w500
+    color: AppColors.warmMuted
+    position: bottom (bottomPad + 32)
+    behaviour: appears 2s after card shown if no interaction, hides on interaction
+
+  post_checkin:
+    congrats:
+      content: "Congrats on your first check-in"
+      font: GoogleFonts.inter 16px w500
+      color: AppColors.lightText
+      behaviour: fades in 800ms after check-in
+    tap_to_continue:
+      content: "tap to continue"
+      font: Outfit 15px w500
+      color: AppColors.warmDim
+      position: bottom (bottomPad + 32)
+      behaviour: fades in 2000ms after congrats
+
+  entrance_sequence:
+    - delay: 600ms → title fades in (800ms)
+    - delay: 2000ms → subtitle fades in (600ms)
+    - delay: 1800ms → prompt fades in (600ms)
+    - on prompt tap → subtitle hides, card + bars fade in (600ms), skip timer starts
+    - on slider change → slide action appears at bottom, skip hides
+    - on slide complete → bars removed, subtitle reappears, congrats appears, tap to continue after 2s
+
+  transition_in: same radial tile fill/clear as screen 1→2→3
+  transition_out: same radial tile fill/clear to screen 4
+
+  data_flow:
+    on_submit:
+      1. submitCheckIn(spaceId, userId, scores, configSnapshot)
+      2. logCheckInActivity(spaceId, userId, userName, checkInId, compactScores)
+      3. HapticFeedback.heavyImpact()
+      4. _showPostCheckIn() → congrats → tap to continue → widget.onComplete()
+    on_skip:
+      widget.onSkip() → _transitionTo(4)
+
+# -----------------------------------------------------------------------------
+# Screen 4: Complete (Invite + Notifications)
+# -----------------------------------------------------------------------------
+screen_4:
+  name: "Complete"
+  file: lib/screens/onboarding/screens/complete_screen.dart
+  note: |
+    Existing screen, not redesigned in this session.
+    Shows invite code (copy/share), notification permission with
+    desaturating mosaic hook, and "Start" button to enter dashboard.

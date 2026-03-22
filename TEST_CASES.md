@@ -1,7 +1,7 @@
-# Cocoon - Comprehensive Test Cases
+# Kairos - Comprehensive Test Cases
 
 > Human-readable catalog of all test cases organized by type.
-> Total: 159 test cases across unit, widget, and integration layers.
+> Total: 177 test cases across unit, widget, and integration layers.
 
 ---
 
@@ -33,7 +33,7 @@ Quick checks that core features render and core data structures work.
 | THM-01 | Theme | AppColors constants are non-null and have correct hex values | `app_colors_test.dart` |
 | THM-04 | Theme | AppSpacing constants have correct values | `app_colors_test.dart` |
 | THM-05 | Theme | AppSpacing animation durations are positive | `app_colors_test.dart` |
-| WS-01 | Screen | SplashScreen shows heart icon, "Cocoon" text, and loading indicator | `splash_screen_test.dart` |
+| WS-01 | Screen | SplashScreen shows heart icon, "Kairos" text, and loading indicator | `splash_screen_test.dart` |
 | WS-02 | Screen | LoginScreen renders email and password input fields | `login_screen_test.dart` |
 | WS-11 | Screen | LoginScreen shows Google and Apple social buttons | `login_screen_test.dart` |
 
@@ -255,7 +255,7 @@ End-to-end user journeys that require Firebase emulators.
 |----|------|-------|------|
 | INT-01 | Auth: Sign Up | App launch -> Login -> Sign up -> Onboarding | Happy path |
 | INT-02 | Auth: Sign In | App launch -> Login -> Sign in -> Dashboard | Happy path |
-| INT-03 | Onboarding | Name space -> Profile -> Invite -> Dashboard | Happy path |
+| INT-03 | Onboarding | Breathing splash (0) → Space naming (1) → Profile + create (2) → Pulse attributes + check-in (3) → Invite + notifs (4) → Dashboard | Happy path |
 | INT-04 | Join Space | Invite link -> Auth -> Profile -> Join -> Dashboard | Happy path |
 | INT-05 | Check-in | Dashboard -> Check-in -> Scores -> Submit -> Return | Happy path |
 | INT-06 | Plan Moment | Dashboard -> Plan -> Type -> Date -> Save | Happy path |
@@ -390,6 +390,78 @@ End-to-end user journeys that require Firebase emulators.
 
 ---
 
+## 9. Onboarding Flow Tests (Manual)
+
+### Screen 0 — Kairos Splash
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-01 | Tile entrance | Launch onboarding | Tiles fade in from outer edges inward over ~1.8s | ☐ |
+| OB-02 | Breathing | Observe tiles | Tiles breathe at random phases with radial opacity gradient (dim center, bright edges) | ☐ |
+| OB-03 | Logo + tagline | Observe center | "Kairos" in Dr Sugiyama + "this is the moment your journey begins" centered, no tiles behind | ☐ |
+| OB-04 | Tap to continue | Observe bottom | "tap to continue" visible at screen bottom, static | ☐ |
+| OB-05 | Tap transition | Tap screen | Text fades, tiles fill (radial, intensifying haptics), then fade to bands (simmering haptics) | ☐ |
+| OB-06 | No double-fire | Tap screen twice | Only one transition triggers | ☐ |
+| OB-07 | Splash match | Observe splash → screen 0 | Logo position identical, seamless fade transition | ☐ |
+
+### Screen 1 — Space
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-08 | Staggered entrance | Arrive at Screen 1 | "Space" fades in → 2.5s pause → subtitle fades in → 2s pause → red prompt fades in | ☐ |
+| OB-09 | Breathing bands | Observe top/bottom | Mosaic bands visible and breathing at top and bottom quarters | ☐ |
+| OB-10 | Tap prompt | Tap "tap to name your space" | Title + subtitle disappear instantly, underline input appears with keyboard | ☐ |
+| OB-11 | Type name | Type "Our Place" | Text appears in Dr Sugiyama red, underline visible while focused | ☐ |
+| OB-12 | Unfocus with name | Tap outside / dismiss keyboard | Name replaces subtitle (center), tagline replaces prompt, underline gone. After 2s "tap to continue" appears at bottom | ☐ |
+| OB-13 | Re-edit name | Tap the displayed name | Input reopens with keyboard, tagline hides | ☐ |
+| OB-14 | Clear name | Clear input and unfocus | Reverts to title → subtitle → prompt state | ☐ |
+| OB-15 | Unfocus empty | Tap prompt, type nothing, dismiss keyboard | Subtitle reappears (not tagline) | ☐ |
+| OB-16 | Tap to continue | Tap "tap to continue" | Navigates to Screen 2 | ☐ |
+| OB-17 | Keyboard tiles | Open keyboard | Mosaic tiles don't move (resizeToAvoidBottomInset: false) | ☐ |
+
+### Screen 2 — You (Name + Avatar)
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-18 | Tile transition | Tap continue on Screen 1 | Tiles refill center (bands reverse), swap screen, tiles clear to bands again | ☐ |
+| OB-19 | Staggered entrance | Arrive at Screen 2 | "You" → subtitle 1 → subtitle 2 → prompt appear one by one with pauses | ☐ |
+| OB-20 | Tap prompt | Tap "tap to enter your name" | Subtitles disappear instantly, underline input appears with keyboard | ☐ |
+| OB-21 | Type name | Type "Alex" | Text in Dr Sugiyama red, underline while focused | ☐ |
+| OB-22 | Auto avatar | Unfocus with name | Name + auto-generated Voronoi avatar + 5 color dots appear in center | ☐ |
+| OB-23 | Color dots | Tap a different color dot | Avatar palette changes instantly, selected dot gets white border | ☐ |
+| OB-24 | Re-edit name | Tap the displayed name | Input reopens, avatar hides | ☐ |
+| OB-25 | Clear name | Clear input and unfocus | Reverts to subtitle/prompt state | ☐ |
+| OB-26 | Tap to continue | Tap "tap to continue" with name | Space created in Firestore, advances to Screen 3 with tile transition | ☐ |
+| OB-27 | Error handling | Network error during creation | Error snackbar shown, "creating..." text resets | ☐ |
+| OB-28 | Tagline | After name + avatar shown | "This is how you'll appear in the space" shown below avatar | ☐ |
+
+### Screen 3 — First Pulse
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-15 | Attribute selection | Tap 3 pulse attributes | Selected chips show red glow, counter shows "3 / 3" | ☐ |
+| OB-16 | Max 3 attributes | With 3 selected, tap a 4th | 4th is not added, existing selection unchanged | ☐ |
+| OB-17 | Deselect attribute | With 3 selected, tap a selected one | Deselects it, counter shows "2 / 3" | ☐ |
+| OB-18 | Faded unselected | With 3 selected | Unselected attributes fade to 0.3 opacity | ☐ |
+| OB-19 | Phase B transition | Tap Continue with 3 selected | Voronoi mosaic header + sliders (height 265) appear | ☐ |
+| OB-20 | Sliders work | Drag a vertical bar | Score updates, mosaic colors change reactively | ☐ |
+| OB-21 | SlideToAction submit | Swipe slider fully right | Check-in saved to Firestore, celebration overlay shown | ☐ |
+| OB-22 | Celebration overlay | After successful check-in | "Your mosaic has begun" + mosaic animation + auto-advance | ☐ |
+
+### Screen 4 — Almost There
+
+| ID | Scenario | Steps | Expected | Tested |
+|----|----------|-------|----------|--------|
+| OB-23 | Invite code shown | Arrive at Screen 4 | Invite code displayed with copy + share buttons | ☐ |
+| OB-24 | Copy code | Tap Copy | Code copied to clipboard, button text changes to "Copied!" | ☐ |
+| OB-25 | Share code | Tap Share | Native share sheet opens with invite text | ☐ |
+| OB-26 | Desaturation hook | Wait 1.5s on Screen 4 | Mosaic desaturates, text changes to "Without you, the colors fade" | ☐ |
+| OB-27 | Allow notifications | Tap "Keep My Mosaic Alive" | OS permission dialog, mosaic re-saturates on success | ☐ |
+| OB-28 | Skip notifications | Tap "I'll do it later" | Text changes to "You're all set", buttons hidden | ☐ |
+| OB-29 | Start button | Tap Start | Navigates to dashboard with correct spaceId | ☐ |
+
+---
+
 ## Running Tests
 
 ### Unit & Widget Tests
@@ -434,4 +506,4 @@ firebase functions:log --project couple-space-36e1a
 
 ---
 
-*Last updated: February 22, 2026*
+*Last updated: February 27, 2026*

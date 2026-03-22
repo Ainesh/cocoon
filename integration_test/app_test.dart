@@ -1,4 +1,4 @@
-/// Integration tests for the Cocoon (couple_space) app.
+/// Integration tests for the Kairos (couple_space) app.
 ///
 /// These tests exercise full user flows and require a running Firebase emulator
 /// or test environment. They are designed to run on a real device or simulator.

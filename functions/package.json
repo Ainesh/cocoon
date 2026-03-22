@@ -1,6 +1,6 @@
 {
-  "name": "cocoon-functions",
-  "description": "Cloud Functions for Cocoon app - Push notifications on activity creation",
+  "name": "kairos-functions",
+  "description": "Cloud Functions for Kairos app - Push notifications on activity creation",
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",

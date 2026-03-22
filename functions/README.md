@@ -1,6 +1,6 @@
-# Cocoon Cloud Functions
+# Kairos Cloud Functions
 
-Push notification triggers for the Cocoon app.
+Push notification triggers for the Kairos app.
 
 ## Setup
 

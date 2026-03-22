@@ -49,6 +49,27 @@ enum PulseAttribute {
     emoji: '💬',
     iconAsset: null,
     icon: Icons.chat_bubble_rounded,
+  ),
+  growth(
+    id: 'growth',
+    displayName: 'Growth',
+    emoji: '📈',
+    iconAsset: null,
+    icon: Icons.trending_up_rounded,
+  ),
+  fun(
+    id: 'fun',
+    displayName: 'Fun',
+    emoji: '🎉',
+    iconAsset: null,
+    icon: Icons.celebration_rounded,
+  ),
+  support(
+    id: 'support',
+    displayName: 'Support',
+    emoji: '🛡️',
+    iconAsset: null,
+    icon: Icons.shield_rounded,
   );
 
   /// Max characters for displayName to prevent UI overflow in bar sliders.
@@ -119,10 +140,7 @@ enum PulseAttribute {
 /// }
 /// ```
 class PulseConfig {
-  const PulseConfig({
-    required this.userPicks,
-    this.updatedAt,
-  });
+  const PulseConfig({required this.userPicks, this.updatedAt});
 
   /// Each user's selected attribute IDs. Key = userId, value = list of
   /// attribute IDs (1-3 items per user).
@@ -190,9 +208,7 @@ class PulseConfig {
 
   Map<String, dynamic> toJson() {
     return {
-      'userPicks': userPicks.map(
-        (uid, picks) => MapEntry(uid, picks),
-      ),
+      'userPicks': userPicks.map((uid, picks) => MapEntry(uid, picks)),
       if (updatedAt != null) 'updatedAt': Timestamp.fromDate(updatedAt!),
     };
   }

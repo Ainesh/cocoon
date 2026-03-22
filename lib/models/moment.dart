@@ -1,4 +1,4 @@
-/// Moment model for Cocoon app.
+/// Moment model for Kairos app.
 ///
 /// Represents planned moments within a couple space:
 /// - **Celebrate**: Special occasions (birthdays, anniversaries)
